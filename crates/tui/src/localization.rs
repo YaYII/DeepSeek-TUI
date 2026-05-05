@@ -1183,7 +1183,7 @@ pub fn save_locale_json(tag: &str, data: &HashMap<String, String>) -> std::io::R
     let json = serde_json::to_string_pretty(data)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
     std::fs::write(&path, json)?;
-    // Copy to i18n.json as well so I18nManager can pick it up
+    // Copy to i18n.json as an alias for the current locale
     let i18n_json_path = i18n_dir.join("i18n.json");
     let _ = std::fs::copy(&path, &i18n_json_path);
     Ok(())

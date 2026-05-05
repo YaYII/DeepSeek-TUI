@@ -2279,7 +2279,6 @@ fn run_i18n_command(command: I18nCommand) -> Result<()> {
             Ok(())
         }
         I18nCommand::Status => {
-            use std::collections::HashMap;
             let settings = Settings::load()?;
             let data_dir = i18n_data_dir().context("home directory not found")?;
 
