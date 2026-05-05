@@ -40,7 +40,7 @@ use crate::core::engine::{EngineConfig, EngineHandle, spawn_engine};
 use crate::core::events::Event as EngineEvent;
 use crate::core::ops::Op;
 use crate::hooks::HookEvent;
-use crate::localization::MessageId;
+use crate::localization::{Locale, MessageId, tr};
 use crate::models::{ContentBlock, Message, SystemPrompt, context_window_for_model};
 use crate::palette;
 use crate::prompts;
@@ -6918,7 +6918,7 @@ fn build_context_menu_entries(app: &App, mouse: MouseEvent) -> Vec<ContextMenuEn
     if !app.collapsed_cells.is_empty() {
         let count = app.collapsed_cells.len();
         entries.push(ContextMenuEntry {
-            label: tr(app.ui_locale, tr_fmt(app.ui_locale, MessageId::ContextMenuShowHidden, &[("count", &count.to_string())])),
+            label: tr(app.ui_locale, MessageId::ContextMenuShowHidden).replace("{count}", &count.to_string()),
             description: tr(app.ui_locale, MessageId::ContextMenuShowHiddenDesc).to_string(),
             action: ContextMenuAction::ShowAllHidden,
         });
@@ -7029,7 +7029,7 @@ fn handle_context_menu_action(app: &mut App, action: ContextMenuAction) {
         ContextMenuAction::ShowAllHidden => {
             let count = app.collapsed_cells.len();
             app.collapsed_cells.clear();
-            app.status_message = Some(tr(app.ui_locale, tr_fmt(app.ui_locale, MessageId::StatusShowHidden, &[("count", &count.to_string())])));
+            app.status_message = Some(tr(app.ui_locale, MessageId::StatusShowHidden).replace("{count}", &count.to_string()));
         }
     }
     app.needs_redraw = true;

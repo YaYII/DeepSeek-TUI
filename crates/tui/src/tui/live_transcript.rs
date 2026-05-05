@@ -287,9 +287,10 @@ impl LiveTranscriptOverlay {
     }
 }
 
+// Default uses English locale; locale should be set explicitly
 impl Default for LiveTranscriptOverlay {
     fn default() -> Self {
-        Self::new()
+        Self::new(crate::localization::Locale::En)
     }
 }
 
