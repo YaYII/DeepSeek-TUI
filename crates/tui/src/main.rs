@@ -33,7 +33,6 @@ mod execpolicy;
 mod features;
 mod handoff;
 mod hooks;
-mod i18n;
 mod llm_client;
 mod localization;
 mod logging;
@@ -2259,28 +2258,54 @@ fn run_features_command(config: &Config, command: FeaturesCli) -> Result<()> {
     }
 }
 
+fn i18n_data_dir() -> Option<std::path::PathBuf> {
+    dirs::home_dir().map(|home| home.join(".deepseek").join("i18n"))
+}
+
 /// Handle i18n subcommands
 fn run_i18n_command(command: I18nCommand) -> Result<()> {
-    use crate::i18n::I18nManager;
     use crate::settings::Settings;
 
     match command {
         I18nCommand::Set { language } => {
             let mut settings = Settings::load()?;
-            
-            // Enable i18n and set target language
             settings.i18n.enabled = true;
             println!("✅ Language set to '{}'", language);
             settings.i18n.target_language = language;
-            settings.i18n.last_translated_lang = None; // Force re-translation
+            settings.i18n.last_translated_lang = None;
             settings.save()?;
             println!("🔄 Restart the application to apply changes.");
             println!("   The first launch will trigger AI translation (requires API key).");
             Ok(())
         }
         I18nCommand::Status => {
+            use std::collections::HashMap;
             let settings = Settings::load()?;
-            let manager = I18nManager::new()?;
+            let data_dir = i18n_data_dir().context("home directory not found")?;
+
+            let i18n_path = data_dir.join("i18n.json");
+            let en_path = data_dir.join("en.json");
+            let cache_dir = data_dir.join("cache");
+
+            let i18n_exists = i18n_path.exists();
+            let en_exists = en_path.exists();
+
+            // Compare keys to check translation completeness
+            let (complete, missing_count) = if i18n_exists && en_exists {
+                let read_json_keys = |path: &std::path::Path| -> Result<Vec<String>> {
+                    let content = std::fs::read_to_string(path)
+                        .with_context(|| format!("failed to read {}", path.display()))?;
+                    let parsed: serde_json::Value = serde_json::from_str(&content)
+                        .with_context(|| format!("invalid JSON in {}", path.display()))?;
+                    Ok(parsed.as_object().map(|o| o.keys().cloned().collect()).unwrap_or_default())
+                };
+                let i18n_keys = read_json_keys(&i18n_path).unwrap_or_default();
+                let en_keys = read_json_keys(&en_path).unwrap_or_default();
+                let missing: Vec<_> = en_keys.iter().filter(|k| !i18n_keys.contains(k)).collect();
+                (missing.is_empty(), missing.len())
+            } else {
+                (false, 0)
+            };
 
             println!("🌍 i18n Status:");
             println!("  Enabled: {}", settings.i18n.enabled);
@@ -2288,15 +2313,16 @@ fn run_i18n_command(command: I18nCommand) -> Result<()> {
             println!("  Last translated: {:?}", settings.i18n.last_translated_lang);
             println!();
             println!("  Files:");
-            println!("    i18n.json exists: {}", manager.i18n_exists());
-            println!("    en.json exists: {}", manager.en_exists());
-            println!("    Translation complete: {}", manager.is_complete());
-            println!("    Missing keys: {}", manager.missing_keys().len());
+            println!("    i18n.json exists: {}", i18n_exists);
+            println!("    en.json exists: {}", en_exists);
+            println!("    Translation complete: {}", complete);
+            if missing_count > 0 {
+                println!("    Missing keys: {}", missing_count);
+            }
             println!();
             println!("  Cache:");
-            let cache_dir = manager.cache_dir();
             if cache_dir.exists() {
-                let cache_files = std::fs::read_dir(cache_dir)
+                let cache_files = std::fs::read_dir(&cache_dir)
                     .map(|entries| entries.count())
                     .unwrap_or(0);
                 println!("    Cache files: {}", cache_files);
@@ -2307,8 +2333,6 @@ fn run_i18n_command(command: I18nCommand) -> Result<()> {
         }
         I18nCommand::Reset => {
             let mut settings = Settings::load()?;
-            
-            // Disable i18n and reset to English
             settings.i18n.enabled = false;
             settings.i18n.target_language = "en".to_string();
             settings.i18n.last_translated_lang = None;
@@ -2320,23 +2344,21 @@ fn run_i18n_command(command: I18nCommand) -> Result<()> {
             Ok(())
         }
         I18nCommand::ClearCache => {
-            let manager = I18nManager::new()?;
-            let cache_dir = manager.cache_dir();
+            let data_dir = i18n_data_dir().context("home directory not found")?;
+            let cache_dir = data_dir.join("cache");
 
             if !cache_dir.exists() {
                 println!("ℹ️  Cache directory does not exist. Nothing to clear.");
                 return Ok(());
             }
 
-            let entries: Vec<_> = std::fs::read_dir(cache_dir)?
+            let entries: Vec<_> = std::fs::read_dir(&cache_dir)?
                 .filter_map(|e| e.ok())
                 .collect();
-            
             let count = entries.len();
             for entry in entries {
                 std::fs::remove_file(entry.path())?;
             }
-
             println!("✅ Cleared {} cache file(s)", count);
             println!("   Next translation will regenerate cache.");
             Ok(())
