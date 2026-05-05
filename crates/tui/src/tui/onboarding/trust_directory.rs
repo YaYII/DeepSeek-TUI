@@ -3,33 +3,36 @@
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 
+use crate::localization::{MessageId, tr};
 use crate::palette;
 use crate::tui::app::App;
 
 pub fn lines(app: &App) -> Vec<Line<'static>> {
+    let locale = app.ui_locale;
     let mut lines = Vec::new();
     lines.push(Line::from(Span::styled(
-        "Trust Workspace",
+        tr(locale, MessageId::OnboardingTrustTitle),
         Style::default()
             .fg(palette::DEEPSEEK_SKY)
             .add_modifier(Modifier::BOLD),
     )));
     lines.push(Line::from(""));
     lines.push(Line::from(Span::styled(
-        "Allow DeepSeek to access files outside this workspace?",
+        tr(locale, MessageId::OnboardingTrustPrompt),
         Style::default().fg(palette::TEXT_PRIMARY),
     )));
     lines.push(Line::from(Span::styled(
-        format!("Workspace: {}", crate::utils::display_path(&app.workspace)),
+        tr(locale, MessageId::OnboardingTrustWorkspaceLabel)
+            .replace("{path}", &crate::utils::display_path(&app.workspace)),
         Style::default().fg(palette::TEXT_MUTED),
     )));
     lines.push(Line::from(""));
     lines.push(Line::from(Span::styled(
-        "Y = let reviews, searches, and agents reach outside this workspace when a task needs it.",
+        tr(locale, MessageId::OnboardingTrustYExplain),
         Style::default().fg(palette::TEXT_MUTED),
     )));
     lines.push(Line::from(Span::styled(
-        "N = keep file access scoped to this workspace and review approvals case by case.",
+        tr(locale, MessageId::OnboardingTrustNExplain),
         Style::default().fg(palette::TEXT_MUTED),
     )));
     if let Some(message) = app.status_message.as_deref() {

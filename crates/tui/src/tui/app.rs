@@ -9,12 +9,12 @@ use serde_json::Value;
 use thiserror::Error;
 
 use crate::compaction::CompactionConfig;
-use crate::config::{ApiProvider, Config, SavedCredential, has_api_key, save_api_key};
+use crate::config::{ApiProvider, Config, SavedCredential, has_api_key, save_api_key_to_config_file};
 use crate::config_ui::ConfigUiMode;
 use crate::core::coherence::CoherenceState;
 use crate::cycle_manager::{CycleBriefing, CycleConfig};
 use crate::hooks::{HookContext, HookEvent, HookExecutor, HookResult};
-use crate::localization::{Locale, MessageId, resolve_locale, tr};
+use crate::localization::{Locale, MessageId, init_locale, reload_locale, resolve_locale, tr};
 use crate::models::{Message, SystemPrompt, compaction_threshold_for_model_and_effort};
 use crate::palette::{self, UiTheme};
 use crate::session_manager::SessionContextReference;
@@ -50,6 +50,8 @@ pub enum OnboardingState {
     ApiKey,
     TrustDirectory,
     Tips,
+    /// AI is translating the UI strings to the selected locale.
+    Translating,
     None,
 }
 
@@ -700,6 +702,14 @@ pub struct App {
     pub ui_theme: UiTheme,
     // Onboarding
     pub onboarding: OnboardingState,
+    /// Pending AI translation result (oneshot receiver). Set when the user
+    /// selects a non-English locale during onboarding and the AI translator
+    /// is called to translate the UI strings via the DeepSeek API.
+    pub pending_translation: Option<tokio::sync::oneshot::Receiver<std::result::Result<std::collections::HashMap<String, String>, String>>>,
+    /// Target locale tag for the in-flight translation.
+    pub pending_translation_tag: Option<String>,
+    /// When the translation started (for progress animation).
+    pub translation_started_at: Option<std::time::Instant>,
     pub onboarding_needs_api_key: bool,
     pub api_key_input: String,
     pub api_key_cursor: usize,
@@ -1065,6 +1075,7 @@ impl App {
         let show_thinking = settings.show_thinking;
         let show_tool_details = settings.show_tool_details;
         let ui_locale = resolve_locale(&settings.locale);
+        init_locale(ui_locale);
         let composer_density = ComposerDensity::from_setting(&settings.composer_density);
         let composer_border = settings.composer_border;
         let composer_vim_enabled = settings
@@ -1221,6 +1232,9 @@ impl App {
             } else {
                 OnboardingState::None
             },
+            pending_translation: None,
+            pending_translation_tag: None,
+            translation_started_at: None,
             onboarding_needs_api_key: needs_api_key,
             api_key_input: String::new(),
             api_key_cursor: 0,
@@ -1319,12 +1333,15 @@ impl App {
             return Err(ApiKeyError::Empty);
         }
 
-        match save_api_key(&key) {
-            Ok(saved) => {
+        // Write directly to config.toml without touching the OS keyring.
+        // The keyring prompt is over-engineering for first-run onboarding
+        // and there is no stale entry to shadow a fresh key.
+        match save_api_key_to_config_file(&key) {
+            Ok(path) => {
                 self.api_key_input.clear();
                 self.api_key_cursor = 0;
                 self.onboarding_needs_api_key = false;
-                Ok(saved)
+                Ok(SavedCredential::ConfigFile(path))
             }
             Err(source) => Err(ApiKeyError::SaveFailed { source }),
         }
@@ -1344,11 +1361,16 @@ impl App {
     /// language. `App` doesn't keep `Settings` resident — it loads on entry
     /// and rewrites on exit, mirroring the pattern used by the `/config`
     /// surface.
+    /// Apply a locale tag selected from the onboarding language picker (#566).
+    /// Persists the value to `~/.deepseek/settings.toml` and immediately
+    /// re-resolves `ui_locale` so the rest of onboarding renders in the new
+    /// language. Also reloads the i18n store from disk if applicable.
     pub fn set_locale_from_onboarding(&mut self, tag: &str) -> anyhow::Result<()> {
         let mut settings = Settings::load().unwrap_or_else(|_| Settings::default());
         settings.set("locale", tag)?;
         settings.save()?;
         self.ui_locale = crate::localization::resolve_locale(&settings.locale);
+        reload_locale(self.ui_locale);
         self.needs_redraw = true;
         Ok(())
     }

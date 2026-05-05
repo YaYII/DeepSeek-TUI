@@ -984,6 +984,104 @@ impl DeepSeekClient {
             .ok_or_else(|| anyhow::anyhow!("FIM response missing choices[0].text"))?;
         Ok(text.to_string())
     }
+
+    /// Translate a JSON map of English UI strings to a target language via
+    /// the DeepSeek API. Uses the client's configured retry/rate-limit/HTTP
+    /// stack instead of a raw `reqwest::Client`.
+    ///
+    /// The caller is responsible for caching (see `localization.rs`).
+    pub async fn translate_json(
+        &self,
+        en_data: &std::collections::HashMap<String, String>,
+        target_lang: &str,
+    ) -> anyhow::Result<std::collections::HashMap<String, String>> {
+        let json_data = serde_json::to_string_pretty(en_data)?;
+
+        let lang_name = match target_lang {
+            "ja" => "Japanese",
+            "zh-Hans" => "Simplified Chinese",
+            "pt-BR" => "Portuguese (Brazil)",
+            other => other,
+        };
+
+        let prompt = format!(
+            r#"You are a professional technical translation expert. Please translate the following JSON UI text from English to {lang_name}.
+
+Requirements:
+1. Keep the JSON structure unchanged, only translate the value (right side)
+2. Keep technical terms consistent (DeepSeek, API, TUI, token, etc. do not translate)
+3. Keep placeholders unchanged (e.g. {{count}}, {{name}}, {{old}}, {{new}}, {{path}}, {{step}}, {{total}})
+4. Keep tone friendly, concise, and professional
+5. Only return valid JSON, no additional explanation
+
+Input JSON:
+{json_data}
+
+Output format: Must be valid JSON with the same structure, containing only the translated text."#
+        );
+
+        let body = serde_json::json!({
+            "model": "deepseek-chat",
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "You are a professional technical translation expert. Translate UI text accurately while maintaining consistency. Only return valid JSON."
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            "temperature": 0.3,
+            "max_tokens": 8000
+        });
+
+        let url = api_url(&self.base_url, "chat/completions");
+        let response = self
+            .send_with_retry(|| self.http_client.post(&url).json(&body))
+            .await?;
+
+        let status = response.status();
+        if !status.is_success() {
+            let error_text = bounded_error_text(response, ERROR_BODY_MAX_BYTES).await;
+            anyhow::bail!("Translation API error: HTTP {status}: {error_text}");
+        }
+
+        let response_text = response
+            .text()
+            .await
+            .context("Failed to read translation API response body")?;
+        let value: serde_json::Value = serde_json::from_str(&response_text)
+            .context("Failed to parse translation API response")?;
+
+        let translated_text = value
+            .get("choices")
+            .and_then(|choices| choices.get(0))
+            .and_then(|choice| choice.get("message"))
+            .and_then(|message| message.get("content"))
+            .and_then(|content| content.as_str())
+            .context("Invalid translation API response structure")?;
+
+        let parsed: serde_json::Value = serde_json::from_str(translated_text)
+            .with_context(|| {
+                format!("Failed to parse translated JSON: {translated_text}")
+            })?;
+
+        let mut result = std::collections::HashMap::new();
+        if let serde_json::Value::Object(obj) = parsed {
+            for (key, value) in obj {
+                if let serde_json::Value::String(text) = value {
+                    result.insert(key, text);
+                }
+            }
+        }
+
+        if result.is_empty() {
+            anyhow::bail!("Translation returned empty result");
+        }
+
+        Ok(result)
+    }
 }
 
 mod chat;

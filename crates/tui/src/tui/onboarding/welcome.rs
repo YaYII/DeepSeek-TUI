@@ -3,12 +3,13 @@
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 
+use crate::localization::{Locale, MessageId, tr};
 use crate::palette;
 
-pub fn lines() -> Vec<Line<'static>> {
+pub fn lines(locale: Locale) -> Vec<Line<'static>> {
     vec![
         Line::from(Span::styled(
-            "DeepSeek TUI",
+            tr(locale, MessageId::OnboardingWelcomeTitle),
             Style::default()
                 .fg(palette::DEEPSEEK_BLUE)
                 .add_modifier(Modifier::BOLD),
@@ -19,24 +20,24 @@ pub fn lines() -> Vec<Line<'static>> {
         )),
         Line::from(""),
         Line::from(Span::styled(
-            "A focused terminal workspace for longer model sessions.",
+            tr(locale, MessageId::OnboardingWelcomeDesc),
             Style::default().fg(palette::TEXT_PRIMARY),
         )),
         Line::from(Span::styled(
-            "You'll add an API key, review trust for this directory, and then land in the chat.",
+            tr(locale, MessageId::OnboardingWelcomeStep1),
             Style::default().fg(palette::TEXT_MUTED),
         )),
         Line::from(Span::styled(
-            "The main composer is multi-line, so you can write full prompts instead of squeezing everything into one line.",
+            tr(locale, MessageId::OnboardingWelcomeStep2),
             Style::default().fg(palette::TEXT_MUTED),
         )),
         Line::from(""),
         Line::from(Span::styled(
-            "Press Enter to continue.",
+            tr(locale, MessageId::OnboardingWelcomePromptEnter),
             Style::default().fg(palette::TEXT_PRIMARY),
         )),
         Line::from(Span::styled(
-            "Ctrl+C exits at any point.",
+            tr(locale, MessageId::OnboardingWelcomePromptExit),
             Style::default().fg(palette::TEXT_MUTED),
         )),
     ]

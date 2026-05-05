@@ -3,48 +3,53 @@
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 
+use crate::localization::{MessageId, tr};
 use crate::palette;
 use crate::tui::app::App;
 
 pub fn lines(app: &App) -> Vec<Line<'static>> {
+    let locale = app.ui_locale;
     let mut lines = vec![
         Line::from(Span::styled(
-            "Connect your DeepSeek API key",
+            tr(locale, MessageId::OnboardingApiKeyTitle),
             Style::default()
                 .fg(palette::DEEPSEEK_SKY)
                 .add_modifier(Modifier::BOLD),
         )),
         Line::from(""),
         Line::from(Span::styled(
-            "Step 1.  Open https://platform.deepseek.com/api_keys and create a key.",
+            tr(locale, MessageId::OnboardingApiKeyStep1),
             Style::default().fg(palette::TEXT_PRIMARY),
         )),
         Line::from(Span::styled(
-            "Step 2.  Paste it below and press Enter.",
+            tr(locale, MessageId::OnboardingApiKeyStep2),
             Style::default().fg(palette::TEXT_PRIMARY),
         )),
         Line::from(""),
         Line::from(Span::styled(
-            "Saved to ~/.deepseek/config.toml so it works from any folder.",
+            tr(locale, MessageId::OnboardingApiKeyPathNote),
             Style::default().fg(palette::TEXT_MUTED),
         )),
         Line::from(Span::styled(
-            "Paste the full key exactly as issued (no spaces or newlines).",
+            tr(locale, MessageId::OnboardingApiKeyPasteNote),
             Style::default().fg(palette::TEXT_MUTED),
         )),
         Line::from(""),
     ];
 
     let masked = mask_key(&app.api_key_input);
-    let display = if masked.is_empty() {
-        "(paste key here)"
+    let display: String = if masked.is_empty() {
+        tr(locale, MessageId::OnboardingApiKeyPlaceholder).to_string()
     } else {
-        masked.as_str()
+        masked
     };
     lines.push(Line::from(vec![
-        Span::styled("Key: ", Style::default().fg(palette::TEXT_MUTED)),
         Span::styled(
-            display.to_string(),
+            tr(locale, MessageId::OnboardingApiKeyLabel),
+            Style::default().fg(palette::TEXT_MUTED),
+        ),
+        Span::styled(
+            display,
             Style::default()
                 .fg(palette::TEXT_PRIMARY)
                 .add_modifier(Modifier::BOLD),
@@ -62,7 +67,7 @@ pub fn lines(app: &App) -> Vec<Line<'static>> {
 
     lines.push(Line::from(""));
     lines.push(Line::from(Span::styled(
-        "Press Enter to save, Esc to go back.",
+        tr(locale, MessageId::OnboardingApiKeyFooter),
         Style::default().fg(palette::TEXT_MUTED),
     )));
 

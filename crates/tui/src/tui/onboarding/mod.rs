@@ -16,6 +16,7 @@ use ratatui::{
 };
 
 use crate::palette;
+use crate::localization::{MessageId, tr};
 use crate::tui::app::{App, OnboardingState};
 
 pub fn render(f: &mut Frame, area: Rect, app: &App) {
@@ -31,12 +32,14 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
         height: content_height,
     };
 
+    let locale = app.ui_locale;
     let lines = match app.onboarding {
-        OnboardingState::Welcome => welcome::lines(),
+        OnboardingState::Welcome => welcome::lines(locale),
         OnboardingState::Language => language::lines(app),
         OnboardingState::ApiKey => api_key::lines(app),
         OnboardingState::TrustDirectory => trust_directory::lines(app),
-        OnboardingState::Tips => tips_lines(),
+        OnboardingState::Tips => tips_lines(locale),
+        OnboardingState::Translating => translating_lines(app),
         OnboardingState::None => Vec::new(),
     };
 
@@ -44,13 +47,15 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
         let (step, total) = onboarding_step(app);
         let panel = Block::default()
             .title(Line::from(Span::styled(
-                " DeepSeek TUI ",
+                tr(locale, MessageId::OnboardingPanelTitle),
                 Style::default()
                     .fg(palette::DEEPSEEK_BLUE)
                     .add_modifier(Modifier::BOLD),
             )))
             .title_bottom(Line::from(Span::styled(
-                format!(" Step {step}/{total} "),
+                tr(locale, MessageId::OnboardingStepIndicator)
+                    .replace("{step}", &step.to_string())
+                    .replace("{total}", &total.to_string()),
                 Style::default()
                     .fg(palette::TEXT_MUTED)
                     .add_modifier(Modifier::BOLD),
@@ -68,8 +73,8 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
 
 fn onboarding_step(app: &App) -> (usize, usize) {
     let needs_trust = !app.trust_mode && needs_trust(&app.workspace);
-    // Welcome + Language + Tips are always shown.
-    let mut total = 3;
+    // Flow: Welcome → ApiKey(optional) → Language → Trust(optional) → Tips
+    let mut total = 3; // Welcome + Language + Tips
     if app.onboarding_needs_api_key {
         total += 1;
     }
@@ -79,10 +84,11 @@ fn onboarding_step(app: &App) -> (usize, usize) {
 
     let step = match app.onboarding {
         OnboardingState::Welcome => 1,
-        OnboardingState::Language => 2,
-        OnboardingState::ApiKey => 3,
+        OnboardingState::ApiKey => 2,
+        OnboardingState::Language | OnboardingState::Translating => {
+            if app.onboarding_needs_api_key { 3 } else { 2 }
+        }
         OnboardingState::TrustDirectory => {
-            // Welcome (1) + Language (2) + optional ApiKey
             if app.onboarding_needs_api_key { 4 } else { 3 }
         }
         OnboardingState::Tips => total,
@@ -92,29 +98,30 @@ fn onboarding_step(app: &App) -> (usize, usize) {
     (step, total)
 }
 
-pub fn tips_lines() -> Vec<ratatui::text::Line<'static>> {
-    use ratatui::style::Modifier;
-    use ratatui::text::{Line, Span};
-
+pub fn tips_lines(locale: crate::localization::Locale) -> Vec<ratatui::text::Line<'static>> {
     vec![
         Line::from(Span::styled(
-            "Start Simple",
+            tr(locale, MessageId::OnboardingTipsTitle),
             Style::default()
                 .fg(palette::DEEPSEEK_SKY)
                 .add_modifier(Modifier::BOLD),
         )),
         Line::from(""),
-        Line::from(Span::raw(
-            "Write the task in plain language. Use /help or Ctrl+K when you want a command.",
+        Line::from(Span::styled(
+            tr(locale, MessageId::OnboardingTipsTip1),
+            Style::default(),
         )),
-        Line::from(Span::raw(
-            "The bottom composer is multi-line: Enter sends, Alt+Enter or Ctrl+J adds a new line.",
+        Line::from(Span::styled(
+            tr(locale, MessageId::OnboardingTipsTip2),
+            Style::default(),
         )),
-        Line::from(Span::raw(
-            "Switch modes only when the job changes: Plan for review-first work, Agent for execution, YOLO when you want auto-approval.",
+        Line::from(Span::styled(
+            tr(locale, MessageId::OnboardingTipsTip3),
+            Style::default(),
         )),
-        Line::from(Span::raw(
-            "Ctrl+R resumes earlier sessions, and Esc backs out of the current draft or overlay.",
+        Line::from(Span::styled(
+            tr(locale, MessageId::OnboardingTipsTip4),
+            Style::default(),
         )),
         Line::from(vec![
             Span::styled("Press ", Style::default().fg(palette::TEXT_MUTED)),
@@ -129,6 +136,46 @@ pub fn tips_lines() -> Vec<ratatui::text::Line<'static>> {
                 Style::default().fg(palette::TEXT_MUTED),
             ),
         ]),
+    ]
+}
+
+/// Rendered while the AI translator is translating UI strings via the
+/// DeepSeek API. Shows an animated progress indicator with elapsed time.
+///
+/// Note: strings here are hardcoded English because this screen renders
+/// *during* translation — the target language text doesn't exist yet.
+pub fn translating_lines(app: &App) -> Vec<ratatui::text::Line<'static>> {
+    let elapsed = app
+        .translation_started_at
+        .map(|start| start.elapsed().as_secs())
+        .unwrap_or(0);
+
+    let dots_count = (elapsed % 4) + 1;
+    let dots = ".".repeat(dots_count as usize);
+
+    let title = format!("Translating{}", dots);
+
+    vec![
+        Line::from(Span::styled(
+            title,
+            Style::default()
+                .fg(palette::DEEPSEEK_SKY)
+                .add_modifier(Modifier::BOLD),
+        )),
+        Line::from(""),
+        Line::from(Span::styled(
+            "The UI is being translated to your selected language via DeepSeek API.",
+            Style::default().fg(palette::TEXT_PRIMARY),
+        )),
+        Line::from(Span::styled(
+            format!("Elapsed: {}s (usually takes 10-30 seconds)", elapsed),
+            Style::default().fg(palette::TEXT_MUTED),
+        )),
+        Line::from(""),
+        Line::from(Span::styled(
+            "Please wait...",
+            Style::default().fg(palette::TEXT_MUTED),
+        )),
     ]
 }
 

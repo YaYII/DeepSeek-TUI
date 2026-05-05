@@ -1439,6 +1439,54 @@ async fn run_event_loop(
         // `working.` with no network activity.
         tokio::task::yield_now().await;
 
+        // Check if an AI translation task has completed (onboarding flow).
+        if app.onboarding == OnboardingState::Translating {
+            // Force fast redraw for the animation, and shorten timeout so we
+            // redraw while waiting.
+            app.needs_redraw = true;
+            poll_timeout = poll_timeout.min(Duration::from_millis(250));
+
+            if let Some(ref mut rx) = app.pending_translation {
+                if let Ok(result) = rx.try_recv() {
+                    let tag = app.pending_translation_tag.take().expect("pending_translation_tag must be set before spawn");
+                    app.pending_translation = None;
+                    app.translation_started_at = None;
+                    match result {
+                        Ok(translated) => {
+                            if let Err(e) = crate::localization::save_locale_json(&tag, &translated) {
+                                tracing::warn!("Failed to save i18n JSON for {tag}: {e}");
+                            }
+                            // Reload the locale to pick up the new translation
+                            let locale = crate::localization::resolve_locale(&tag);
+                            app.ui_locale = locale;
+                            crate::localization::reload_locale(locale);
+                            app.push_status_toast(
+                                format!("UI translated to {tag}"),
+                                StatusToastLevel::Info,
+                                Some(2_500),
+                            );
+                        }
+                        Err(e) => {
+                            // Translation failed — fall back to English
+                            tracing::warn!("AI translation failed for {tag}: {e}");
+                            app.push_status_toast(
+                                format!("Translation failed; using English ({e})"),
+                                StatusToastLevel::Warning,
+                                Some(5_000),
+                            );
+                        }
+                    }
+                    // Advance to next onboarding step
+                    app.status_message = None;
+                    if !app.trust_mode && onboarding::needs_trust(&app.workspace) {
+                        app.onboarding = OnboardingState::TrustDirectory;
+                    } else {
+                        app.onboarding = OnboardingState::Tips;
+                    }
+                }
+            }
+        }
+
         if event::poll(poll_timeout)? {
             let evt = event::read()?;
             app.needs_redraw = true;
@@ -1563,24 +1611,36 @@ async fn run_event_loop(
                 continue;
             }
 
+            // During AI translation, ignore all key events except Ctrl+C (handled above).
+            if app.onboarding == OnboardingState::Translating {
+                continue;
+            }
+
             // Handle onboarding flow
+            // Flow: Welcome → ApiKey (if needed) → Language (with AI translation) → Trust → Tips
             if app.onboarding != OnboardingState::None {
-                // After Welcome (and the new Language step) we route to either
-                // the API-key step, the trust prompt, or the tips screen
-                // depending on what the user still needs to set up.
-                let advance_after_language = |app: &mut App| {
+                // Route from Welcome: go to ApiKey if needed, otherwise Language.
+                let advance_from_welcome = |app: &mut App| {
                     app.status_message = None;
                     if app.onboarding_needs_api_key {
                         app.onboarding = OnboardingState::ApiKey;
-                    } else if !app.trust_mode && onboarding::needs_trust(&app.workspace) {
+                    } else {
+                        app.onboarding = OnboardingState::Language;
+                    }
+                };
+                // Route after ApiKey: go to Language.
+                let advance_from_apikey = |app: &mut App| {
+                    app.status_message = None;
+                    app.onboarding = OnboardingState::Language;
+                };
+                // Route after Language: go to Trust or Tips.
+                let advance_after_language = |app: &mut App| {
+                    app.status_message = None;
+                    if !app.trust_mode && onboarding::needs_trust(&app.workspace) {
                         app.onboarding = OnboardingState::TrustDirectory;
                     } else {
                         app.onboarding = OnboardingState::Tips;
                     }
-                };
-                let advance_onboarding = |app: &mut App| {
-                    app.status_message = None;
-                    app.onboarding = OnboardingState::Language;
                 };
 
                 match key.code {
@@ -1599,6 +1659,8 @@ async fn run_event_loop(
                         app.status_message = None;
                     }
                     // Language picker hotkeys: 1-5 select + persist (#566).
+                    // For non-English locales, trigger AI translation via the
+                    // configured API key before advancing.
                     //
                     // Note: this used to be a single match-guard with `&& let`,
                     // but `if_let_guard` is a nightly-only feature on Rust
@@ -1613,12 +1675,60 @@ async fn run_event_loop(
                         {
                             match app.set_locale_from_onboarding(tag) {
                                 Ok(()) => {
-                                    app.push_status_toast(
-                                        format!("Language set to {tag}"),
-                                        StatusToastLevel::Info,
-                                        Some(2_500),
-                                    );
-                                    advance_after_language(app);
+                                    let needs_translation = *tag != "en" && *tag != "auto";
+                                    if needs_translation {
+                                        // Trigger AI translation for non-English locales
+                                        if config.api_key.is_some() {
+                                            // Build a DeepSeekClient using the project's
+                                            // unified HTTP stack (retry, rate-limit, TLS).
+                                            let translation_client = match DeepSeekClient::new(&config) {
+                                                Ok(c) => std::sync::Arc::new(c),
+                                                Err(e) => {
+                                                    app.push_status_toast(
+                                                        format!("Failed to create translation client: {e}"),
+                                                        StatusToastLevel::Error,
+                                                        Some(4_000),
+                                                    );
+                                                    advance_after_language(app);
+                                                    continue;
+                                                }
+                                            };
+                                            let tag_owned = tag.to_string();
+                                            let tag_for_spawn = tag_owned.clone();
+                                            let en_data = crate::localization::get_embedded_en_data();
+                                            let (tx, rx) = tokio::sync::oneshot::channel();
+                                            tokio::spawn(async move {
+                                                let result = crate::localization::translate_via_api(
+                                                    &translation_client,
+                                                    &en_data,
+                                                    &tag_for_spawn,
+                                                    None,
+                                                )
+                                                .await;
+                                                let _ = tx.send(result);
+                                            });
+                                            app.pending_translation = Some(rx);
+                                            app.pending_translation_tag = Some(tag_owned);
+                                            app.translation_started_at = Some(Instant::now());
+                                            app.onboarding = OnboardingState::Translating;
+                                        } else {
+                                            // No API key available — advance with English fallback
+                                            app.push_status_toast(
+                                                "No API key for translation; using English",
+                                                StatusToastLevel::Warning,
+                                                Some(3_000),
+                                            );
+                                            advance_after_language(app);
+                                        }
+                                    } else {
+                                        // English or auto — no translation needed
+                                        app.push_status_toast(
+                                            format!("Language set to {tag}"),
+                                            StatusToastLevel::Info,
+                                            Some(2_500),
+                                        );
+                                        advance_after_language(app);
+                                    }
                                 }
                                 Err(err) => {
                                     app.status_message =
@@ -1629,11 +1739,11 @@ async fn run_event_loop(
                     }
                     KeyCode::Enter => match app.onboarding {
                         OnboardingState::Welcome => {
-                            advance_onboarding(app);
+                            advance_from_welcome(app);
                         }
                         OnboardingState::Language => {
                             // Enter without a digit pick keeps the existing
-                            // setting (which defaults to "auto").
+                            // setting (which defaults to "auto" / English).
                             advance_after_language(app);
                         }
                         OnboardingState::ApiKey => {
@@ -1685,7 +1795,7 @@ async fn run_event_loop(
                                             .await;
                                     }
 
-                                    advance_onboarding(app);
+                                    advance_from_apikey(app);
                                 }
                                 Err(e) => {
                                     app.status_message = Some(e.to_string());
@@ -1697,6 +1807,7 @@ async fn run_event_loop(
                             app.finish_onboarding();
                         }
                         OnboardingState::None => {}
+                        OnboardingState::Translating => {} // unreachable: caught by continue above
                     },
                     KeyCode::Char('y') | KeyCode::Char('Y')
                         if app.onboarding == OnboardingState::TrustDirectory =>

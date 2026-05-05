@@ -208,6 +208,31 @@ pub struct Settings {
     pub max_input_history: usize,
     /// Default model to use
     pub default_model: Option<String>,
+    /// I18N configuration for AI dynamic translation
+    #[serde(default)]
+    pub i18n: I18nSettings,
+}
+
+/// I18N settings for AI-powered dynamic translation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct I18nSettings {
+    /// Enable AI-powered dynamic translation
+    pub enabled: bool,
+    /// Target language code (e.g., "zh-CN", "ja", "pt-BR")
+    pub target_language: String,
+    /// Last translated language (to detect when re-translation is needed)
+    pub last_translated_lang: Option<String>,
+}
+
+impl Default for I18nSettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            target_language: "en".to_string(),
+            last_translated_lang: None,
+        }
+    }
 }
 
 impl Default for Settings {
@@ -241,6 +266,7 @@ impl Default for Settings {
             context_panel: false,
             max_input_history: 100,
             default_model: None,
+            i18n: I18nSettings::default(),
         }
     }
 }

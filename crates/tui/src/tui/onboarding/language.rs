@@ -8,6 +8,7 @@
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 
+use crate::localization::{MessageId, tr};
 use crate::palette;
 use crate::tui::app::App;
 
@@ -24,19 +25,20 @@ pub const LANGUAGE_OPTIONS: &[(char, &str, &str, &str)] = &[
 ];
 
 pub fn lines(app: &App) -> Vec<Line<'static>> {
+    let locale = app.ui_locale;
     let current_owned = app.current_locale_tag();
     let current = current_owned.as_str();
 
     let mut out: Vec<Line<'static>> = vec![
         Line::from(Span::styled(
-            "Choose your language",
+            tr(locale, MessageId::OnboardingLanguageTitle),
             Style::default()
                 .fg(palette::DEEPSEEK_SKY)
                 .add_modifier(Modifier::BOLD),
         )),
         Line::from(""),
         Line::from(Span::styled(
-            "Pick the UI language. You can change it any time with `/settings set locale <tag>`.",
+            tr(locale, MessageId::OnboardingLanguageDesc),
             Style::default().fg(palette::TEXT_MUTED),
         )),
         Line::from(""),

@@ -33,6 +33,7 @@ mod execpolicy;
 mod features;
 mod handoff;
 mod hooks;
+mod i18n;
 mod llm_client;
 mod localization;
 mod logging;
@@ -246,6 +247,11 @@ enum Commands {
     /// Internal: run the responses API proxy.
     #[command(hide = true)]
     ResponsesApiProxy(responses_api_proxy::Args),
+    /// Manage AI-powered internationalization (i18n)
+    I18n {
+        #[command(subcommand)]
+        command: I18nCommand,
+    },
 }
 
 #[derive(Args, Debug, Clone)]
@@ -477,6 +483,21 @@ enum McpCommand {
         #[arg(long)]
         workspace: Option<String>,
     },
+}
+
+#[derive(Subcommand, Debug, Clone)]
+enum I18nCommand {
+    /// Set target language for UI translation
+    Set {
+        /// Language code (e.g., zh-CN, ja, pt-BR, ko)
+        language: String,
+    },
+    /// Show current i18n status and configuration
+    Status,
+    /// Reset i18n to English (disable AI translation)
+    Reset,
+    /// Clear translation cache
+    ClearCache,
 }
 
 #[derive(Args, Debug, Clone)]
@@ -730,6 +751,7 @@ async fn main() -> Result<()> {
                 responses_api_proxy::run_main(args)?;
                 Ok(())
             }
+            Commands::I18n { command } => run_i18n_command(command),
         };
     }
 
@@ -2232,6 +2254,91 @@ fn run_features_command(config: &Config, command: FeaturesCli) -> Result<()> {
     match command.command {
         FeaturesSubcommand::List => {
             print!("{}", render_feature_table(&config.features()));
+            Ok(())
+        }
+    }
+}
+
+/// Handle i18n subcommands
+fn run_i18n_command(command: I18nCommand) -> Result<()> {
+    use crate::i18n::I18nManager;
+    use crate::settings::Settings;
+
+    match command {
+        I18nCommand::Set { language } => {
+            let mut settings = Settings::load()?;
+            
+            // Enable i18n and set target language
+            settings.i18n.enabled = true;
+            println!("✅ Language set to '{}'", language);
+            settings.i18n.target_language = language;
+            settings.i18n.last_translated_lang = None; // Force re-translation
+            settings.save()?;
+            println!("🔄 Restart the application to apply changes.");
+            println!("   The first launch will trigger AI translation (requires API key).");
+            Ok(())
+        }
+        I18nCommand::Status => {
+            let settings = Settings::load()?;
+            let manager = I18nManager::new()?;
+
+            println!("🌍 i18n Status:");
+            println!("  Enabled: {}", settings.i18n.enabled);
+            println!("  Target language: {}", settings.i18n.target_language);
+            println!("  Last translated: {:?}", settings.i18n.last_translated_lang);
+            println!();
+            println!("  Files:");
+            println!("    i18n.json exists: {}", manager.i18n_exists());
+            println!("    en.json exists: {}", manager.en_exists());
+            println!("    Translation complete: {}", manager.is_complete());
+            println!("    Missing keys: {}", manager.missing_keys().len());
+            println!();
+            println!("  Cache:");
+            let cache_dir = manager.cache_dir();
+            if cache_dir.exists() {
+                let cache_files = std::fs::read_dir(cache_dir)
+                    .map(|entries| entries.count())
+                    .unwrap_or(0);
+                println!("    Cache files: {}", cache_files);
+            } else {
+                println!("    Cache directory: not found");
+            }
+            Ok(())
+        }
+        I18nCommand::Reset => {
+            let mut settings = Settings::load()?;
+            
+            // Disable i18n and reset to English
+            settings.i18n.enabled = false;
+            settings.i18n.target_language = "en".to_string();
+            settings.i18n.last_translated_lang = None;
+            settings.save()?;
+
+            println!("✅ i18n reset to English");
+            println!("🔄 AI translation disabled. Using static translations.");
+            println!("   To re-enable: deepseek i18n set <language>");
+            Ok(())
+        }
+        I18nCommand::ClearCache => {
+            let manager = I18nManager::new()?;
+            let cache_dir = manager.cache_dir();
+
+            if !cache_dir.exists() {
+                println!("ℹ️  Cache directory does not exist. Nothing to clear.");
+                return Ok(());
+            }
+
+            let entries: Vec<_> = std::fs::read_dir(cache_dir)?
+                .filter_map(|e| e.ok())
+                .collect();
+            
+            let count = entries.len();
+            for entry in entries {
+                std::fs::remove_file(entry.path())?;
+            }
+
+            println!("✅ Cleared {} cache file(s)", count);
+            println!("   Next translation will regenerate cache.");
             Ok(())
         }
     }

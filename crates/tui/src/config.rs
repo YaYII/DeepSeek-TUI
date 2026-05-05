@@ -2299,7 +2299,7 @@ pub fn save_api_key(api_key: &str) -> Result<SavedCredential> {
 }
 
 /// Write the `api_key` slot directly to `config.toml`.
-fn save_api_key_to_config_file(api_key: &str) -> Result<PathBuf> {
+pub(crate) fn save_api_key_to_config_file(api_key: &str) -> Result<PathBuf> {
     fn is_api_key_assignment(line: &str) -> bool {
         let trimmed = line.trim_start();
         trimmed
