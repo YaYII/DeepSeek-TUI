@@ -3,11 +3,12 @@
 use std::path::{Path, PathBuf};
 
 use super::CommandResult;
+use crate::localization::{MessageId, tr_fmt};
 use crate::tui::app::App;
 
 pub fn attach(app: &mut App, arg: Option<&str>) -> CommandResult {
     let Some(raw_path) = arg.map(str::trim).filter(|value| !value.is_empty()) else {
-        return CommandResult::error("Usage: /attach <image-or-video-path>");
+        return CommandResult::error(app.tr(MessageId::UsageAttach).to_string());
     };
 
     let path = resolve_attachment_path(raw_path, &app.workspace);
@@ -25,7 +26,11 @@ pub fn attach(app: &mut App, arg: Option<&str>) -> CommandResult {
     };
 
     app.insert_media_attachment(kind, &path, None);
-    CommandResult::message(format!("Attached {kind}: {}", path.display()))
+    CommandResult::message(tr_fmt(
+        app.ui_locale,
+        MessageId::CmdAttachedFile,
+        &[("path", &path.display().to_string())],
+    ))
 }
 
 fn resolve_attachment_path(raw_path: &str, workspace: &Path) -> PathBuf {
@@ -103,7 +108,7 @@ mod tests {
 
         let result = attach(&mut app, Some("photo.png"));
 
-        assert!(result.message.expect("message").contains("Attached image"));
+        assert!(result.message.expect("message").contains("Attached:"));
         assert!(app.input.contains("[Attached image:"));
         let canonical_path = image_path.canonicalize().expect("canonical image path");
         assert!(app.input.contains(&canonical_path.display().to_string()));

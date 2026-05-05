@@ -19,6 +19,7 @@ use ratatui::{
 };
 
 use crate::config::StatusItem;
+use crate::localization::{tr, Locale, MessageId};
 use crate::palette;
 use crate::tui::views::{ModalKind, ModalView, ViewAction, ViewEvent};
 
@@ -35,11 +36,13 @@ pub struct StatusPickerView {
     cursor: usize,
     /// Snapshot of `app.status_items` at open time so Esc reverts cleanly.
     original: Vec<StatusItem>,
+    /// UI locale for translations.
+    locale: Locale,
 }
 
 impl StatusPickerView {
     #[must_use]
-    pub fn new(active: &[StatusItem]) -> Self {
+    pub fn new(active: &[StatusItem], locale: Locale) -> Self {
         let rows: Vec<StatusItem> = StatusItem::all().to_vec();
         let selected: Vec<bool> = rows.iter().map(|item| active.contains(item)).collect();
         Self {
@@ -47,6 +50,7 @@ impl StatusPickerView {
             selected,
             cursor: 0,
             original: active.to_vec(),
+            locale,
         }
     }
 
@@ -169,7 +173,7 @@ impl ModalView for StatusPickerView {
 
         let block = Block::default()
             .title(Line::from(Span::styled(
-                " Status line ",
+                format!(" {} ", tr(self.locale, MessageId::StatusPickerTitle)),
                 Style::default()
                     .fg(palette::DEEPSEEK_SKY)
                     .add_modifier(Modifier::BOLD),
@@ -196,7 +200,7 @@ impl ModalView for StatusPickerView {
 
         let mut lines: Vec<Line> = Vec::with_capacity(self.rows.len() + 2);
         lines.push(Line::from(Span::styled(
-            "Pick the chips you want in the footer:",
+            tr(self.locale, MessageId::StatusPickerInstruction),
             Style::default().fg(palette::TEXT_MUTED),
         )));
         lines.push(Line::from(""));
@@ -246,14 +250,14 @@ mod tests {
     #[test]
     fn opens_with_active_items_pre_selected() {
         let active = StatusItem::default_footer();
-        let view = StatusPickerView::new(&active);
+        let view = StatusPickerView::new(&active, Locale::En);
         assert_eq!(view.current_selection(), active);
     }
 
     #[test]
     fn space_toggles_current_row_and_emits_live_preview() {
         let active = StatusItem::default_footer();
-        let mut view = StatusPickerView::new(&active);
+        let mut view = StatusPickerView::new(&active, Locale::En);
         // Cursor starts at row 0 = StatusItem::Mode (currently checked).
         let action = view.handle_key(KeyEvent::new(KeyCode::Char(' '), KeyModifiers::NONE));
         match action {
@@ -268,7 +272,7 @@ mod tests {
     #[test]
     fn enter_emits_final_save() {
         let active = StatusItem::default_footer();
-        let mut view = StatusPickerView::new(&active);
+        let mut view = StatusPickerView::new(&active, Locale::En);
         let action = view.handle_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
         match action {
             ViewAction::EmitAndClose(ViewEvent::StatusItemsUpdated { final_save, .. }) => {
@@ -281,7 +285,7 @@ mod tests {
     #[test]
     fn esc_reverts_to_snapshot() {
         let active = StatusItem::default_footer();
-        let mut view = StatusPickerView::new(&active);
+        let mut view = StatusPickerView::new(&active, Locale::En);
         // Toggle a few items off so the working set diverges from snapshot.
         view.handle_key(KeyEvent::new(KeyCode::Char(' '), KeyModifiers::NONE));
         view.move_down();
@@ -299,7 +303,7 @@ mod tests {
     #[test]
     fn select_all_and_select_none_keys_work() {
         let active: Vec<StatusItem> = Vec::new();
-        let mut view = StatusPickerView::new(&active);
+        let mut view = StatusPickerView::new(&active, Locale::En);
         let action = view.handle_key(KeyEvent::new(KeyCode::Char('a'), KeyModifiers::NONE));
         match action {
             ViewAction::Emit(ViewEvent::StatusItemsUpdated { items, .. }) => {
@@ -319,7 +323,7 @@ mod tests {
     #[test]
     fn arrow_keys_move_cursor_within_bounds() {
         let active = StatusItem::default_footer();
-        let mut view = StatusPickerView::new(&active);
+        let mut view = StatusPickerView::new(&active, Locale::En);
         assert_eq!(view.cursor, 0);
         view.handle_key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
         assert_eq!(view.cursor, 1);

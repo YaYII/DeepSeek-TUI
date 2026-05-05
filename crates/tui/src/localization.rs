@@ -691,6 +691,9 @@ pub enum MessageId {
     SubAgentStatusFailed,
     SubAgentStatusCancelled,
     SubAgentStatusInterrupted,
+    SubAgentsTitle,
+    SubAgentEscToClose,
+    SubAgentRToRefresh,
     // ── Status picker ──
     StatusPickerInstruction,
     // ── Pending input preview ──
@@ -1242,6 +1245,9 @@ impl MessageId {
             MessageId::SubAgentStatusFailed => "sub_agent_status_failed",
             MessageId::SubAgentStatusCancelled => "sub_agent_status_cancelled",
             MessageId::SubAgentStatusInterrupted => "sub_agent_status_interrupted",
+            MessageId::SubAgentsTitle => "sub_agents_title",
+            MessageId::SubAgentEscToClose => "sub_agent_esc_to_close",
+            MessageId::SubAgentRToRefresh => "sub_agent_r_to_refresh",
             MessageId::StatusPickerInstruction => "status_picker_instruction",
             MessageId::PendingInputSectionTitle => "pending_input_section_title",
             MessageId::PendingInputContextSection => "pending_input_context_section",
@@ -1809,6 +1815,7 @@ pub const ALL_MESSAGE_IDS: &[MessageId] = &[
     MessageId::UsageJobsWait,
     MessageId::UsageJobsStdin,
     MessageId::UsageJobsCancel,
+    MessageId::UsageJobsCloseStdin,
     MessageId::UsageTask,
     MessageId::UsageTaskList,
     MessageId::UsageTaskShow,

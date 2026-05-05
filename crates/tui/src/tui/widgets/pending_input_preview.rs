@@ -19,6 +19,7 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Paragraph, Widget};
 use unicode_width::UnicodeWidthChar;
 
+use crate::localization::{tr, Locale, MessageId};
 use crate::palette;
 use crate::tui::widgets::Renderable;
 
@@ -44,6 +45,7 @@ pub struct PendingInputPreview {
     pub rejected_steers: Vec<String>,
     pub queued_messages: Vec<String>,
     pub edit_binding: EditBinding,
+    pub locale: Locale,
 }
 
 /// Compact pre-send context row shown above the composer. `included=false`
@@ -60,13 +62,14 @@ pub struct ContextPreviewItem {
 }
 
 impl PendingInputPreview {
-    pub fn new() -> Self {
+    pub fn new(locale: Locale) -> Self {
         Self {
             context_items: Vec::new(),
             pending_steers: Vec::new(),
             rejected_steers: Vec::new(),
             queued_messages: Vec::new(),
             edit_binding: EditBinding::UP,
+            locale,
         }
     }
 
@@ -94,7 +97,10 @@ impl PendingInputPreview {
         if !self.context_items.is_empty() {
             push_section_header(
                 &mut lines,
-                Line::from(vec![Span::raw("• "), Span::raw("Context for next send")]),
+                Line::from(vec![
+                    Span::raw("• "),
+                    Span::raw(tr(self.locale, MessageId::PendingInputContextSection)),
+                ]),
             );
             for item in &self.context_items {
                 push_context_item(&mut lines, item, width);
@@ -107,7 +113,10 @@ impl PendingInputPreview {
             }
             push_section_header(
                 &mut lines,
-                Line::from(vec![Span::raw("• "), Span::raw("Pending inputs")]),
+                Line::from(vec![
+                    Span::raw("• "),
+                    Span::raw(tr(self.locale, MessageId::PendingInputSectionTitle)),
+                ]),
             );
             for steer in &self.pending_steers {
                 push_truncated_item(&mut lines, steer, width, dim, "  ↳ ", "    ");
@@ -132,7 +141,7 @@ impl PendingInputPreview {
 
 impl Default for PendingInputPreview {
     fn default() -> Self {
-        Self::new()
+        Self::new(Locale::En)
     }
 }
 
@@ -324,13 +333,13 @@ mod tests {
 
     #[test]
     fn empty_widget_has_zero_height() {
-        let preview = PendingInputPreview::new();
+        let preview = PendingInputPreview::new(Locale::En);
         assert_eq!(preview.desired_height(40), 0);
     }
 
     #[test]
     fn single_queued_message_renders_header_item_and_hint() {
-        let mut preview = PendingInputPreview::new();
+        let mut preview = PendingInputPreview::new(Locale::En);
         preview.queued_messages.push("Hello, world!".to_string());
         let rows = render_to_string(&preview, 40);
         // Expect: header line, message line, hint line.
@@ -342,7 +351,7 @@ mod tests {
 
     #[test]
     fn context_items_render_before_queue_buckets() {
-        let mut preview = PendingInputPreview::new();
+        let mut preview = PendingInputPreview::new(Locale::En);
         preview.context_items.push(ContextPreviewItem {
             kind: "file".to_string(),
             label: "src/main.rs".to_string(),
@@ -367,7 +376,7 @@ mod tests {
 
     #[test]
     fn selected_removable_attachment_renders_delete_hint() {
-        let mut preview = PendingInputPreview::new();
+        let mut preview = PendingInputPreview::new(Locale::En);
         preview.context_items.push(ContextPreviewItem {
             kind: "image".to_string(),
             label: "/tmp/pasted.png".to_string(),
@@ -388,7 +397,7 @@ mod tests {
 
     #[test]
     fn pending_steer_renders_without_queue_edit_hint() {
-        let mut preview = PendingInputPreview::new();
+        let mut preview = PendingInputPreview::new(Locale::En);
         preview.pending_steers.push("Please continue.".to_string());
         let rows = render_to_string(&preview, 80);
         assert!(
@@ -407,7 +416,7 @@ mod tests {
 
     #[test]
     fn all_pending_inputs_render_as_one_list() {
-        let mut preview = PendingInputPreview::new();
+        let mut preview = PendingInputPreview::new(Locale::En);
         preview.pending_steers.push("steer".to_string());
         preview.rejected_steers.push("rejected".to_string());
         preview.queued_messages.push("queued".to_string());
@@ -425,7 +434,7 @@ mod tests {
 
     #[test]
     fn message_truncates_to_three_visible_lines() {
-        let mut preview = PendingInputPreview::new();
+        let mut preview = PendingInputPreview::new(Locale::En);
         preview
             .queued_messages
             .push("line1\nline2\nline3\nline4\nline5".to_string());
@@ -442,7 +451,7 @@ mod tests {
 
     #[test]
     fn long_url_does_not_explode_into_ellipsis_rows() {
-        let mut preview = PendingInputPreview::new();
+        let mut preview = PendingInputPreview::new(Locale::En);
         preview.queued_messages.push(
             "example.test/api/v1/projects/alpha/releases/2026-02-17/build/1234567890/artifacts/x"
                 .to_string(),
@@ -456,7 +465,7 @@ mod tests {
 
     #[test]
     fn narrow_width_renders_nothing() {
-        let mut preview = PendingInputPreview::new();
+        let mut preview = PendingInputPreview::new(Locale::En);
         preview.queued_messages.push("hi".to_string());
         assert_eq!(preview.desired_height(2), 0);
     }

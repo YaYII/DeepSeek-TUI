@@ -4116,6 +4116,7 @@ async fn apply_command_result(
                     app.view_stack
                         .push(crate::tui::views::status_picker::StatusPickerView::new(
                             &app.status_items,
+                            app.ui_locale,
                         ));
                 }
             }
@@ -4691,7 +4692,7 @@ async fn handle_plan_choice(
 /// - `queued_messages` — Enter while busy (offline-mode FIFO); drained at
 ///   end-of-turn.
 fn build_pending_input_preview(app: &App) -> PendingInputPreview {
-    let mut preview = PendingInputPreview::new();
+    let mut preview = PendingInputPreview::new(app.ui_locale);
     let selected_attachment = app.selected_composer_attachment_index();
     let mut attachment_index = 0usize;
     preview.context_items = crate::tui::file_mention::pending_context_previews(

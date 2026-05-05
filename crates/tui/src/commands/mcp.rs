@@ -1,10 +1,11 @@
 //! In-TUI MCP manager command parser.
 
+use crate::localization::MessageId;
 use crate::tui::app::{App, AppAction, McpUiAction};
 
 use super::CommandResult;
 
-pub fn mcp(_app: &mut App, args: Option<&str>) -> CommandResult {
+pub fn mcp(app: &mut App, args: Option<&str>) -> CommandResult {
     let raw = args.unwrap_or("").trim();
     if raw.is_empty() || raw.eq_ignore_ascii_case("status") || raw.eq_ignore_ascii_case("list") {
         return CommandResult::action(AppAction::Mcp(McpUiAction::Show));
@@ -16,24 +17,22 @@ pub fn mcp(_app: &mut App, args: Option<&str>) -> CommandResult {
         "init" => CommandResult::action(AppAction::Mcp(McpUiAction::Init {
             force: parts.any(|part| part == "--force" || part == "-f"),
         })),
-        "add" => parse_add(parts.collect()),
-        "enable" => match parse_name(parts.next(), "Usage: /mcp enable <name>") {
+        "add" => parse_add(app, parts.collect()),
+        "enable" => match parse_name(parts.next(), &app.tr(MessageId::UsageMcpEnable)) {
             Ok(name) => CommandResult::action(AppAction::Mcp(McpUiAction::Enable { name })),
             Err(msg) => CommandResult::error(msg),
         },
-        "disable" => match parse_name(parts.next(), "Usage: /mcp disable <name>") {
+        "disable" => match parse_name(parts.next(), &app.tr(MessageId::UsageMcpDisable)) {
             Ok(name) => CommandResult::action(AppAction::Mcp(McpUiAction::Disable { name })),
             Err(msg) => CommandResult::error(msg),
         },
-        "remove" | "rm" => match parse_name(parts.next(), "Usage: /mcp remove <name>") {
+        "remove" | "rm" => match parse_name(parts.next(), &app.tr(MessageId::UsageMcpRemove)) {
             Ok(name) => CommandResult::action(AppAction::Mcp(McpUiAction::Remove { name })),
             Err(msg) => CommandResult::error(msg),
         },
         "validate" => CommandResult::action(AppAction::Mcp(McpUiAction::Validate)),
         "reload" | "reconnect" => CommandResult::action(AppAction::Mcp(McpUiAction::Reload)),
-        _ => CommandResult::error(
-            "Usage: /mcp [init|add stdio <name> <command> [args...]|add http <name> <url>|enable <name>|disable <name>|remove <name>|validate|reload]",
-        ),
+        _ => CommandResult::error(app.tr(MessageId::UsageMcp)),
     }
 }
 
@@ -44,11 +43,10 @@ fn parse_name(name: Option<&str>, usage: &str) -> Result<String, String> {
     }
 }
 
-fn parse_add(parts: Vec<&str>) -> CommandResult {
+fn parse_add(app: &mut App, parts: Vec<&str>) -> CommandResult {
+    let usage = app.tr(MessageId::UsageMcpAdd);
     if parts.len() < 3 {
-        return CommandResult::error(
-            "Usage: /mcp add stdio <name> <command> [args...] OR /mcp add http <name> <url>",
-        );
+        return CommandResult::error(usage);
     }
     match parts[0].to_ascii_lowercase().as_str() {
         "stdio" => CommandResult::action(AppAction::Mcp(McpUiAction::AddStdio {
@@ -60,9 +58,7 @@ fn parse_add(parts: Vec<&str>) -> CommandResult {
             name: parts[1].to_string(),
             url: parts[2].to_string(),
         })),
-        _ => CommandResult::error(
-            "Usage: /mcp add stdio <name> <command> [args...] OR /mcp add http <name> <url>",
-        ),
+        _ => CommandResult::error(usage),
     }
 }
 

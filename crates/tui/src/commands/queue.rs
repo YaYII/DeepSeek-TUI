@@ -1,5 +1,6 @@
 //! Queue commands: queue list/edit/drop/clear
 
+use crate::localization::MessageId;
 use crate::tui::app::App;
 
 use super::CommandResult;
@@ -19,7 +20,7 @@ pub fn queue(app: &mut App, args: Option<&str>) -> CommandResult {
         "edit" => edit_queue(app, parts.next()),
         "drop" | "remove" | "rm" => drop_queue(app, parts.next()),
         "clear" => clear_queue(app),
-        _ => CommandResult::error("Usage: /queue [list|edit <n>|drop <n>|clear]"),
+        _ => CommandResult::error(app.tr(MessageId::UsageQueue)),
     }
 }
 
@@ -34,7 +35,7 @@ fn list_queue(app: &mut App) -> CommandResult {
 
     if queued == 0 {
         if lines.is_empty() {
-            return CommandResult::message("No queued messages");
+            return CommandResult::message(app.tr(MessageId::CmdNoQueuedMessages));
         }
         return CommandResult::message(lines.join("\n"));
     }
@@ -100,7 +101,7 @@ fn clear_queue(app: &mut App) -> CommandResult {
         return CommandResult::message("Queue already empty");
     }
 
-    CommandResult::message("Queue cleared")
+    CommandResult::message(app.tr(MessageId::CmdQueueCleared))
 }
 
 fn parse_index(input: Option<&str>) -> Result<usize, &'static str> {

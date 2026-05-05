@@ -3,6 +3,7 @@
 
 use std::fmt::Write;
 
+use crate::localization::MessageId;
 use crate::tui::app::App;
 
 use super::CommandResult;
@@ -45,12 +46,10 @@ pub fn list_cycles(app: &App) -> CommandResult {
 /// `/cycle <n>` — print the full briefing for cycle `n`.
 pub fn show_cycle(app: &App, arg: Option<&str>) -> CommandResult {
     let Some(raw) = arg.map(str::trim) else {
-        return CommandResult::error(
-            "Usage: /cycle <n>  — n is the cycle number from /cycles".to_string(),
-        );
+        return CommandResult::error(app.tr(MessageId::UsageCycle));
     };
     if raw.is_empty() {
-        return CommandResult::error("Usage: /cycle <n>".to_string());
+        return CommandResult::error(app.tr(MessageId::UsageCycle));
     }
     let Ok(n) = raw.parse::<u32>() else {
         return CommandResult::error(format!(
