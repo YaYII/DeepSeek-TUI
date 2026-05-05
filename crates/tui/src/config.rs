@@ -15,6 +15,9 @@ use crate::hooks::HooksConfig;
 
 pub const DEFAULT_MAX_SUBAGENTS: usize = 10;
 pub const MAX_SUBAGENTS: usize = 20;
+// Note: Default model and base URL constants below mirror the values
+// declared in `assets/providers.json`. Edit that file to update provider
+// default models, base URLs, and display names without recompiling.
 pub const DEFAULT_TEXT_MODEL: &str = "deepseek-v4-pro";
 pub const DEFAULT_NVIDIA_NIM_MODEL: &str = "deepseek-ai/deepseek-v4-pro";
 pub const DEFAULT_NVIDIA_NIM_FLASH_MODEL: &str = "deepseek-ai/deepseek-v4-flash";
@@ -32,6 +35,11 @@ pub const DEFAULT_SGLANG_FLASH_MODEL: &str = "deepseek-ai/DeepSeek-V4-Flash";
 pub const DEFAULT_SGLANG_BASE_URL: &str = "http://localhost:30000/v1";
 pub const DEFAULT_DEEPSEEKCN_BASE_URL: &str = "https://api.deepseeki.com";
 const API_KEYRING_SENTINEL: &str = "__KEYRING__";
+/// Common DeepSeek model IDs shown in model-picker hints.
+///
+/// These values mirror the `common_models` array in
+/// `assets/providers.json`. Edit that file to update the list
+/// without recompiling Rust code.
 pub const COMMON_DEEPSEEK_MODELS: &[&str] = &[
     "deepseek-v4-pro",
     "deepseek-v4-flash",
@@ -84,8 +92,20 @@ impl ApiProvider {
     }
 
     /// Human-friendly label for picker UIs / status chips.
+    ///
+    /// Resolved from `assets/providers.json` at compile time via
+    /// [`providers_data`]. Falls back to the enum variant name when
+    /// the JSON entry is missing (graceful degradation).
     #[must_use]
     pub fn display_name(self) -> &'static str {
+        let key = self.as_str();
+        crate::providers_data::provider_display_name(key)
+            .unwrap_or_else(|| self.fallback_display_name())
+    }
+
+    /// Hardcoded fallback display name used when [`providers_data`] lookup fails.
+    /// These values mirror the defaults in `assets/providers.json`.
+    fn fallback_display_name(self) -> &'static str {
         match self {
             Self::Deepseek => "DeepSeek",
             Self::DeepseekCN => "DeepSeek (中国)",
@@ -162,48 +182,32 @@ pub struct ModelDeprecation {
 }
 
 /// Known deprecations for legacy DeepSeek model aliases.
-fn deepseek_legacy_aliases() -> &'static [ModelDeprecation] {
-    use std::sync::OnceLock;
-    static ALIASES: OnceLock<Vec<ModelDeprecation>> = OnceLock::new();
-    ALIASES.get_or_init(|| {
-        vec![
-            ModelDeprecation {
-                alias: String::from("deepseek-chat"),
-                replacement: String::from("deepseek-v4-flash"),
-                notice: String::from("Deprecated; will be removed in a future release. Use 'deepseek-v4-flash' instead."),
-            },
-            ModelDeprecation {
-                alias: String::from("deepseek-reasoner"),
-                replacement: String::from("deepseek-v4-flash"),
-                notice: String::from("Deprecated; will be removed in a future release. Use 'deepseek-v4-flash' instead."),
-            },
-            ModelDeprecation {
-                alias: String::from("deepseek-r1"),
-                replacement: String::from("deepseek-v4-flash"),
-                notice: String::from("Deprecated; will be removed in a future release. Use 'deepseek-v4-flash' instead."),
-            },
-            ModelDeprecation {
-                alias: String::from("deepseek-v3"),
-                replacement: String::from("deepseek-v4-flash"),
-                notice: String::from("Deprecated; will be removed in a future release. Use 'deepseek-v4-flash' instead."),
-            },
-            ModelDeprecation {
-                alias: String::from("deepseek-v3.2"),
-                replacement: String::from("deepseek-v4-flash"),
-                notice: String::from("Deprecated; will be removed in a future release. Use 'deepseek-v4-flash' instead."),
-            },
-        ]
-    })
+///
+/// Primary source is `assets/providers.json` (`model_aliases` section).
+/// This function acts as a cache that loads from [`providers_data`] on
+/// first call. Edit `providers.json` to update deprecation notices
+/// without recompiling Rust code.
+fn deepseek_legacy_aliases() -> Vec<ModelDeprecation> {
+    crate::providers_data::deprecated_aliases()
+        .into_iter()
+        .map(|(alias, replacement, notice)| ModelDeprecation {
+            alias,
+            replacement,
+            notice,
+        })
+        .collect()
 }
 
 /// Check if a model name is a known legacy alias and return its deprecation info.
 ///
 /// This matches the same list as [`canonical_model_name`] and
 /// [`normalize_model_name`], returning deprecation metadata for each alias.
+///
+/// Primary data source is `assets/providers.json` (`model_aliases` section).
 #[must_use]
-pub fn deprecation_for_model(model: &str) -> Option<&'static ModelDeprecation> {
+pub fn deprecation_for_model(model: &str) -> Option<ModelDeprecation> {
     let lower = model.trim().to_ascii_lowercase();
-    deepseek_legacy_aliases().iter().find(|d| d.alias == lower)
+    crate::providers_data::model_deprecation(&lower)
 }
 
 /// Resolve the provider capability for a given [`ApiProvider`] and resolved
@@ -251,6 +255,8 @@ pub fn provider_capability(provider: ApiProvider, resolved_model: &str) -> Provi
     // Deprecation: check if the original model name (before normalization)
     // is a known legacy alias. We check the resolved model since that's what
     // we have here; the caller should also check the user-facing model.
+    //
+    // Data source: `assets/providers.json` (`model_aliases` section).
     let deprecation = deprecation_for_model(resolved_model);
 
     ProviderCapability {
@@ -261,24 +267,26 @@ pub fn provider_capability(provider: ApiProvider, resolved_model: &str) -> Provi
         thinking_supported,
         cache_telemetry_supported,
         request_payload_mode,
-        deprecation: deprecation.cloned(),
+        deprecation,
     }
 }
 
 /// Canonicalize common model aliases to stable DeepSeek IDs.
 ///
+/// Primary data source is `assets/providers.json` (`model_aliases` section).
 /// Legacy `deepseek-chat` / `deepseek-reasoner` remain silent aliases for the
 /// current fast V4 model.
 #[must_use]
 pub fn canonical_model_name(model: &str) -> Option<&'static str> {
-    match model.trim().to_ascii_lowercase().as_str() {
-        "deepseek-v4-pro" | "deepseek-v4pro" => Some("deepseek-v4-pro"),
-        "deepseek-v4-flash" | "deepseek-v4flash" => Some("deepseek-v4-flash"),
-        "deepseek-chat" | "deepseek-reasoner" | "deepseek-r1" | "deepseek-v3" | "deepseek-v3.2" => {
-            Some("deepseek-v4-flash")
-        }
-        _ => None,
+    let trimmed = model.trim();
+    // First check the explicit canonical names (fast path).
+    match trimmed.to_ascii_lowercase().as_str() {
+        "deepseek-v4-pro" => return Some("deepseek-v4-pro"),
+        "deepseek-v4-flash" => return Some("deepseek-v4-flash"),
+        _ => {}
     }
+    // Then check providers.json aliases.
+    crate::providers_data::resolve_model_alias(trimmed)
 }
 
 /// Normalize a configured/runtime model name.

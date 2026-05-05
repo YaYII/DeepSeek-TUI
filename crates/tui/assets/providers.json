@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "description": "Provider metadata, default credentials, and model alias mappings. Edit to customize provider display names, add new providers, or update model deprecations.\nAI TRANSLATION NOTE: The display_name, display_name_cn, notice, and description fields can be translated. URLs, model IDs (deepseek-v4-pro), and default_model/base_url keys should remain in their original form.",
+
+  "providers": {
+    "deepseek": {
+      "display_name": "DeepSeek",
+      "display_name_cn": "DeepSeek (中国)",
+      "default_model": "deepseek-v4-pro",
+      "default_flash_model": "deepseek-v4-flash",
+      "default_base_url": "https://api.deepseek.com",
+      "default_base_url_cn": "https://api.deepseeki.com",
+      "models": ["deepseek-v4-pro", "deepseek-v4-flash"]
+    },
+    "nvidia_nim": {
+      "display_name": "NVIDIA NIM",
+      "default_model": "deepseek-ai/deepseek-v4-pro",
+      "default_flash_model": "deepseek-ai/deepseek-v4-flash",
+      "default_base_url": "https://integrate.api.nvidia.com/v1",
+      "models": ["deepseek-ai/deepseek-v4-pro", "deepseek-ai/deepseek-v4-flash"]
+    },
+    "openrouter": {
+      "display_name": "OpenRouter",
+      "default_model": "deepseek/deepseek-v4-pro",
+      "default_flash_model": "deepseek/deepseek-v4-flash",
+      "default_base_url": "https://openrouter.ai/api/v1",
+      "models": ["deepseek/deepseek-v4-pro", "deepseek/deepseek-v4-flash"]
+    },
+    "novita": {
+      "display_name": "Novita AI",
+      "default_model": "deepseek/deepseek-v4-pro",
+      "default_flash_model": "deepseek/deepseek-v4-flash",
+      "default_base_url": "https://api.novita.ai/v1",
+      "models": ["deepseek/deepseek-v4-pro", "deepseek/deepseek-v4-flash"]
+    },
+    "fireworks": {
+      "display_name": "Fireworks AI",
+      "default_model": "accounts/fireworks/models/deepseek-v4-pro",
+      "default_flash_model": "accounts/fireworks/models/deepseek-v4-flash",
+      "default_base_url": "https://api.fireworks.ai/inference/v1",
+      "models": ["accounts/fireworks/models/deepseek-v4-pro", "accounts/fireworks/models/deepseek-v4-flash"]
+    },
+    "sglang": {
+      "display_name": "SGLang",
+      "default_model": "deepseek-ai/DeepSeek-V4-Pro",
+      "default_flash_model": "deepseek-ai/DeepSeek-V4-Flash",
+      "default_base_url": "http://localhost:30000/v1",
+      "models": ["deepseek-ai/DeepSeek-V4-Pro", "deepseek-ai/DeepSeek-V4-Flash"]
+    }
+  },
+
+  "model_aliases": {
+    "deepseek-chat": {
+      "canonical": "deepseek-v4-flash",
+      "deprecated": true,
+      "notice": "Deprecated; will be removed in a future release. Use 'deepseek-v4-flash' instead."
+    },
+    "deepseek-reasoner": {
+      "canonical": "deepseek-v4-flash",
+      "deprecated": true,
+      "notice": "Deprecated; will be removed in a future release. Use 'deepseek-v4-flash' instead."
+    },
+    "deepseek-r1": {
+      "canonical": "deepseek-v4-flash",
+      "deprecated": true,
+      "notice": "Deprecated; will be removed in a future release. Use 'deepseek-v4-flash' instead."
+    },
+    "deepseek-v3": {
+      "canonical": "deepseek-v4-flash",
+      "deprecated": true,
+      "notice": "Deprecated; will be removed in a future release. Use 'deepseek-v4-flash' instead."
+    },
+    "deepseek-v3.2": {
+      "canonical": "deepseek-v4-flash",
+      "deprecated": true,
+      "notice": "Deprecated; will be removed in a future release. Use 'deepseek-v4-flash' instead."
+    },
+    "deepseek-v4pro": {
+      "canonical": "deepseek-v4-pro",
+      "deprecated": false,
+      "notice": ""
+    },
+    "deepseek-v4flash": {
+      "canonical": "deepseek-v4-flash",
+      "deprecated": false,
+      "notice": ""
+    },
+    "deepseek-v4": {
+      "canonical": "deepseek-v4-flash",
+      "deprecated": false,
+      "notice": ""
+    }
+  },
+
+  "common_models": [
+    "deepseek-v4-pro",
+    "deepseek-v4-flash",
+    "deepseek-ai/deepseek-v4-pro",
+    "deepseek-ai/deepseek-v4-flash",
+    "deepseek/deepseek-v4-pro",
+    "deepseek/deepseek-v4-flash"
+  ]
+}

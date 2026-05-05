@@ -114,6 +114,10 @@ pub const AUTO_APPROVAL: &str = include_str!("prompts/approvals/auto.md");
 pub const SUGGEST_APPROVAL: &str = include_str!("prompts/approvals/suggest.md");
 pub const NEVER_APPROVAL: &str = include_str!("prompts/approvals/never.md");
 
+/// Context management guidance — written into Agent / Yolo system prompts
+/// so the model understands prompt-cache awareness and compaction.
+pub const CONTEXT_MANAGEMENT: &str = include_str!("prompts/context_management.md");
+
 /// Compaction handoff template — written into the system prompt so the
 /// model knows the format to use when writing `.deepseek/handoff.md`.
 pub const COMPACT_TEMPLATE: &str = include_str!("prompts/compact.md");
@@ -351,22 +355,8 @@ pub fn system_prompt_for_mode_with_context_skills_and_session(
 
     // 4. Context Management (Agent / Yolo only).
     if matches!(mode, AppMode::Agent | AppMode::Yolo) {
-        full_prompt.push_str(
-            "\n\n## Context Management\n\n\
-             When the conversation gets long (you'll see a context usage indicator), you can:\n\
-             1. Use `/compact` to summarize earlier context and free up space\n\
-             2. The system will preserve important information (files you're working on, recent messages, tool results)\n\
-             3. After compaction, you'll see a summary of what was discussed and can continue seamlessly\n\n\
-             If you notice context is getting long (>80%), proactively suggest using `/compact` to the user.\n\n\
-             ### Prompt-cache awareness\n\n\
-             DeepSeek caches the longest *byte-stable prefix* of every request and charges roughly 100× less for cache-hit tokens than miss tokens. The system prompt above is layered most-static-first specifically so the prefix stays stable turn-over-turn. To keep cache hits high:\n\
-             - **Working set location:** the current repo working set is injected into the latest user message inside a `<turn_meta>` block. Treat it as high-priority turn metadata, not as a stable system-prompt section.\n\
-             - **Append, don't reorder.** New context goes at the end (latest user / tool messages). Reshuffling earlier messages or rewriting their content invalidates the cache for everything after the change.\n\
-             - **Don't paraphrase quoted content.** If you've already read a file, refer to it by path or line range instead of re-quoting it with different formatting.\n\
-             - **Use `/compact` as a hard reset, not a tweak.** Compaction is meant for when the cache is already losing — it intentionally rewrites the prefix to a shorter summary. Don't trigger it for small wins.\n\
-             - **Read once, refer back.** Re-reading the same file produces a different tool-result envelope than the prior read; it's cheaper to scroll back than to re-fetch.\n\
-             - **Footer chip:** the `cache hit %` chip turns red below 40% and yellow below 80%. If it's been red for several turns, that's a signal to consolidate."
-        );
+        full_prompt.push_str("\n\n");
+        full_prompt.push_str(CONTEXT_MANAGEMENT);
     }
 
     // 5. Compaction handoff template — so the model knows the format to use

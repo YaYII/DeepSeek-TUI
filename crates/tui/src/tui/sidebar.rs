@@ -16,6 +16,7 @@ use ratatui::{
 };
 
 use crate::deepseek_theme::active_theme;
+use crate::localization::{Locale, MessageId, tr};
 use crate::palette;
 use crate::tools::plan::StepStatus;
 use crate::tools::subagent::SubAgentStatus;
@@ -213,7 +214,7 @@ fn render_sidebar_plan(f: &mut Frame, area: Rect, app: &App) {
                 let nothing_above = app.goal.goal_objective.is_none() && app.cycle_count == 0;
                 if nothing_above {
                     lines.push(Line::from(Span::styled(
-                        plan_panel_empty_hint(content_width.max(1)),
+                        plan_panel_empty_hint(app.ui_locale, content_width.max(1)),
                         Style::default().fg(palette::TEXT_MUTED).italic(),
                     )));
                 }
@@ -260,7 +261,8 @@ fn render_sidebar_plan(f: &mut Frame, area: Rect, app: &App) {
                 let remaining = plan.steps().len().saturating_sub(max_steps);
                 if remaining > 0 {
                     lines.push(Line::from(Span::styled(
-                        format!("+{remaining} more steps"),
+                        tr(app.ui_locale, MessageId::SidebarNMoreSteps)
+                            .replace("{num}", &remaining.to_string()),
                         Style::default().fg(theme.plan_summary_color),
                     )));
                 }
@@ -268,13 +270,13 @@ fn render_sidebar_plan(f: &mut Frame, area: Rect, app: &App) {
         }
         Err(_) => {
             lines.push(Line::from(Span::styled(
-                "Plan state updating...",
+                tr(app.ui_locale, MessageId::SidebarPlanUpdating),
                 Style::default().fg(theme.plan_summary_color),
             )));
         }
     }
 
-    render_sidebar_section(f, area, "Plan", lines);
+    render_sidebar_section(f, area, MessageId::SidebarTitlePlan, lines, app.ui_locale);
 }
 
 /// One-line hint shown when the Plan section has nothing to display
@@ -283,8 +285,8 @@ fn render_sidebar_plan(f: &mut Frame, area: Rect, app: &App) {
 /// modes — the panel's role doesn't change between Plan / Agent /
 /// YOLO; only its content does.
 #[must_use]
-fn plan_panel_empty_hint(content_width: usize) -> String {
-    let full = "tracks update_plan / /goal / cycles";
+fn plan_panel_empty_hint(locale: Locale, content_width: usize) -> String {
+    let full = tr(locale, MessageId::SidebarPlanPanelHint);
     truncate_line_to_width(full, content_width)
 }
 
@@ -301,7 +303,7 @@ fn render_sidebar_todos(f: &mut Frame, area: Rect, app: &App) {
             let snapshot = todos.snapshot();
             if snapshot.items.is_empty() {
                 lines.push(Line::from(Span::styled(
-                    "No todos",
+                    tr(app.ui_locale, MessageId::SidebarNoTodos),
                     Style::default().fg(palette::TEXT_MUTED),
                 )));
             } else {
@@ -340,7 +342,8 @@ fn render_sidebar_todos(f: &mut Frame, area: Rect, app: &App) {
                 let remaining = snapshot.items.len().saturating_sub(max_items);
                 if remaining > 0 {
                     lines.push(Line::from(Span::styled(
-                        format!("+{remaining} more todos"),
+                        tr(app.ui_locale, MessageId::SidebarNMoreTodos)
+                            .replace("{num}", &remaining.to_string()),
                         Style::default().fg(palette::TEXT_MUTED),
                     )));
                 }
@@ -348,13 +351,13 @@ fn render_sidebar_todos(f: &mut Frame, area: Rect, app: &App) {
         }
         Err(_) => {
             lines.push(Line::from(Span::styled(
-                "Todo list updating...",
+                tr(app.ui_locale, MessageId::SidebarTodoUpdating),
                 Style::default().fg(palette::TEXT_MUTED),
             )));
         }
     }
 
-    render_sidebar_section(f, area, "Todos", lines);
+    render_sidebar_section(f, area, MessageId::SidebarTitleTodos, lines, app.ui_locale);
 }
 
 fn render_sidebar_tasks(f: &mut Frame, area: Rect, app: &App) {
@@ -382,7 +385,7 @@ fn render_sidebar_tasks(f: &mut Frame, area: Rect, app: &App) {
 
     if app.task_panel.is_empty() {
         lines.push(Line::from(Span::styled(
-            "No active tasks",
+            tr(app.ui_locale, MessageId::SidebarNoTasks),
             Style::default().fg(palette::TEXT_MUTED),
         )));
     } else {
@@ -394,9 +397,10 @@ fn render_sidebar_tasks(f: &mut Frame, area: Rect, app: &App) {
         lines.push(Line::from(vec![
             Span::styled(
                 if running == app.task_panel.len() {
-                    format!("{running} running")
+                    tr(app.ui_locale, MessageId::SidebarTaskRunning)
+                        .replace("{num}", &running.to_string())
                 } else {
-                    format!("{} active", app.task_panel.len())
+                    format!("{} {}", app.task_panel.len(), tr(app.ui_locale, MessageId::SidebarTasksActive))
                 },
                 Style::default().fg(palette::DEEPSEEK_SKY).bold(),
             ),
@@ -448,7 +452,7 @@ fn render_sidebar_tasks(f: &mut Frame, area: Rect, app: &App) {
         }
     }
 
-    render_sidebar_section(f, area, "Tasks", lines);
+    render_sidebar_section(f, area, MessageId::SidebarTitleTasks, lines, app.ui_locale);
 }
 
 fn render_sidebar_subagents(f: &mut Frame, area: Rect, app: &App) {
@@ -499,9 +503,9 @@ fn render_sidebar_subagents(f: &mut Frame, area: Rect, app: &App) {
         foreground_rlm_running,
         role_counts,
     };
-    let lines = subagent_navigator_lines(&summary, content_width);
+    let lines = subagent_navigator_lines(&summary, content_width, app.ui_locale);
 
-    render_sidebar_section(f, area, "Agents", lines);
+    render_sidebar_section(f, area, MessageId::SidebarTitleAgents, lines, app.ui_locale);
 }
 
 /// Minimal projection of the data the sub-agent sidebar needs. Lifted out
@@ -535,6 +539,7 @@ fn foreground_rlm_running(app: &App) -> bool {
 pub fn subagent_navigator_lines(
     summary: &SidebarSubagentSummary,
     content_width: usize,
+    locale: Locale,
 ) -> Vec<Line<'static>> {
     let mut lines: Vec<Line<'static>> = Vec::with_capacity(4);
 
@@ -545,7 +550,7 @@ pub fn subagent_navigator_lines(
         && !summary.foreground_rlm_running
     {
         lines.push(Line::from(Span::styled(
-            "No agents",
+            tr(locale, MessageId::SidebarNoAgents),
             Style::default().fg(palette::TEXT_MUTED),
         )));
         return lines;
@@ -563,7 +568,8 @@ pub fn subagent_navigator_lines(
     let header = if live_running > 0 {
         vec![
             Span::styled(
-                format!("{live_running} running"),
+                tr(locale, MessageId::SidebarAgentRunning)
+                    .replace("{num}", &live_running.to_string()),
                 Style::default().fg(palette::DEEPSEEK_SKY).bold(),
             ),
             Span::styled(
@@ -573,7 +579,8 @@ pub fn subagent_navigator_lines(
         ]
     } else {
         vec![Span::styled(
-            format!("{done} done"),
+            tr(locale, MessageId::SidebarAgentDone)
+                .replace("{num}", &done.to_string()),
             Style::default().fg(palette::STATUS_SUCCESS),
         )]
     };
@@ -603,7 +610,7 @@ pub fn subagent_navigator_lines(
     }
 
     lines.push(Line::from(Span::styled(
-        "(see transcript card for detail)",
+        tr(locale, MessageId::SidebarAgentDetailHint),
         Style::default().fg(palette::TEXT_MUTED).italic(),
     )));
 
@@ -695,7 +702,11 @@ fn render_context_panel(f: &mut Frame, area: Rect, app: &App) {
     }
 
     // ── LSP ──────────────────────────────────────────────────────
-    let lsp_label = if app.lsp_enabled { "on" } else { "off" };
+    let lsp_label = if app.lsp_enabled {
+        tr(app.ui_locale, MessageId::SidebarLspOn)
+    } else {
+        tr(app.ui_locale, MessageId::SidebarLspOff)
+    };
     lines.push(Line::from(Span::styled(
         format!("lsp: {}", lsp_label),
         Style::default().fg(palette::TEXT_MUTED),
@@ -733,10 +744,16 @@ fn render_context_panel(f: &mut Frame, area: Rect, app: &App) {
         )));
     }
 
-    render_sidebar_section(f, area, "Session", lines);
+    render_sidebar_section(f, area, MessageId::SidebarTitleSession, lines, app.ui_locale);
 }
 
-fn render_sidebar_section(f: &mut Frame, area: Rect, title: &str, lines: Vec<Line<'static>>) {
+fn render_sidebar_section(
+    f: &mut Frame,
+    area: Rect,
+    title_id: MessageId,
+    lines: Vec<Line<'static>>,
+    locale: Locale,
+) {
     if area.width < 4 || area.height < 3 {
         // Clear stale cells before bailing out (#400).
         Block::default().render(area, f.buffer_mut());
@@ -744,12 +761,13 @@ fn render_sidebar_section(f: &mut Frame, area: Rect, title: &str, lines: Vec<Lin
     }
 
     let theme = active_theme();
+    let title = tr(locale, title_id);
     // Truncate the panel title so it always fits within the section width
     // even after a resize. The title occupies up to 4 chars of border chrome
     // (two spaces + one space on each side), so the max title length is
     // area.width.saturating_sub(4) when borders are enabled.
     let max_title_width = area.width.saturating_sub(4).max(1) as usize;
-    let display_title = truncate_line_to_width(title, max_title_width);
+    let display_title = truncate_line_to_width(&title, max_title_width);
 
     // Constrain lines to the visible section area so a Paragraph wrap
     // overflow can't write cells outside the Block bounds (#400). The
@@ -785,6 +803,7 @@ fn render_sidebar_section(f: &mut Frame, area: Rect, title: &str, lines: Vec<Lin
 #[cfg(test)]
 mod tests {
     use super::{SidebarSubagentSummary, plan_panel_empty_hint, subagent_navigator_lines};
+    use crate::localization::Locale;
     use ratatui::text::Line;
 
     fn lines_to_text(lines: &[Line<'static>]) -> Vec<String> {
@@ -806,7 +825,7 @@ mod tests {
         // The hint replaces the old "No active plan" placeholder; it
         // should explain what the panel tracks so the user can tell
         // whether the panel is broken vs simply unused this turn.
-        let hint = plan_panel_empty_hint(80);
+        let hint = plan_panel_empty_hint(Locale::En, 80);
         assert!(
             hint.contains("update_plan"),
             "hint should name the tool: {hint:?}"
@@ -820,7 +839,7 @@ mod tests {
     #[test]
     fn plan_panel_empty_hint_truncates_to_narrow_widths() {
         // Width 16 forces an ellipsis; the hint should still fit.
-        let hint = plan_panel_empty_hint(16);
+        let hint = plan_panel_empty_hint(Locale::En, 16);
         assert!(
             hint.chars().count() <= 16,
             "hint width {} > 16: {hint:?}",
@@ -833,7 +852,7 @@ mod tests {
         // Regression guard: the placeholder used to say "No active
         // plan" which made the panel look broken. The hint should
         // never re-introduce that wording.
-        let hint = plan_panel_empty_hint(80);
+        let hint = plan_panel_empty_hint(Locale::En, 80);
         assert!(
             !hint.to_ascii_lowercase().contains("no active plan"),
             "hint regressed to old placeholder: {hint:?}"
@@ -843,7 +862,7 @@ mod tests {
     #[test]
     fn navigator_empty_state_says_no_agents() {
         let summary = SidebarSubagentSummary::default();
-        let lines = subagent_navigator_lines(&summary, 32);
+        let lines = subagent_navigator_lines(&summary, 32, Locale::En);
         let text = lines_to_text(&lines);
         assert_eq!(text, vec!["No agents".to_string()]);
     }
@@ -863,7 +882,7 @@ mod tests {
             foreground_rlm_running: false,
             role_counts,
         };
-        let text = lines_to_text(&subagent_navigator_lines(&summary, 64));
+        let text = lines_to_text(&subagent_navigator_lines(&summary, 64, Locale::En));
         assert!(text[0].contains("2 running"), "header: {:?}", text[0]);
         assert!(text[0].contains("/ 3"), "total in header: {:?}", text[0]);
         assert!(
@@ -889,7 +908,7 @@ mod tests {
             role_counts: std::collections::BTreeMap::new(),
         };
 
-        let text = lines_to_text(&subagent_navigator_lines(&summary, 64));
+        let text = lines_to_text(&subagent_navigator_lines(&summary, 64, Locale::En));
 
         assert!(text[0].contains("1 running"), "header: {:?}", text[0]);
         assert!(text[0].contains("/ 6"), "fanout total: {:?}", text[0]);
@@ -908,7 +927,7 @@ mod tests {
             foreground_rlm_running: false,
             role_counts,
         };
-        let text = lines_to_text(&subagent_navigator_lines(&summary, 32));
+        let text = lines_to_text(&subagent_navigator_lines(&summary, 32, Locale::En));
         assert!(text[0].contains("1 done"), "settled header: {:?}", text[0]);
     }
 
@@ -928,7 +947,7 @@ mod tests {
             foreground_rlm_running: false,
             role_counts,
         };
-        let lines = subagent_navigator_lines(&summary, 16);
+        let lines = subagent_navigator_lines(&summary, 16, Locale::En);
         let role_line: &str = lines[1]
             .spans
             .first()
@@ -946,7 +965,7 @@ mod tests {
             foreground_rlm_running: true,
             ..SidebarSubagentSummary::default()
         };
-        let text = lines_to_text(&subagent_navigator_lines(&summary, 64));
+        let text = lines_to_text(&subagent_navigator_lines(&summary, 64, Locale::En));
 
         assert!(!text[0].contains("No agents"), "header: {:?}", text);
         assert!(

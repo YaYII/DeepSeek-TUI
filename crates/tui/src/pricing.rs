@@ -1,63 +1,154 @@
 //! Cost estimation for DeepSeek API usage.
 //!
-//! Pricing based on DeepSeek's published rates (per million tokens).
+//! Pricing loaded from `assets/pricing.json` at compile time.
+//! Edit that file to update pricing without recompiling.
+
+use std::collections::HashMap;
+use std::sync::LazyLock;
 
 use chrono::{DateTime, TimeZone, Utc};
+use serde::Deserialize;
 
 use crate::models::Usage;
 
 /// Per-million-token pricing for a model.
-struct ModelPricing {
+#[derive(Debug, Clone, Copy)]
+pub struct ModelPricing {
+    pub input_cache_hit_per_million: f64,
+    pub input_cache_miss_per_million: f64,
+    pub output_per_million: f64,
+}
+
+/// A model pricing entry that may have a discounted introductory period.
+#[derive(Debug, Clone, Deserialize)]
+struct PricingEntry {
+    #[serde(default)]
+    display_name: Option<String>,
+    #[serde(default)]
+    discount_ends_at: Option<String>,
+    #[serde(default)]
+    discount: Option<FlatRates>,
+    #[serde(default)]
+    full: Option<FlatRates>,
+    /// Flat rates used when no discount period applies.
+    #[serde(default)]
+    input_cache_hit_per_million: Option<f64>,
+    #[serde(default)]
+    input_cache_miss_per_million: Option<f64>,
+    #[serde(default)]
+    output_per_million: Option<f64>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct FlatRates {
     input_cache_hit_per_million: f64,
     input_cache_miss_per_million: f64,
     output_per_million: f64,
 }
 
-fn v4_pro_discount_ends_at() -> DateTime<Utc> {
-    Utc.with_ymd_and_hms(2026, 5, 31, 15, 59, 0)
-        .single()
-        .expect("valid DeepSeek V4 Pro discount end timestamp")
+#[derive(Debug, Clone, Deserialize)]
+struct PricingData {
+    #[serde(default)]
+    schema_version: u32,
+    models: HashMap<String, PricingEntry>,
+    #[serde(default)]
+    aliases: HashMap<String, String>,
 }
 
-/// Look up pricing for a model name.
+/// Loaded pricing data from `assets/pricing.json`.
+static PRICING_DATA: LazyLock<PricingData> = LazyLock::new(|| {
+    serde_json::from_str(include_str!("../assets/pricing.json"))
+        .expect("Failed to parse embedded pricing.json — check its JSON syntax")
+});
+
+/// Resolve a model name to its canonical pricing key.
+/// Handles aliases (deepseek-chat → deepseek-v4-flash) and
+/// normalisation (case-insensitive matching).
+fn resolve_pricing_key(model: &str) -> Option<String> {
+    let lower = model.to_lowercase().trim().to_string();
+
+    // Check exact alias match first.
+    if let Some(canonical) = PRICING_DATA.aliases.get(&lower) {
+        return Some(canonical.clone());
+    }
+
+    // Check direct model match.
+    if PRICING_DATA.models.contains_key(&lower) {
+        return Some(lower);
+    }
+
+    // Try matching common prefixes by checking if any model key is a
+    // suffix or prefix of the given model name.
+    for (key, _) in &PRICING_DATA.models {
+        if lower.contains(key) || key.contains(&lower) {
+            return Some(key.clone());
+        }
+    }
+
+    None
+}
+
+/// Get pricing for a model, resolving aliases and discount periods.
 fn pricing_for_model(model: &str) -> Option<ModelPricing> {
     pricing_for_model_at(model, Utc::now())
 }
 
+fn parse_discount_end(s: &str) -> Option<DateTime<Utc>> {
+    // Try ISO 8601 format first.
+    if let Ok(dt) = DateTime::parse_from_rfc3339(s) {
+        return Some(dt.with_timezone(&Utc));
+    }
+    // Try a more lenient parse.
+    if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S") {
+        return Some(Utc.from_utc_datetime(&dt));
+    }
+    None
+}
+
 fn pricing_for_model_at(model: &str, now: DateTime<Utc>) -> Option<ModelPricing> {
     let lower = model.to_lowercase();
+
+    // NVIDIA NIM-hosted DeepSeek uses NVIDIA's catalog/account terms, not
+    // DeepSeek Platform pricing. Avoid showing misleading DeepSeek costs.
     if lower.starts_with("deepseek-ai/") {
-        // NVIDIA NIM-hosted DeepSeek uses NVIDIA's catalog/account terms, not
-        // DeepSeek Platform pricing. Avoid showing misleading DeepSeek costs.
         return None;
     }
+
     if !lower.contains("deepseek") {
         return None;
     }
-    if lower.contains("v4-pro") || lower.contains("v4pro") {
-        if now <= v4_pro_discount_ends_at() {
-            // DeepSeek lists these as a limited-time 75% discount through
-            // 2026-05-31 15:59 UTC.
+
+    let key = resolve_pricing_key(model)?;
+    let entry = PRICING_DATA.models.get(&key)?;
+
+    // If the entry has a discount period with full rates, check if discount applies.
+    if let (Some(discount_ends), Some(discount_rates), Some(full_rates)) = (
+        entry.discount_ends_at.as_ref(),
+        entry.discount.as_ref(),
+        entry.full.as_ref(),
+    ) {
+        if let Some(end_dt) = parse_discount_end(discount_ends) {
+            if now <= end_dt {
+                return Some(ModelPricing {
+                    input_cache_hit_per_million: discount_rates.input_cache_hit_per_million,
+                    input_cache_miss_per_million: discount_rates.input_cache_miss_per_million,
+                    output_per_million: discount_rates.output_per_million,
+                });
+            }
             return Some(ModelPricing {
-                input_cache_hit_per_million: 0.003625,
-                input_cache_miss_per_million: 0.435,
-                output_per_million: 0.87,
+                input_cache_hit_per_million: full_rates.input_cache_hit_per_million,
+                input_cache_miss_per_million: full_rates.input_cache_miss_per_million,
+                output_per_million: full_rates.output_per_million,
             });
         }
-        Some(ModelPricing {
-            input_cache_hit_per_million: 0.0145,
-            input_cache_miss_per_million: 1.74,
-            output_per_million: 3.48,
-        })
-    } else {
-        // deepseek-v4-flash and legacy aliases (deepseek-chat, deepseek-reasoner,
-        // deepseek-v3*) all price as v4-flash.
-        Some(ModelPricing {
-            input_cache_hit_per_million: 0.0028,
-            input_cache_miss_per_million: 0.14,
-            output_per_million: 0.28,
-        })
     }
+
+    // Flat rates (no discount period).
+    Some(ModelPricing {
+        input_cache_hit_per_million: entry.input_cache_hit_per_million.unwrap_or(0.0),
+        input_cache_miss_per_million: entry.input_cache_miss_per_million.unwrap_or(0.0),
+        output_per_million: entry.output_per_million.unwrap_or(0.0),
+    })
 }
 
 /// Calculate cost for a turn given token usage and model.
@@ -173,5 +264,20 @@ mod tests {
         assert_eq!(pricing.input_cache_hit_per_million, 0.0028);
         assert_eq!(pricing.input_cache_miss_per_million, 0.14);
         assert_eq!(pricing.output_per_million, 0.28);
+    }
+
+    #[test]
+    fn v4_pro_uses_discount_with_alias() {
+        // v4pro alias should resolve to v4-pro pricing
+        let now = Utc.with_ymd_and_hms(2026, 4, 25, 0, 0, 0).single().unwrap();
+        let pricing = pricing_for_model_at("deepseek-v4pro", now).unwrap();
+        assert_eq!(pricing.input_cache_hit_per_million, 0.003625);
+    }
+
+    #[test]
+    fn flash_uses_flat_rates_with_alias() {
+        let now = Utc.with_ymd_and_hms(2026, 4, 25, 0, 0, 0).single().unwrap();
+        let pricing = pricing_for_model_at("deepseek-chat", now).unwrap();
+        assert_eq!(pricing.input_cache_hit_per_million, 0.0028);
     }
 }

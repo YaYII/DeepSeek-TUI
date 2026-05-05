@@ -3,7 +3,7 @@ use ratatui::{buffer::Buffer, layout::Rect};
 use std::cell::Cell;
 use std::fmt;
 
-use crate::localization::{Locale, MessageId, tr};
+use crate::localization::{Locale, MessageId, tr, tr_fmt};
 use crate::palette;
 use crate::settings::Settings;
 use crate::tools::UserInputResponse;
@@ -1177,16 +1177,18 @@ impl ModalView for ConfigView {
         let (lines, footer) = if let Some(edit) = self.editing.as_ref() {
             let mut lines: Vec<Line> = Vec::new();
             lines.push(Line::from(vec![Span::styled(
-                format!("Edit {}", edit.key),
+                tr_fmt(self.locale, MessageId::ConfigEditorEditTitle, &[("key", &edit.key)]),
                 Style::default().fg(palette::DEEPSEEK_SKY).bold(),
             )]));
             lines.push(Line::from(""));
             lines.push(Line::from(vec![
-                Span::styled("Scope: ", Style::default().fg(palette::TEXT_MUTED)),
+                Span::styled(tr(self.locale, MessageId::ConfigEditorScope), Style::default().fg(palette::TEXT_MUTED)),
+                Span::styled(" ", Style::default().fg(palette::TEXT_MUTED)),
                 Span::raw(edit.scope.label()),
             ]));
             lines.push(Line::from(vec![
-                Span::styled("Current: ", Style::default().fg(palette::TEXT_MUTED)),
+                Span::styled(tr(self.locale, MessageId::ConfigEditorCurrent), Style::default().fg(palette::TEXT_MUTED)),
+                Span::styled(" ", Style::default().fg(palette::TEXT_MUTED)),
                 Span::raw(truncate_view_text(&edit.original_value, 60)),
             ]));
             lines.push(Line::from(""));
@@ -1195,14 +1197,14 @@ impl ModalView for ConfigView {
             let hint = config_hint_for_key(&edit.key);
             if !hint.is_empty() {
                 lines.push(Line::from(vec![
-                    Span::styled("Hint: ", Style::default().fg(palette::TEXT_MUTED)),
+                    Span::styled(tr(self.locale, MessageId::ConfigEditorHint), Style::default().fg(palette::TEXT_MUTED)),
+                    Span::styled(" ", Style::default().fg(palette::TEXT_MUTED)),
                     Span::raw(hint),
                 ]));
             }
             (
                 lines,
-                " Enter=apply, Esc=cancel, Ctrl+U=clear, Ctrl+A=all, \u{2190}/\u{2192}=move "
-                    .to_string(),
+                tr(self.locale, MessageId::ConfigEditorFooter).to_string(),
             )
         } else {
             let content_height = usize::from(inner.height);

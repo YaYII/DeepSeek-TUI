@@ -40,6 +40,7 @@ use crate::core::engine::{EngineConfig, EngineHandle, spawn_engine};
 use crate::core::events::Event as EngineEvent;
 use crate::core::ops::Op;
 use crate::hooks::HookEvent;
+use crate::localization::MessageId;
 use crate::models::{ContentBlock, Message, SystemPrompt, context_window_for_model};
 use crate::palette;
 use crate::prompts;
@@ -2107,7 +2108,7 @@ async fn run_event_loop(
                 KeyCode::Char('1') if key.modifiers.contains(KeyModifiers::ALT) => {
                     if key.modifiers.contains(KeyModifiers::CONTROL) {
                         app.set_sidebar_focus(SidebarFocus::Plan);
-                        app.status_message = Some("Sidebar focus: plan".to_string());
+                        app.status_message = Some(tr(app.ui_locale, MessageId::SidebarFocusPlan).to_string());
                     } else {
                         app.set_mode(AppMode::Plan);
                     }
@@ -2116,7 +2117,7 @@ async fn run_event_loop(
                 KeyCode::Char('2') if key.modifiers.contains(KeyModifiers::ALT) => {
                     if key.modifiers.contains(KeyModifiers::CONTROL) {
                         app.set_sidebar_focus(SidebarFocus::Todos);
-                        app.status_message = Some("Sidebar focus: todos".to_string());
+                        app.status_message = Some(tr(app.ui_locale, MessageId::SidebarFocusTodos).to_string());
                     } else {
                         app.set_mode(AppMode::Agent);
                     }
@@ -2125,7 +2126,7 @@ async fn run_event_loop(
                 KeyCode::Char('3') if key.modifiers.contains(KeyModifiers::ALT) => {
                     if key.modifiers.contains(KeyModifiers::CONTROL) {
                         app.set_sidebar_focus(SidebarFocus::Tasks);
-                        app.status_message = Some("Sidebar focus: tasks".to_string());
+                        app.status_message = Some(tr(app.ui_locale, MessageId::SidebarFocusTasks).to_string());
                     } else {
                         app.set_mode(AppMode::Yolo);
                     }
@@ -2137,37 +2138,37 @@ async fn run_event_loop(
                 }
                 KeyCode::Char('!') if key.modifiers.contains(KeyModifiers::ALT) => {
                     app.set_sidebar_focus(SidebarFocus::Plan);
-                    app.status_message = Some("Sidebar focus: plan".to_string());
+                    app.status_message = Some(tr(app.ui_locale, MessageId::SidebarFocusPlan).to_string());
                     continue;
                 }
                 KeyCode::Char('@') if key.modifiers.contains(KeyModifiers::ALT) => {
                     app.set_sidebar_focus(SidebarFocus::Todos);
-                    app.status_message = Some("Sidebar focus: todos".to_string());
+                    app.status_message = Some(tr(app.ui_locale, MessageId::SidebarFocusTodos).to_string());
                     continue;
                 }
                 KeyCode::Char('#') if key.modifiers.contains(KeyModifiers::ALT) => {
                     app.set_sidebar_focus(SidebarFocus::Tasks);
-                    app.status_message = Some("Sidebar focus: tasks".to_string());
+                    app.status_message = Some(tr(app.ui_locale, MessageId::SidebarFocusTasks).to_string());
                     continue;
                 }
                 KeyCode::Char('$') if key.modifiers.contains(KeyModifiers::ALT) => {
                     app.set_sidebar_focus(SidebarFocus::Agents);
-                    app.status_message = Some("Sidebar focus: agents".to_string());
+                    app.status_message = Some(tr(app.ui_locale, MessageId::SidebarFocusAgents).to_string());
                     continue;
                 }
                 KeyCode::Char('%') if key.modifiers.contains(KeyModifiers::ALT) => {
                     app.set_sidebar_focus(SidebarFocus::Context);
-                    app.status_message = Some("Sidebar focus: context".to_string());
+                    app.status_message = Some(tr(app.ui_locale, MessageId::SidebarFocusContext).to_string());
                     continue;
                 }
                 KeyCode::Char(')') if key.modifiers.contains(KeyModifiers::ALT) => {
                     app.set_sidebar_focus(SidebarFocus::Auto);
-                    app.status_message = Some("Sidebar focus: auto".to_string());
+                    app.status_message = Some(tr(app.ui_locale, MessageId::SidebarFocusAuto).to_string());
                     continue;
                 }
                 KeyCode::Char('0') if key.modifiers.contains(KeyModifiers::ALT) => {
                     app.set_sidebar_focus(SidebarFocus::Auto);
-                    app.status_message = Some("Sidebar focus: auto".to_string());
+                    app.status_message = Some(tr(app.ui_locale, MessageId::SidebarFocusAuto).to_string());
                     continue;
                 }
                 KeyCode::Char('r') if key.modifiers.contains(KeyModifiers::CONTROL) => {
@@ -2198,7 +2199,7 @@ async fn run_event_loop(
                         // engine's eventual TurnComplete event will overwrite
                         // with the real outcome ("interrupted").
                         app.runtime_turn_status = None;
-                        app.status_message = Some("Request cancelled".to_string());
+                        app.status_message = Some(tr(app.ui_locale, MessageId::StatusRequestCancelled).to_string());
                         app.disarm_quit();
                     } else if app.quit_is_armed() {
                         let _ = engine_handle.send(Op::Shutdown).await;
@@ -2258,7 +2259,7 @@ async fn run_event_loop(
                         // foreground turn.
                         app.finalize_active_cell_as_interrupted();
                         app.finalize_streaming_assistant_as_interrupted();
-                        app.status_message = Some("Request cancelled".to_string());
+                        app.status_message = Some(tr(app.ui_locale, MessageId::StatusRequestCancelled).to_string());
                     }
                     EscapeAction::DiscardQueuedDraft => {
                         app.backtrack.reset();
@@ -2916,7 +2917,7 @@ fn handle_vim_normal_key(app: &mut App, c: char) {
 
 fn apply_alt_4_shortcut(app: &mut App, _modifiers: KeyModifiers) {
     app.set_sidebar_focus(SidebarFocus::Agents);
-    app.status_message = Some("Sidebar focus: agents".to_string());
+    app.status_message = Some(tr(app.ui_locale, MessageId::SidebarFocusAgents).to_string());
 }
 
 async fn fetch_available_models(config: &Config) -> Result<Vec<String>> {
@@ -4950,7 +4951,7 @@ fn refresh_live_transcript_overlay(app: &mut App) {
 /// `ViewEvent::Backtrack*` so the main key dispatcher can advance the
 /// `BacktrackState` and apply the rewind on confirm.
 fn open_backtrack_overlay(app: &mut App) {
-    let mut overlay = LiveTranscriptOverlay::new();
+    let mut overlay = LiveTranscriptOverlay::new(app.ui_locale);
     overlay.refresh_from_app(app);
     overlay.set_backtrack_preview(0);
     app.view_stack.push(overlay);
@@ -4967,7 +4968,7 @@ fn toggle_live_transcript_overlay(app: &mut App) {
         app.needs_redraw = true;
         return;
     }
-    let mut overlay = LiveTranscriptOverlay::new();
+    let mut overlay = LiveTranscriptOverlay::new(app.ui_locale);
     overlay.refresh_from_app(app);
     app.view_stack.push(overlay);
     app.status_message = Some("Live transcript: tailing (Esc to close)".to_string());
@@ -5277,7 +5278,7 @@ async fn handle_view_events(
                 app.runtime_turn_status = None;
                 app.finalize_active_cell_as_interrupted();
                 app.finalize_streaming_assistant_as_interrupted();
-                app.status_message = Some("Request cancelled".to_string());
+                app.status_message = Some(tr(app.ui_locale, MessageId::StatusRequestCancelled).to_string());
             }
         }
     }
@@ -6002,32 +6003,32 @@ fn active_tool_status_label(app: &App) -> Option<String> {
 
 fn open_shell_control(app: &mut App) {
     if !app.is_loading || !active_foreground_shell_running(app) {
-        app.status_message = Some("No foreground shell command to control".to_string());
+        app.status_message = Some(tr(app.ui_locale, MessageId::ShellControlNoForeground).to_string());
         return;
     }
 
     app.view_stack.push(ShellControlView::new());
-    app.status_message = Some("Shell control opened".to_string());
+    app.status_message = Some(tr(app.ui_locale, MessageId::ShellControlOpened).to_string());
 }
 
 fn request_foreground_shell_background(app: &mut App) {
     if !app.is_loading || !active_foreground_shell_running(app) {
-        app.status_message = Some("No foreground shell command to background".to_string());
+        app.status_message = Some(tr(app.ui_locale, MessageId::ShellControlNoBackground).to_string());
         return;
     }
 
     let Some(shell_manager) = app.runtime_services.shell_manager.clone() else {
-        app.status_message = Some("Shell manager is not attached".to_string());
+        app.status_message = Some(tr(app.ui_locale, MessageId::ShellControlNotAttached).to_string());
         return;
     };
 
     match shell_manager.lock() {
         Ok(mut manager) => {
             manager.request_foreground_background();
-            app.status_message = Some("Backgrounding current shell command...".to_string());
+            app.status_message = Some(tr(app.ui_locale, MessageId::ShellControlBackgrounding).to_string());
         }
         Err(_) => {
-            app.status_message = Some("Shell manager lock is poisoned".to_string());
+            app.status_message = Some(tr(app.ui_locale, MessageId::ShellControlLockPoisoned).to_string());
         }
     }
 }
@@ -6853,17 +6854,17 @@ fn build_context_menu_entries(app: &App, mouse: MouseEvent) -> Vec<ContextMenuEn
 
     if selection_has_content(app) {
         entries.push(ContextMenuEntry {
-            label: "Copy selection".to_string(),
-            description: "write selected transcript text".to_string(),
+            label: tr(app.ui_locale, MessageId::ContextMenuCopySelection).to_string(),
+            description: tr(app.ui_locale, MessageId::ContextMenuCopySelectionDesc).to_string(),
             action: ContextMenuAction::CopySelection,
         });
         entries.push(ContextMenuEntry {
-            label: "Open selection".to_string(),
-            description: "show selected text in pager".to_string(),
+            label: tr(app.ui_locale, MessageId::ContextMenuOpenSelection).to_string(),
+            description: tr(app.ui_locale, MessageId::ContextMenuOpenSelectionDesc).to_string(),
             action: ContextMenuAction::OpenSelection,
         });
         entries.push(ContextMenuEntry {
-            label: "Clear selection".to_string(),
+            label: tr(app.ui_locale, MessageId::ContextMenuClearSelection).to_string(),
             description: String::new(),
             action: ContextMenuAction::ClearSelection,
         });
@@ -6883,31 +6884,31 @@ fn build_context_menu_entries(app: &App, mouse: MouseEvent) -> Vec<ContextMenuEn
             .map(|label| truncate_line_to_width(&label, 28))
             .unwrap_or_else(|| "message".to_string());
         entries.push(ContextMenuEntry {
-            label: "Open details".to_string(),
+            label: tr(app.ui_locale, MessageId::ContextMenuOpenDetails).to_string(),
             description: target,
             action: ContextMenuAction::OpenDetails { cell_index },
         });
         entries.push(ContextMenuEntry {
-            label: "Copy message".to_string(),
-            description: "write clicked transcript cell".to_string(),
+            label: tr(app.ui_locale, MessageId::ContextMenuCopyMessage).to_string(),
+            description: tr(app.ui_locale, MessageId::ContextMenuCopyMessageDesc).to_string(),
             action: ContextMenuAction::CopyCell { cell_index },
         });
         entries.push(ContextMenuEntry {
-            label: "Open in editor".to_string(),
-            description: "open file:line in $EDITOR".to_string(),
+            label: tr(app.ui_locale, MessageId::ContextMenuOpenInEditor).to_string(),
+            description: tr(app.ui_locale, MessageId::ContextMenuOpenInEditorDesc).to_string(),
             action: ContextMenuAction::OpenFileAtLine { cell_index },
         });
         // Hide/show cell toggle.
         if app.collapsed_cells.contains(&cell_index) {
             entries.push(ContextMenuEntry {
-                label: "Show cell".to_string(),
-                description: "unhide this transcript cell".to_string(),
+                label: tr(app.ui_locale, MessageId::ContextMenuShowCell).to_string(),
+                description: tr(app.ui_locale, MessageId::ContextMenuShowCellDesc).to_string(),
                 action: ContextMenuAction::ShowCell { cell_index },
             });
         } else {
             entries.push(ContextMenuEntry {
-                label: "Hide cell".to_string(),
-                description: "collapse this transcript cell".to_string(),
+                label: tr(app.ui_locale, MessageId::ContextMenuHideCell).to_string(),
+                description: tr(app.ui_locale, MessageId::ContextMenuHideCellDesc).to_string(),
                 action: ContextMenuAction::HideCell { cell_index },
             });
         }
@@ -6917,30 +6918,30 @@ fn build_context_menu_entries(app: &App, mouse: MouseEvent) -> Vec<ContextMenuEn
     if !app.collapsed_cells.is_empty() {
         let count = app.collapsed_cells.len();
         entries.push(ContextMenuEntry {
-            label: format!("Show hidden ({count})"),
-            description: "unhide all collapsed cells".to_string(),
+            label: tr(app.ui_locale, tr_fmt(app.ui_locale, MessageId::ContextMenuShowHidden, &[("count", &count.to_string())])),
+            description: tr(app.ui_locale, MessageId::ContextMenuShowHiddenDesc).to_string(),
             action: ContextMenuAction::ShowAllHidden,
         });
     }
 
     entries.push(ContextMenuEntry {
-        label: "Paste".to_string(),
-        description: "insert clipboard into composer".to_string(),
+        label: tr(app.ui_locale, MessageId::ContextMenuPaste).to_string(),
+        description: tr(app.ui_locale, MessageId::ContextMenuPasteDesc).to_string(),
         action: ContextMenuAction::Paste,
     });
     entries.push(ContextMenuEntry {
-        label: "Command palette".to_string(),
-        description: "commands, skills, and tools".to_string(),
+        label: tr(app.ui_locale, MessageId::ContextMenuCommandPalette).to_string(),
+        description: tr(app.ui_locale, MessageId::ContextMenuCommandPaletteDesc).to_string(),
         action: ContextMenuAction::OpenCommandPalette,
     });
     entries.push(ContextMenuEntry {
-        label: "Context inspector".to_string(),
-        description: "active context and cache hints".to_string(),
+        label: tr(app.ui_locale, MessageId::ContextMenuContextInspector).to_string(),
+        description: tr(app.ui_locale, MessageId::ContextMenuContextInspectorDesc).to_string(),
         action: ContextMenuAction::OpenContextInspector,
     });
     entries.push(ContextMenuEntry {
-        label: "Help".to_string(),
-        description: "keybindings and commands".to_string(),
+        label: tr(app.ui_locale, MessageId::ContextMenuHelp).to_string(),
+        description: tr(app.ui_locale, MessageId::ContextMenuHelpDesc).to_string(),
         action: ContextMenuAction::OpenHelp,
     });
 
@@ -6964,19 +6965,19 @@ fn handle_context_menu_action(app: &mut App, action: ContextMenuAction) {
         }
         ContextMenuAction::OpenSelection => {
             if !open_pager_for_selection(app) {
-                app.status_message = Some("No selection to open".to_string());
+                app.status_message = Some(tr(app.ui_locale, MessageId::StatusNoSelection).to_string());
             }
         }
         ContextMenuAction::ClearSelection => {
             app.viewport.transcript_selection.clear();
-            app.status_message = Some("Selection cleared".to_string());
+            app.status_message = Some(tr(app.ui_locale, MessageId::StatusSelectionCleared).to_string());
         }
         ContextMenuAction::CopyCell { cell_index } => {
             copy_cell_to_clipboard(app, cell_index);
         }
         ContextMenuAction::OpenDetails { cell_index } => {
             if !open_details_pager_for_cell(app, cell_index) {
-                app.status_message = Some("No details available for that line".to_string());
+                app.status_message = Some(tr(app.ui_locale, MessageId::StatusNoDetails).to_string());
             }
         }
         ContextMenuAction::Paste => {
@@ -7012,23 +7013,23 @@ fn handle_context_menu_action(app: &mut App, action: ContextMenuAction) {
                 width,
             );
             if crate::tui::history::try_open_file_at_line(&text, &app.workspace) {
-                app.status_message = Some("Opened file in editor".to_string());
+                app.status_message = Some(tr(app.ui_locale, MessageId::StatusOpenedFileInEditor).to_string());
             } else {
-                app.status_message = Some("No file:line pattern found in selection".to_string());
+                app.status_message = Some(tr(app.ui_locale, MessageId::StatusNoFileLinePattern).to_string());
             }
         }
         ContextMenuAction::HideCell { cell_index } => {
             app.collapsed_cells.insert(cell_index);
-            app.status_message = Some("Cell hidden".to_string());
+            app.status_message = Some(tr(app.ui_locale, MessageId::StatusCellHidden).to_string());
         }
         ContextMenuAction::ShowCell { cell_index } => {
             app.collapsed_cells.remove(&cell_index);
-            app.status_message = Some("Cell shown".to_string());
+            app.status_message = Some(tr(app.ui_locale, MessageId::StatusCellShown).to_string());
         }
         ContextMenuAction::ShowAllHidden => {
             let count = app.collapsed_cells.len();
             app.collapsed_cells.clear();
-            app.status_message = Some(format!("{count} hidden cell(s) restored"));
+            app.status_message = Some(tr(app.ui_locale, tr_fmt(app.ui_locale, MessageId::StatusShowHidden, &[("count", &count.to_string())])));
         }
     }
     app.needs_redraw = true;
@@ -7092,13 +7093,13 @@ fn copy_active_selection(app: &mut App) {
     }
     if let Some(text) = selection_to_text(app).filter(|text| !text.is_empty()) {
         if app.clipboard.write_text(&text).is_ok() {
-            app.status_message = Some("Selection copied".to_string());
+            app.status_message = Some(tr(app.ui_locale, MessageId::StatusSelectionCopied).to_string());
         } else {
-            app.status_message = Some("Copy failed".to_string());
+            app.status_message = Some(tr(app.ui_locale, MessageId::StatusCopyFailed).to_string());
         }
     } else {
         app.viewport.transcript_selection.clear();
-        app.status_message = Some("No selection to copy".to_string());
+        app.status_message = Some(tr(app.ui_locale, MessageId::StatusNoSelectionToCopy).to_string());
     }
 }
 
@@ -7297,18 +7298,18 @@ fn open_details_pager_for_cell(app: &mut App, cell_index: usize) -> bool {
     }
 
     let Some(cell) = app.cell_at_virtual_index(cell_index) else {
-        app.status_message = Some("No details available for the selected line".to_string());
+        app.status_message = Some(tr(app.ui_locale, MessageId::StatusNoDetails).to_string());
         return false;
     };
     let title = match cell {
-        HistoryCell::User { .. } => "You".to_string(),
-        HistoryCell::Assistant { .. } => "Assistant".to_string(),
-        HistoryCell::System { .. } => "Note".to_string(),
-        HistoryCell::Error { .. } => "Error".to_string(),
-        HistoryCell::Thinking { .. } => "Reasoning".to_string(),
-        HistoryCell::Tool(_) => "Message".to_string(),
-        HistoryCell::SubAgent(_) => "Sub-agent".to_string(),
-        HistoryCell::ArchivedContext { .. } => "Archived Context".to_string(),
+        HistoryCell::User { .. } => tr(app.ui_locale, MessageId::DetailTitleYou),
+        HistoryCell::Assistant { .. } => tr(app.ui_locale, MessageId::DetailTitleAssistant),
+        HistoryCell::System { .. } => tr(app.ui_locale, MessageId::DetailTitleNote),
+        HistoryCell::Error { .. } => tr(app.ui_locale, MessageId::DetailTitleError),
+        HistoryCell::Thinking { .. } => tr(app.ui_locale, MessageId::DetailTitleReasoning),
+        HistoryCell::Tool(_) => tr(app.ui_locale, MessageId::DetailTitleMessage),
+        HistoryCell::SubAgent(_) => tr(app.ui_locale, MessageId::DetailTitleSubAgent),
+        HistoryCell::ArchivedContext { .. } => tr(app.ui_locale, MessageId::DetailTitleArchivedContext),
     };
     let width = app
         .viewport
@@ -7338,7 +7339,7 @@ fn copy_focused_cell(app: &mut App) -> bool {
 
 fn copy_cell_to_clipboard(app: &mut App, cell_index: usize) -> bool {
     let Some(cell) = app.cell_at_virtual_index(cell_index) else {
-        app.status_message = Some("No message at that line".to_string());
+        app.status_message = Some(tr(app.ui_locale, MessageId::StatusNoMessageAtLine).to_string());
         return false;
     };
     let width = app
@@ -7348,14 +7349,14 @@ fn copy_cell_to_clipboard(app: &mut App, cell_index: usize) -> bool {
         .unwrap_or(80);
     let text = history_cell_to_text(cell, width);
     if text.trim().is_empty() {
-        app.status_message = Some("Message is empty".to_string());
+        app.status_message = Some(tr(app.ui_locale, MessageId::StatusMessageEmpty).to_string());
         return false;
     }
     if app.clipboard.write_text(&text).is_ok() {
-        app.status_message = Some("Message copied".to_string());
+        app.status_message = Some(tr(app.ui_locale, MessageId::StatusMessageCopied).to_string());
         true
     } else {
-        app.status_message = Some("Copy failed".to_string());
+        app.status_message = Some(tr(app.ui_locale, MessageId::StatusCopyFailed).to_string());
         false
     }
 }

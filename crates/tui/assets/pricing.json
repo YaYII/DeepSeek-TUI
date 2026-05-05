@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "description": "DeepSeek API pricing per million tokens. Edit these values to update cost estimates without recompiling.\nAI TRANSLATION NOTE: The display_name and comment fields can be translated for UI display. Pricing numbers (input_cache_hit_per_million, etc.) should remain in their original numeric form.",
+  "default_currency": "USD",
+  "_ai_translation_note": "Brand names (DeepSeek), product names (V4 Pro, V4 Flash), and UI labels can be translated. Keep all numeric values in their original form.",
+  "models": {
+    "deepseek-v4-pro": {
+      "display_name": "DeepSeek V4 Pro",
+      "discount_ends_at": "2026-05-31T15:59:00Z",
+      "discount": {
+        "input_cache_hit_per_million": 0.003625,
+        "input_cache_miss_per_million": 0.435,
+        "output_per_million": 0.87
+      },
+      "full": {
+        "input_cache_hit_per_million": 0.0145,
+        "input_cache_miss_per_million": 1.74,
+        "output_per_million": 3.48
+      }
+    },
+    "deepseek-v4-flash": {
+      "display_name": "DeepSeek V4 Flash",
+      "input_cache_hit_per_million": 0.0028,
+      "input_cache_miss_per_million": 0.14,
+      "output_per_million": 0.28
+    }
+  },
+  "aliases": {
+    "deepseek-chat": "deepseek-v4-flash",
+    "deepseek-reasoner": "deepseek-v4-flash",
+    "deepseek-r1": "deepseek-v4-flash",
+    "deepseek-v3": "deepseek-v4-flash",
+    "deepseek-v3.2": "deepseek-v4-flash",
+    "deepseek-v4": "deepseek-v4-flash",
+    "deepseek-v4pro": "deepseek-v4-pro"
+  }
+}

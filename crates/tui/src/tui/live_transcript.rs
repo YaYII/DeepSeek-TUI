@@ -54,8 +54,9 @@ pub enum Mode {
 }
 
 /// Single-line footer hint. Kept short so it fits on narrow terminals.
-const FOOTER_HINT: &str =
-    " j/k scroll  Space/b page  g/G top/bottom  End=resume tail  q/Esc close ";
+fn footer_hint(locale: crate::localization::Locale) -> String {
+    crate::localization::tr(locale, crate::localization::MessageId::LiveTranscriptFooter).to_string()
+}
 
 /// Snapshot of one cell, refreshed every frame from `App`. Owns the cell so
 /// the overlay's `render(&self)` can wrap without re-borrowing `App`.
@@ -93,11 +94,13 @@ pub struct LiveTranscriptOverlay {
     /// Render mode — `Tail` is the live-stream mode; `BacktrackPreview`
     /// highlights the selected user message (#133).
     mode: Mode,
+    /// Current UI locale for i18n.
+    locale: crate::localization::Locale,
 }
 
 impl LiveTranscriptOverlay {
     #[must_use]
-    pub fn new() -> Self {
+    pub fn new(locale: crate::localization::Locale) -> Self {
         Self {
             snapshots: Vec::new(),
             options: TranscriptRenderOptions::default(),
@@ -108,6 +111,7 @@ impl LiveTranscriptOverlay {
             last_total_lines: RefCell::new(0),
             pending_g: false,
             mode: Mode::Tail,
+            locale,
         }
     }
 
@@ -504,7 +508,7 @@ impl ModalView for LiveTranscriptOverlay {
         };
 
         let footer = Line::from(Span::styled(
-            FOOTER_HINT,
+            footer_hint(self.locale),
             Style::default().fg(palette::TEXT_HINT),
         ));
         let block = Block::default()
@@ -562,7 +566,7 @@ mod tests {
 
     #[test]
     fn new_overlay_starts_sticky() {
-        let v = LiveTranscriptOverlay::new();
+        let v = LiveTranscriptOverlay::new(crate::localization::Locale::En);
         assert!(v.is_sticky());
         assert_eq!(v.scroll_offset(), 0);
         assert_eq!(v.snapshot_count(), 0);
@@ -570,7 +574,7 @@ mod tests {
 
     #[test]
     fn scroll_up_breaks_sticky() {
-        let mut v = LiveTranscriptOverlay::new();
+        let mut v = LiveTranscriptOverlay::new(crate::localization::Locale::En);
         install_snapshots(
             &mut v,
             (0..50).map(|i| user(&format!("line {i}"))).collect(),
@@ -585,7 +589,7 @@ mod tests {
 
     #[test]
     fn end_resumes_sticky_tail() {
-        let mut v = LiveTranscriptOverlay::new();
+        let mut v = LiveTranscriptOverlay::new(crate::localization::Locale::En);
         install_snapshots(
             &mut v,
             (0..50).map(|i| user(&format!("line {i}"))).collect(),
@@ -603,7 +607,7 @@ mod tests {
 
     #[test]
     fn scrolling_to_max_re_arms_sticky() {
-        let mut v = LiveTranscriptOverlay::new();
+        let mut v = LiveTranscriptOverlay::new(crate::localization::Locale::En);
         install_snapshots(
             &mut v,
             (0..50).map(|i| user(&format!("line {i}"))).collect(),
@@ -621,21 +625,21 @@ mod tests {
 
     #[test]
     fn esc_closes() {
-        let mut v = LiveTranscriptOverlay::new();
+        let mut v = LiveTranscriptOverlay::new(crate::localization::Locale::En);
         let action = v.handle_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
         assert!(matches!(action, ViewAction::Close));
     }
 
     #[test]
     fn ctrl_t_closes_when_already_open() {
-        let mut v = LiveTranscriptOverlay::new();
+        let mut v = LiveTranscriptOverlay::new(crate::localization::Locale::En);
         let action = v.handle_key(KeyEvent::new(KeyCode::Char('t'), KeyModifiers::CONTROL));
         assert!(matches!(action, ViewAction::Close));
     }
 
     #[test]
     fn render_does_not_panic_on_empty() {
-        let v = LiveTranscriptOverlay::new();
+        let v = LiveTranscriptOverlay::new(crate::localization::Locale::En);
         let area = Rect::new(0, 0, 40, 12);
         let mut buf = Buffer::empty(area);
         v.render(area, &mut buf);
@@ -646,7 +650,7 @@ mod tests {
         // Same revisions across two renders should reuse cache entries; only
         // a "modified" cell (different revision) forces a new wrap. Verify by
         // counting cache size — it grows by 1 per unique (cell, width, rev).
-        let mut v = LiveTranscriptOverlay::new();
+        let mut v = LiveTranscriptOverlay::new(crate::localization::Locale::En);
         install_snapshots(&mut v, vec![user("a"), user("b"), assistant("c", false)]);
         let area = Rect::new(0, 0, 60, 16);
         let mut buf = Buffer::empty(area);
@@ -662,7 +666,7 @@ mod tests {
 
     #[test]
     fn cache_invalidates_on_revision_bump() {
-        let mut v = LiveTranscriptOverlay::new();
+        let mut v = LiveTranscriptOverlay::new(crate::localization::Locale::En);
         install_snapshots(&mut v, vec![user("a"), assistant("b", true)]);
         let area = Rect::new(0, 0, 60, 16);
         let mut buf = Buffer::empty(area);
@@ -684,7 +688,7 @@ mod tests {
     fn resize_does_not_evict_unchanged_width_entries() {
         // Render at width=60, then again at width=80. Both wraps must
         // co-exist in the cache so flipping back to width=60 hits cache.
-        let mut v = LiveTranscriptOverlay::new();
+        let mut v = LiveTranscriptOverlay::new(crate::localization::Locale::En);
         install_snapshots(&mut v, vec![user("a"), user("b")]);
         let small = Rect::new(0, 0, 60, 16);
         let large = Rect::new(0, 0, 80, 16);
@@ -709,7 +713,7 @@ mod tests {
 
     #[test]
     fn backtrack_preview_disables_sticky() {
-        let mut v = LiveTranscriptOverlay::new();
+        let mut v = LiveTranscriptOverlay::new(crate::localization::Locale::En);
         assert!(v.is_sticky());
         v.set_backtrack_preview(0);
         assert!(!v.is_sticky());
@@ -721,7 +725,7 @@ mod tests {
 
     #[test]
     fn set_tail_mode_re_arms_sticky() {
-        let mut v = LiveTranscriptOverlay::new();
+        let mut v = LiveTranscriptOverlay::new(crate::localization::Locale::En);
         v.set_backtrack_preview(2);
         v.set_tail_mode();
         assert!(v.is_sticky());
@@ -732,7 +736,7 @@ mod tests {
     fn backtrack_preview_does_not_panic_with_no_user_cells() {
         // Render in preview mode against a transcript that has zero User
         // cells — the highlight scan should miss gracefully.
-        let mut v = LiveTranscriptOverlay::new();
+        let mut v = LiveTranscriptOverlay::new(crate::localization::Locale::En);
         install_snapshots(&mut v, vec![assistant("hi", false)]);
         v.set_backtrack_preview(0);
         let area = Rect::new(0, 0, 40, 10);
@@ -746,7 +750,7 @@ mod tests {
         // = 0` should highlight u2 (newest), `= 1` u1, `= 2` u0. We can
         // detect the highlight by scanning the rendered buffer for the
         // marker glyph.
-        let mut v = LiveTranscriptOverlay::new();
+        let mut v = LiveTranscriptOverlay::new(crate::localization::Locale::En);
         install_snapshots(
             &mut v,
             vec![
@@ -788,7 +792,7 @@ mod tests {
     fn backtrack_preview_out_of_range_does_not_panic() {
         // Selecting beyond the user-cell count should simply not
         // highlight anything — no panic, no marker.
-        let mut v = LiveTranscriptOverlay::new();
+        let mut v = LiveTranscriptOverlay::new(crate::localization::Locale::En);
         install_snapshots(&mut v, vec![user("only")]);
         v.set_backtrack_preview(99);
         let area = Rect::new(0, 0, 40, 10);

@@ -14,7 +14,7 @@ use crate::config_ui::ConfigUiMode;
 use crate::core::coherence::CoherenceState;
 use crate::cycle_manager::{CycleBriefing, CycleConfig};
 use crate::hooks::{HookContext, HookEvent, HookExecutor, HookResult};
-use crate::localization::{Locale, MessageId, init_locale, reload_locale, resolve_locale, tr};
+use crate::localization::{Locale, MessageId, init_locale, reload_locale, resolve_locale, tr, tr_fmt};
 use crate::models::{Message, SystemPrompt, compaction_threshold_for_model_and_effort};
 use crate::palette::{self, UiTheme};
 use crate::session_manager::SessionContextReference;
@@ -1394,7 +1394,7 @@ impl App {
         let entering_yolo = mode == AppMode::Yolo && previous_mode != AppMode::Yolo;
         let leaving_yolo = previous_mode == AppMode::Yolo && mode != AppMode::Yolo;
         self.mode = mode;
-        self.status_message = Some(format!("Switched to {} mode", mode.label()));
+        self.status_message = Some(tr_fmt(self.ui_locale, MessageId::StatusModeSwitched, &[("mode", &mode.label())]));
 
         if entering_yolo {
             self.yolo_restore = Some(YoloRestoreState {
@@ -1455,7 +1455,7 @@ impl App {
         self.reasoning_effort = self.reasoning_effort.cycle_next();
         self.needs_redraw = true;
         self.push_status_toast(
-            format!("Thinking: {}", self.reasoning_effort.short_label()),
+            tr_fmt(self.ui_locale, MessageId::StatusThinking, &[("effort", self.reasoning_effort.short_label())]),
             StatusToastLevel::Info,
             Some(1_500),
         );
@@ -2379,7 +2379,7 @@ impl App {
             .map_or(count.saturating_sub(1), |index| index.saturating_sub(1));
         self.selected_attachment_index = Some(next);
         self.cursor_position = 0;
-        self.status_message = Some("Attachment selected - Backspace/Delete removes it".to_string());
+        self.status_message = Some(self.tr(MessageId::StatusAttachmentSelected).to_string());
         self.needs_redraw = true;
         true
     }
@@ -2392,10 +2392,10 @@ impl App {
         if index + 1 < count {
             self.selected_attachment_index = Some(index + 1);
             self.status_message =
-                Some("Attachment selected - Backspace/Delete removes it".to_string());
+                Some(self.tr(MessageId::StatusAttachmentSelected).to_string());
         } else {
             self.selected_attachment_index = None;
-            self.status_message = Some("Composer focused".to_string());
+            self.status_message = Some(self.tr(MessageId::StatusComposerFocused).to_string());
         }
         self.needs_redraw = true;
         true
@@ -2403,7 +2403,7 @@ impl App {
 
     pub fn clear_composer_attachment_selection(&mut self) -> bool {
         if self.selected_attachment_index.take().is_some() {
-            self.status_message = Some("Composer focused".to_string());
+            self.status_message = Some(self.tr(MessageId::StatusComposerFocused).to_string());
             self.needs_redraw = true;
             true
         } else {
@@ -2444,7 +2444,7 @@ impl App {
         self.slash_menu_hidden = false;
         self.mention_menu_hidden = false;
         self.mention_menu_selected = 0;
-        self.status_message = Some(format!("Removed attachment: {}", reference.path));
+        self.status_message = Some(tr_fmt(self.ui_locale, MessageId::StatusRemovedAttachment, &[("path", &reference.path)]));
         self.needs_redraw = true;
         true
     }
@@ -2526,7 +2526,7 @@ impl App {
             ClipboardContent::Image(pasted) => {
                 let description = format!("{} ({})", pasted.short_label(), pasted.size_label());
                 self.insert_media_attachment("image", &pasted.path, Some(&description));
-                self.status_message = Some(format!("Attached image: {description}"));
+                self.status_message = Some(tr_fmt(self.ui_locale, MessageId::StatusAttachedImage, &[("description", &description)]));
             }
         }
     }
@@ -3072,7 +3072,7 @@ impl App {
         self.slash_menu_hidden = true;
         self.mention_menu_hidden = true;
         self.paste_burst.clear_after_explicit_paste();
-        self.status_message = Some("History search: type to filter, Enter accepts".to_string());
+        self.status_message = Some(self.tr(MessageId::StatusHistorySearchStart).to_string());
         self.needs_redraw = true;
     }
 
@@ -3151,7 +3151,7 @@ impl App {
         if let Some(search) = self.composer_history_search.as_mut() {
             search.query.push(ch);
             search.selected = 0;
-            self.status_message = Some("History search: Enter accepts, Esc restores".to_string());
+            self.status_message = Some(self.tr(MessageId::StatusHistorySearchActive).to_string());
             self.needs_redraw = true;
         }
     }
@@ -3163,7 +3163,7 @@ impl App {
         if let Some(search) = self.composer_history_search.as_mut() {
             search.query.push_str(&normalize_paste_text(text));
             search.selected = 0;
-            self.status_message = Some("History search: Enter accepts, Esc restores".to_string());
+            self.status_message = Some(self.tr(MessageId::StatusHistorySearchActive).to_string());
             self.needs_redraw = true;
         }
     }
@@ -3211,12 +3211,12 @@ impl App {
             self.input = selected;
             self.cursor_position = char_count(&self.input);
             self.history_index = None;
-            self.status_message = Some("History match inserted into composer".to_string());
+            self.status_message = Some(self.tr(MessageId::StatusHistoryMatchInserted).to_string());
             self.needs_redraw = true;
             true
         } else {
             self.composer_history_search = Some(search);
-            self.status_message = Some("No history matches".to_string());
+            self.status_message = Some(self.tr(MessageId::StatusHistoryNoMatches).to_string());
             self.needs_redraw = true;
             false
         }
@@ -3228,7 +3228,7 @@ impl App {
         };
         self.input = search.pre_search_input;
         self.cursor_position = search.pre_search_cursor.min(char_count(&self.input));
-        self.status_message = Some("History search canceled".to_string());
+        self.status_message = Some(self.tr(MessageId::StatusHistoryCancelled).to_string());
         self.needs_redraw = true;
     }
 
@@ -3306,7 +3306,7 @@ impl App {
         self.input = format!("@{rel_path}");
         self.cursor_position = char_count(&self.input);
         self.push_status_toast(
-            "Large paste consolidated — sent as @mention",
+            self.tr(MessageId::StatusLargePasteConsolidated),
             StatusToastLevel::Info,
             Some(5_000),
         );

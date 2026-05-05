@@ -5,29 +5,15 @@ use ratatui::layout::{Alignment, Rect};
 use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, Clear, Padding, Paragraph, Widget, Wrap};
 
+use crate::localization::{Locale, MessageId, tr};
 use crate::palette;
 use crate::tui::views::{ModalKind, ModalView, ViewAction, ViewEvent};
 
-const PLAN_OPTIONS: [(&str, &str); 4] = [
-    (
-        "Accept plan (Agent)",
-        "Start implementation in Agent mode with approvals",
-    ),
-    (
-        "Accept plan (YOLO)",
-        "Start implementation in YOLO mode (auto-approve)",
-    ),
-    ("Revise plan", "Ask follow-ups or request plan changes"),
-    (
-        "Exit Plan mode",
-        "Return to Agent mode without implementation",
-    ),
-];
-
-fn modal_block() -> Block<'static> {
+fn modal_block(locale: Locale) -> Block<'static> {
+    let title_text = tr(locale, MessageId::PlanPromptTitle);
     Block::default()
         .title(Line::from(vec![Span::styled(
-            " Plan Confirmation ",
+            format!(" {title_text} "),
             Style::default().fg(palette::DEEPSEEK_BLUE).bold(),
         )]))
         .borders(Borders::ALL)
@@ -92,9 +78,19 @@ fn push_option_lines(
     )));
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct PlanPromptView {
     selected: usize,
+    locale: Locale,
+}
+
+impl Default for PlanPromptView {
+    fn default() -> Self {
+        Self {
+            selected: 0,
+            locale: Locale::En,
+        }
+    }
 }
 
 impl PlanPromptView {
@@ -103,7 +99,7 @@ impl PlanPromptView {
     }
 
     fn max_index(&self) -> usize {
-        PLAN_OPTIONS.len().saturating_sub(1)
+        3
     }
 
     fn submit_selected(&self) -> ViewAction {
@@ -113,7 +109,7 @@ impl PlanPromptView {
     }
 
     fn submit_number(number: u32) -> ViewAction {
-        if (1..=u32::try_from(PLAN_OPTIONS.len()).unwrap_or(0)).contains(&number) {
+        if (1..=4).contains(&number) {
             ViewAction::EmitAndClose(ViewEvent::PlanPromptSelected {
                 option: usize::try_from(number).unwrap_or(1),
             })
@@ -187,19 +183,47 @@ impl ModalView for PlanPromptView {
     fn render(&self, area: Rect, buf: &mut Buffer) {
         let mut lines: Vec<Line> = Vec::new();
         lines.push(Line::from(vec![Span::styled(
-            "Action required",
+            tr(self.locale, MessageId::PlanPromptActionRequired),
             Style::default().fg(palette::DEEPSEEK_SKY).bold(),
         )]));
         lines.push(Line::from(vec![Span::styled(
-            "Choose what should happen after this plan.",
+            tr(self.locale, MessageId::PlanPromptChooseAction),
             Style::default().fg(palette::TEXT_PRIMARY).bold(),
         )]));
         lines.push(Line::from(""));
 
-        for (idx, (label, description)) in PLAN_OPTIONS.iter().enumerate() {
-            let number = idx + 1;
-            push_option_lines(&mut lines, self.selected == idx, number, label, description);
-        }
+        // Option 1: Accept plan (Agent)
+        push_option_lines(
+            &mut lines,
+            self.selected == 0,
+            1,
+            tr(self.locale, MessageId::PlanPromptAcceptAgent),
+            tr(self.locale, MessageId::PlanPromptAcceptAgentDesc),
+        );
+        // Option 2: Accept plan (YOLO)
+        push_option_lines(
+            &mut lines,
+            self.selected == 1,
+            2,
+            tr(self.locale, MessageId::PlanPromptAcceptYolo),
+            tr(self.locale, MessageId::PlanPromptAcceptYoloDesc),
+        );
+        // Option 3: Revise plan
+        push_option_lines(
+            &mut lines,
+            self.selected == 2,
+            3,
+            tr(self.locale, MessageId::PlanPromptRevise),
+            tr(self.locale, MessageId::PlanPromptReviseDesc),
+        );
+        // Option 4: Exit Plan mode
+        push_option_lines(
+            &mut lines,
+            self.selected == 3,
+            4,
+            tr(self.locale, MessageId::PlanPromptExit),
+            tr(self.locale, MessageId::PlanPromptExitDesc),
+        );
 
         lines.push(Line::from(""));
         lines.push(Line::from(vec![
@@ -207,22 +231,34 @@ impl ModalView for PlanPromptView {
                 "1-4 / a / y / r / q",
                 Style::default().fg(palette::DEEPSEEK_SKY).bold(),
             ),
-            Span::styled(" quick pick", Style::default().fg(palette::TEXT_MUTED)),
+            Span::styled(
+                tr(self.locale, MessageId::PlanPromptQuickPick),
+                Style::default().fg(palette::TEXT_MUTED),
+            ),
             Span::raw("  "),
             Span::styled("Up/Down", Style::default().fg(palette::DEEPSEEK_SKY).bold()),
-            Span::styled(" move", Style::default().fg(palette::TEXT_MUTED)),
+            Span::styled(
+                tr(self.locale, MessageId::PlanPromptMove),
+                Style::default().fg(palette::TEXT_MUTED),
+            ),
             Span::raw("  "),
             Span::styled("Enter", Style::default().fg(palette::DEEPSEEK_SKY).bold()),
-            Span::styled(" confirm", Style::default().fg(palette::TEXT_MUTED)),
+            Span::styled(
+                tr(self.locale, MessageId::PlanPromptConfirm),
+                Style::default().fg(palette::TEXT_MUTED),
+            ),
             Span::raw("  "),
             Span::styled("Esc", Style::default().fg(palette::DEEPSEEK_SKY).bold()),
-            Span::styled(" close", Style::default().fg(palette::TEXT_MUTED)),
+            Span::styled(
+                tr(self.locale, MessageId::PlanPromptClose),
+                Style::default().fg(palette::TEXT_MUTED),
+            ),
         ]));
 
         let paragraph = Paragraph::new(lines)
             .alignment(Alignment::Left)
             .wrap(Wrap { trim: true })
-            .block(modal_block());
+            .block(modal_block(self.locale));
 
         let popup_area = centered_rect(72, 52, area);
         render_modal_chrome(area, popup_area, buf);
@@ -282,7 +318,7 @@ mod tests {
 
         let rendered = render_view(&view, 110, 36);
 
-        assert!(rendered.contains("> 2) Accept plan (YOLO)"));
+        assert!(rendered.contains("> 2) Execute in YOLO mode"));
         assert!(rendered.contains("Start implementation in YOLO mode (auto-approve)"));
     }
 }
