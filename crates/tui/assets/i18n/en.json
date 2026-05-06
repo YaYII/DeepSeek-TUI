@@ -441,6 +441,7 @@
   "approval_key_hint_enter": "Enter",
   "approval_key_hint_two_keys": "y/a then y/a again",
   "approval_footer_hint": "  ·  v: full params  ·  Esc: abort",
+  "approval_card_title": " {risk_badge} approval -- {tool_name} ",
   "elevation_title": "  ⚠ Sandbox Denied ",
   "elevation_tool_label": "  Tool: ",
   "elevation_cmd_label": "  Cmd:  ",

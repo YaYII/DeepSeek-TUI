@@ -661,6 +661,7 @@ pub enum MessageId {
     ApprovalKeyHintEnter,
     ApprovalKeyHintTwoKeys,
     ApprovalFooterHint,
+    ApprovalCardTitle,
     // ── Elevation UI ──
     ElevationTitle,
     ElevationToolLabel,
@@ -1218,6 +1219,7 @@ impl MessageId {
             MessageId::ApprovalKeyHintEnter => "approval_key_hint_enter",
             MessageId::ApprovalKeyHintTwoKeys => "approval_key_hint_two_keys",
             MessageId::ApprovalFooterHint => "approval_footer_hint",
+            MessageId::ApprovalCardTitle => "approval_card_title",
             MessageId::ElevationTitle => "elevation_title",
             MessageId::ElevationToolLabel => "elevation_tool_label",
             MessageId::ElevationCmdLabel => "elevation_cmd_label",
@@ -1760,6 +1762,7 @@ pub const ALL_MESSAGE_IDS: &[MessageId] = &[
     MessageId::ApprovalKeyHintEnter,
     MessageId::ApprovalKeyHintTwoKeys,
     MessageId::ApprovalFooterHint,
+    MessageId::ApprovalCardTitle,
     MessageId::ElevationTitle,
     MessageId::ElevationToolLabel,
     MessageId::ElevationCmdLabel,

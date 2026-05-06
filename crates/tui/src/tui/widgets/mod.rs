@@ -44,6 +44,8 @@ use ratatui::{
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
+use crate::localization::{Locale, MessageId, tr, tr_fmt};
+
 const SEND_FLASH_DURATION: Duration = Duration::from_millis(500);
 const COMPOSER_PANEL_HEIGHT: u16 = 2;
 
@@ -875,7 +877,10 @@ impl Renderable for ApprovalWidget<'_> {
         let (cat_label, cat_color) = category_label_for(self.request.category);
         lines.push(Line::from(vec![
             Span::raw("  "),
-            Span::styled("Type: ", Style::default().fg(palette::TEXT_HINT)),
+            Span::styled(
+                tr(Locale::En, MessageId::ApprovalTypeLabel),
+                Style::default().fg(palette::TEXT_HINT),
+            ),
             Span::styled(
                 cat_label,
                 Style::default().fg(cat_color).add_modifier(Modifier::BOLD),
@@ -887,7 +892,10 @@ impl Renderable for ApprovalWidget<'_> {
         // they tell the user what will happen.
         lines.push(Line::from(vec![
             Span::raw("  "),
-            Span::styled("About:  ", Style::default().fg(palette::TEXT_HINT)),
+            Span::styled(
+                tr(Locale::En, MessageId::ApprovalAboutLabel),
+                Style::default().fg(palette::TEXT_HINT),
+            ),
             Span::styled(
                 self.request.description.clone(),
                 Style::default().fg(palette::TEXT_BODY),
@@ -896,7 +904,10 @@ impl Renderable for ApprovalWidget<'_> {
         for impact in self.request.impacts.iter().take(4) {
             lines.push(Line::from(vec![
                 Span::raw("  "),
-                Span::styled("Impact: ", Style::default().fg(palette::TEXT_HINT)),
+                Span::styled(
+                    tr(Locale::En, MessageId::ApprovalImpactLabel),
+                    Style::default().fg(palette::TEXT_HINT),
+                ),
                 Span::styled(impact.clone(), Style::default().fg(palette::TEXT_BODY)),
             ]));
         }
@@ -908,7 +919,10 @@ impl Renderable for ApprovalWidget<'_> {
             crate::utils::truncate_with_ellipsis(&params_str, params_width.max(20), "...");
         lines.push(Line::from(vec![
             Span::raw("  "),
-            Span::styled("Params: ", Style::default().fg(palette::TEXT_HINT)),
+            Span::styled(
+                tr(Locale::En, MessageId::ApprovalParamsLabel),
+                Style::default().fg(palette::TEXT_HINT),
+            ),
             Span::styled(
                 params_truncated,
                 Style::default().fg(palette::TEXT_SECONDARY),
@@ -950,7 +964,7 @@ impl Renderable for ApprovalWidget<'_> {
             if staged {
                 spans.push(Span::raw("  "));
                 spans.push(Span::styled(
-                    "(staged)",
+                    tr(Locale::En, MessageId::ApprovalStagedBadge),
                     Style::default()
                         .fg(palette_colors.accent)
                         .add_modifier(Modifier::BOLD),
@@ -968,31 +982,35 @@ impl Renderable for ApprovalWidget<'_> {
                 lines.push(Line::from(vec![
                     Span::raw("  "),
                     Span::styled(
-                        "Single key approves: ",
+                        tr(Locale::En, MessageId::ApprovalSingleKeyHint),
                         Style::default().fg(palette::TEXT_HINT),
                     ),
                     Span::styled(
-                        "Enter / 1 / y",
+                        tr(Locale::En, MessageId::ApprovalKeyHintEnterY),
                         Style::default()
                             .fg(palette_colors.accent)
                             .add_modifier(Modifier::BOLD),
                     ),
                     Span::styled(
-                        "  ·  v: full params  ·  Esc: abort",
+                        tr(Locale::En, MessageId::ApprovalFooterHint),
                         Style::default().fg(palette::TEXT_HINT),
                     ),
                 ]));
             }
             (RiskLevel::Destructive, Some(opt)) => {
                 let again_key = match opt {
-                    crate::tui::approval::ApprovalOption::ApproveOnce => "Enter or y",
-                    crate::tui::approval::ApprovalOption::ApproveAlways => "Enter or a",
-                    _ => "Enter",
+                    crate::tui::approval::ApprovalOption::ApproveOnce => {
+                        tr(Locale::En, MessageId::ApprovalKeyHintEnterY)
+                    }
+                    crate::tui::approval::ApprovalOption::ApproveAlways => {
+                        tr(Locale::En, MessageId::ApprovalKeyHintEnterA)
+                    }
+                    _ => tr(Locale::En, MessageId::ApprovalKeyHintEnter),
                 };
                 lines.push(Line::from(vec![
                     Span::raw("  "),
                     Span::styled(
-                        "Confirm destructive action — press ",
+                        tr(Locale::En, MessageId::ApprovalConfirmDestructive),
                         Style::default()
                             .fg(palette_colors.accent)
                             .add_modifier(Modifier::BOLD),
@@ -1005,7 +1023,7 @@ impl Renderable for ApprovalWidget<'_> {
                             .add_modifier(Modifier::BOLD),
                     ),
                     Span::styled(
-                        " again to commit, anything else cancels.",
+                        tr(Locale::En, MessageId::ApprovalConfirmDestructiveSuffix),
                         Style::default().fg(palette::TEXT_HINT),
                     ),
                 ]));
@@ -1014,28 +1032,27 @@ impl Renderable for ApprovalWidget<'_> {
                 lines.push(Line::from(vec![
                     Span::raw("  "),
                     Span::styled(
-                        "Two keys to approve: ",
+                        tr(Locale::En, MessageId::ApprovalTwoKeyHint),
                         Style::default().fg(palette::TEXT_HINT),
                     ),
                     Span::styled(
-                        "y/a then y/a again",
+                        tr(Locale::En, MessageId::ApprovalKeyHintTwoKeys),
                         Style::default()
                             .fg(palette_colors.accent)
                             .add_modifier(Modifier::BOLD),
                     ),
                     Span::styled(
-                        "  ·  v: full params  ·  Esc: abort",
+                        tr(Locale::En, MessageId::ApprovalFooterHint),
                         Style::default().fg(palette::TEXT_HINT),
                     ),
                 ]));
             }
         }
 
-        let title = format!(
-            " {} approval — {} ",
-            risk_badge_text(risk),
-            self.request.tool_name
-        );
+        let title = tr_fmt(Locale::En, MessageId::ApprovalCardTitle, &[
+            ("risk_badge", risk_badge_text(risk)),
+            ("tool_name", &self.request.tool_name),
+        ]);
         let block = Block::default()
             .title(title)
             .borders(Borders::ALL)
@@ -1122,20 +1139,32 @@ fn approval_palette(risk: RiskLevel) -> ApprovalColors {
 
 fn risk_badge_text(risk: RiskLevel) -> &'static str {
     match risk {
-        RiskLevel::Benign => "REVIEW",
-        RiskLevel::Destructive => "DESTRUCTIVE",
+        RiskLevel::Benign => tr(Locale::En, MessageId::RiskBadgeReview),
+        RiskLevel::Destructive => tr(Locale::En, MessageId::RiskBadgeDestructive),
     }
 }
 
 fn category_label_for(category: ToolCategory) -> (&'static str, Color) {
     match category {
-        ToolCategory::Safe => ("Safe", palette::STATUS_SUCCESS),
-        ToolCategory::FileWrite => ("File Write", palette::STATUS_WARNING),
-        ToolCategory::Shell => ("Shell Command", palette::STATUS_ERROR),
-        ToolCategory::Network => ("Network", palette::STATUS_WARNING),
-        ToolCategory::McpRead => ("MCP Read", palette::DEEPSEEK_SKY),
-        ToolCategory::McpAction => ("MCP Action", palette::STATUS_WARNING),
-        ToolCategory::Unknown => ("Unknown", palette::STATUS_ERROR),
+        ToolCategory::Safe => (tr(Locale::En, MessageId::CategoryLabelSafe), palette::STATUS_SUCCESS),
+        ToolCategory::FileWrite => {
+            (tr(Locale::En, MessageId::CategoryLabelFileWrite), palette::STATUS_WARNING)
+        }
+        ToolCategory::Shell => {
+            (tr(Locale::En, MessageId::CategoryLabelShellCommand), palette::STATUS_ERROR)
+        }
+        ToolCategory::Network => {
+            (tr(Locale::En, MessageId::CategoryLabelNetwork), palette::STATUS_WARNING)
+        }
+        ToolCategory::McpRead => {
+            (tr(Locale::En, MessageId::CategoryLabelMcpRead), palette::DEEPSEEK_SKY)
+        }
+        ToolCategory::McpAction => {
+            (tr(Locale::En, MessageId::CategoryLabelMcpAction), palette::STATUS_WARNING)
+        }
+        ToolCategory::Unknown => {
+            (tr(Locale::En, MessageId::CategoryLabelUnknown), palette::STATUS_ERROR)
+        }
     }
 }
 
@@ -1152,25 +1181,25 @@ fn approval_options_for(risk: RiskLevel) -> [ApprovalOptionRow; 4] {
     [
         ApprovalOptionRow {
             option: O::ApproveOnce,
-            label: "Approve once",
+            label: tr(Locale::En, MessageId::ApprovalOptionOnce),
             key_hint: "1 / y",
             dangerous,
         },
         ApprovalOptionRow {
             option: O::ApproveAlways,
-            label: "Approve always for this kind",
+            label: tr(Locale::En, MessageId::ApprovalOptionAlways),
             key_hint: "2 / a",
             dangerous,
         },
         ApprovalOptionRow {
             option: O::Deny,
-            label: "Deny this call",
+            label: tr(Locale::En, MessageId::ApprovalOptionDeny),
             key_hint: "3 / d / n",
             dangerous: false,
         },
         ApprovalOptionRow {
             option: O::Abort,
-            label: "Abort the turn",
+            label: tr(Locale::En, MessageId::ApprovalOptionAbort),
             key_hint: "Esc",
             dangerous: false,
         },
@@ -1204,14 +1233,14 @@ impl Renderable for ElevationWidget<'_> {
         let mut lines = vec![
             Line::from(""),
             Line::from(vec![Span::styled(
-                "  ⚠ Sandbox Denied ",
+                tr(Locale::En, MessageId::ElevationTitle),
                 Style::default()
                     .fg(palette::STATUS_ERROR)
                     .add_modifier(Modifier::BOLD),
             )]),
             Line::from(""),
             Line::from(vec![
-                Span::raw("  Tool: "),
+                Span::raw(tr(Locale::En, MessageId::ElevationToolLabel)),
                 Span::styled(
                     &self.request.tool_name,
                     Style::default()
@@ -1225,14 +1254,14 @@ impl Renderable for ElevationWidget<'_> {
         if let Some(ref command) = self.request.command {
             let cmd_display = crate::utils::truncate_with_ellipsis(command, 45, "...");
             lines.push(Line::from(vec![
-                Span::raw("  Cmd:  "),
+                Span::raw(tr(Locale::En, MessageId::ElevationCmdLabel)),
                 Span::styled(cmd_display, Style::default().fg(palette::TEXT_MUTED)),
             ]));
         }
 
         lines.push(Line::from(""));
         lines.push(Line::from(vec![
-            Span::raw("  Reason: "),
+            Span::raw(tr(Locale::En, MessageId::ElevationReasonLabel)),
             Span::styled(
                 &self.request.denial_reason,
                 Style::default().fg(palette::STATUS_WARNING),
@@ -1241,7 +1270,7 @@ impl Renderable for ElevationWidget<'_> {
 
         lines.push(Line::from(""));
         lines.push(Line::from(Span::styled(
-            "  Impact if approved:",
+            tr(Locale::En, MessageId::ElevationImpactSection),
             Style::default().fg(palette::TEXT_MUTED),
         )));
         if self
@@ -1251,7 +1280,7 @@ impl Renderable for ElevationWidget<'_> {
             .any(|option| matches!(option, ElevationOption::WithNetwork))
         {
             lines.push(Line::from(Span::styled(
-                "    - network retry enables outbound downloads and HTTP requests",
+                tr(Locale::En, MessageId::ElevationImpactNetwork),
                 Style::default().fg(palette::TEXT_PRIMARY),
             )));
         }
@@ -1262,17 +1291,17 @@ impl Renderable for ElevationWidget<'_> {
             .any(|option| matches!(option, ElevationOption::WithWriteAccess(_)))
         {
             lines.push(Line::from(Span::styled(
-                "    - write retry expands writable filesystem scope for this tool call",
+                tr(Locale::En, MessageId::ElevationImpactWrite),
                 Style::default().fg(palette::TEXT_PRIMARY),
             )));
         }
         lines.push(Line::from(Span::styled(
-            "    - full access removes sandbox restrictions entirely for this retry",
+            tr(Locale::En, MessageId::ElevationImpactFullAccess),
             Style::default().fg(palette::TEXT_PRIMARY),
         )));
         lines.push(Line::from(""));
         lines.push(Line::from(Span::styled(
-            "  Choose how to proceed:",
+            tr(Locale::En, MessageId::ElevationProceedSection),
             Style::default().fg(palette::TEXT_MUTED),
         )));
         lines.push(Line::from(""));
@@ -1289,10 +1318,10 @@ impl Renderable for ElevationWidget<'_> {
             };
 
             let key = match option {
-                ElevationOption::WithNetwork => "n",
-                ElevationOption::WithWriteAccess(_) => "w",
-                ElevationOption::FullAccess => "f",
-                ElevationOption::Abort => "a",
+                ElevationOption::WithNetwork => tr(Locale::En, MessageId::ElevationShortcutKeyN),
+                ElevationOption::WithWriteAccess(_) => tr(Locale::En, MessageId::ElevationShortcutKeyW),
+                ElevationOption::FullAccess => tr(Locale::En, MessageId::ElevationShortcutKeyF),
+                ElevationOption::Abort => tr(Locale::En, MessageId::ElevationShortcutKeyA),
             };
 
             let label_color = match option {
@@ -1318,7 +1347,7 @@ impl Renderable for ElevationWidget<'_> {
             ]));
         }
 
-        let title = " Sandbox Elevation Required ";
+        let title = tr(Locale::En, MessageId::ElevationModalTitle);
         let block = Block::default()
             .title(title)
             .borders(Borders::ALL)
