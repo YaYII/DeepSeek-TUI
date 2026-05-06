@@ -206,7 +206,11 @@ fn install_skill(app: &mut App, spec: &str) -> CommandResult {
         Ok(InstallOutcome::NetworkDenied(host)) => {
             CommandResult::error(network_denied_message(&host))
         }
-        Err(err) => CommandResult::error(format!("Install failed: {err:#}")),
+        Err(err) => CommandResult::error(tr_fmt(
+            app.ui_locale,
+            MessageId::CmdFailedGeneric,
+            &[("error", &format!("install: {err:#}"))],
+        )),
     }
 }
 
