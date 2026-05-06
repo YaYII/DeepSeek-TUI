@@ -27,6 +27,7 @@
 //! happen *before* the view is constructed (see `tui/ui.rs`); this
 //! module always assumes the user is being asked.
 
+use crate::localization::{Locale, MessageId, tr};
 use crate::sandbox::SandboxPolicy;
 use crate::tui::views::{ModalKind, ModalView, ViewAction, ViewEvent};
 use crate::tui::widgets::{ApprovalWidget, ElevationWidget, Renderable};
@@ -611,28 +612,28 @@ pub enum ElevationOption {
 
 impl ElevationOption {
     /// Get the display label for this option.
-    pub fn label(&self) -> &'static str {
+    pub fn label(&self, locale: &Locale) -> String {
         match self {
-            ElevationOption::WithNetwork => "Allow outbound network",
-            ElevationOption::WithWriteAccess(_) => "Allow extra write access",
-            ElevationOption::FullAccess => "Full access (filesystem + network)",
-            ElevationOption::Abort => "Abort",
+            ElevationOption::WithNetwork => tr(locale, MessageId::ElevationOptionNetwork),
+            ElevationOption::WithWriteAccess(_) => tr(locale, MessageId::ElevationOptionWrite),
+            ElevationOption::FullAccess => tr(locale, MessageId::ElevationOptionFullAccess),
+            ElevationOption::Abort => tr(locale, MessageId::ElevationOptionAbort),
         }
     }
 
     /// Get a short description.
-    pub fn description(&self) -> &'static str {
+    pub fn description(&self, locale: &Locale) -> String {
         match self {
             ElevationOption::WithNetwork => {
-                "Retry this tool call with outbound network access for downloads and HTTP requests"
+                tr(locale, MessageId::ElevationOptionNetworkDesc)
             }
             ElevationOption::WithWriteAccess(_) => {
-                "Retry this tool call with additional writable filesystem scope"
+                tr(locale, MessageId::ElevationOptionWriteDesc)
             }
             ElevationOption::FullAccess => {
-                "Retry without sandbox limits; grants unrestricted filesystem and network access"
+                tr(locale, MessageId::ElevationOptionFullAccessDesc)
             }
-            ElevationOption::Abort => "Cancel this tool execution",
+            ElevationOption::Abort => tr(locale, MessageId::ElevationOptionAbortDesc),
         }
     }
 
@@ -664,6 +665,8 @@ pub struct ElevationRequest {
     pub denial_reason: String,
     /// Available elevation options.
     pub options: Vec<ElevationOption>,
+    /// The current locale for i18n.
+    pub locale: Locale,
 }
 
 impl ElevationRequest {
@@ -674,6 +677,7 @@ impl ElevationRequest {
         denial_reason: &str,
         blocked_network: bool,
         blocked_write: bool,
+        locale: Locale,
     ) -> Self {
         let mut options = Vec::new();
 
@@ -692,12 +696,13 @@ impl ElevationRequest {
             command: Some(command.to_string()),
             denial_reason: denial_reason.to_string(),
             options,
+            locale,
         }
     }
 
     /// Create a generic elevation request.
     #[allow(dead_code)]
-    pub fn generic(tool_id: &str, tool_name: &str, denial_reason: &str) -> Self {
+    pub fn generic(tool_id: &str, tool_name: &str, denial_reason: &str, locale: Locale) -> Self {
         Self {
             tool_id: tool_id.to_string(),
             tool_name: tool_name.to_string(),
@@ -708,6 +713,7 @@ impl ElevationRequest {
                 ElevationOption::FullAccess,
                 ElevationOption::Abort,
             ],
+            locale,
         }
     }
 }

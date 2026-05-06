@@ -1297,6 +1297,7 @@ async fn run_event_loop(
                                 &denial_reason,
                                 blocked_network,
                                 blocked_write,
+                                app.ui_locale,
                             );
                             app.view_stack.push(ElevationView::new(request));
                             app.status_message =
