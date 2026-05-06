@@ -6,6 +6,7 @@
 //! point.
 
 use crate::composer_stash;
+use crate::localization::{Locale, MessageId, tr, tr_fmt};
 use crate::tui::app::App;
 
 use super::CommandResult;
@@ -20,22 +21,24 @@ use super::CommandResult;
 ///   entries were dropped so the user knows what they deleted.
 pub fn stash(app: &mut App, arg: Option<&str>) -> CommandResult {
     let sub = arg.map(str::trim).unwrap_or("list").to_ascii_lowercase();
+    let locale = app.ui_locale;
     match sub.as_str() {
-        "" | "list" | "ls" | "show" => list(),
+        "" | "list" | "ls" | "show" => list(locale),
         "pop" | "restore" => pop(app),
-        "clear" | "wipe" | "drop" => clear(),
+        "clear" | "wipe" | "drop" => clear(locale),
         other => CommandResult::error(format!(
             "unknown subcommand `{other}`. Try `/stash list`, `/stash pop`, or `/stash clear`."
         )),
     }
 }
 
-fn list() -> CommandResult {
+fn list(locale: Locale) -> CommandResult {
     let entries = composer_stash::load_stash();
     if entries.is_empty() {
-        return CommandResult::message(
-            "Stash empty. Press Ctrl+S in the composer to park the current draft.",
-        );
+        return CommandResult::message(format!(
+            "{}. Press Ctrl+S in the composer to park the current draft.",
+            tr(locale, MessageId::CmdStashEmpty)
+        ));
     }
     let mut out = String::new();
     out.push_str(&format!("{} parked draft(s):\n\n", entries.len()));
@@ -52,11 +55,18 @@ fn list() -> CommandResult {
     CommandResult::message(out)
 }
 
-fn clear() -> CommandResult {
+fn clear(locale: Locale) -> CommandResult {
     match composer_stash::clear_stash() {
-        Ok(0) => CommandResult::message("Stash already empty — nothing to clear."),
+        Ok(0) => CommandResult::message(format!(
+            "{} — nothing to clear.",
+            tr(locale, MessageId::CmdStashEmpty)
+        )),
         Ok(n) => CommandResult::message(format!("Cleared {n} parked draft(s) from the stash.")),
-        Err(err) => CommandResult::error(format!("Failed to clear stash: {err}")),
+        Err(err) => CommandResult::error(tr_fmt(
+            locale,
+            MessageId::CmdFailedGeneric,
+            &[("error", &format!("clear stash: {err}"))],
+        )),
     }
 }
 
@@ -82,7 +92,10 @@ fn pop(app: &mut App) -> CommandResult {
             };
             CommandResult::message(format!("Restored stashed draft: {preview}{suffix}"))
         }
-        None => CommandResult::message("Stash empty — nothing to pop."),
+        None => CommandResult::message(format!(
+            "{} — nothing to pop.",
+            app.tr(MessageId::CmdStashEmpty)
+        )),
     }
 }
 

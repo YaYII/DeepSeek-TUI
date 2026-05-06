@@ -243,7 +243,11 @@ fn update_skill(app: &mut App, name: &str) -> CommandResult {
         Ok(UpdateResult::NetworkDenied(host)) => {
             CommandResult::error(network_denied_message(&host))
         }
-        Err(err) => CommandResult::error(format!("Update failed: {err:#}")),
+        Err(err) => CommandResult::error(tr_fmt(
+            app.ui_locale,
+            MessageId::CmdFailedGeneric,
+            &[("error", &format!("update: {err:#}"))],
+        )),
     }
 }
 
@@ -255,7 +259,11 @@ fn uninstall_skill(app: &mut App, name: &str) -> CommandResult {
     }
     match install::uninstall(name, &app.skills_dir) {
         Ok(()) => CommandResult::message(format!("Removed skill '{name}'.")),
-        Err(err) => CommandResult::error(format!("Uninstall failed: {err:#}")),
+        Err(err) => CommandResult::error(tr_fmt(
+            app.ui_locale,
+            MessageId::CmdFailedGeneric,
+            &[("error", &format!("uninstall: {err:#}"))],
+        )),
     }
 }
 
@@ -269,7 +277,11 @@ fn trust_skill(app: &mut App, name: &str) -> CommandResult {
         Ok(()) => CommandResult::message(format!(
             "Marked skill '{name}' as trusted. Tools that consult the .trusted marker may now invoke its scripts/."
         )),
-        Err(err) => CommandResult::error(format!("Trust failed: {err:#}")),
+        Err(err) => CommandResult::error(tr_fmt(
+            app.ui_locale,
+            MessageId::CmdFailedGeneric,
+            &[("error", &format!("trust: {err:#}"))],
+        )),
     }
 }
 
@@ -303,7 +315,11 @@ pub fn list_remote_skills(app: &mut App) -> CommandResult {
         Ok(RegistryFetchResult::Denied(host)) => {
             CommandResult::error(network_denied_message(&host))
         }
-        Err(err) => CommandResult::error(format!("Failed to fetch registry: {err:#}")),
+        Err(err) => CommandResult::error(tr_fmt(
+            app.ui_locale,
+            MessageId::CmdFailedGeneric,
+            &[("error", &format!("fetch registry: {err:#}"))],
+        )),
     }
 }
 
@@ -369,7 +385,11 @@ fn sync_skills(app: &mut App) -> CommandResult {
 
             CommandResult::message(out)
         }
-        Err(err) => CommandResult::error(format!("Sync failed: {err:#}")),
+        Err(err) => CommandResult::error(tr_fmt(
+            app.ui_locale,
+            MessageId::CmdFailedGeneric,
+            &[("error", &format!("sync: {err:#}"))],
+        )),
     }
 }
 
