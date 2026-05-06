@@ -1448,16 +1448,28 @@ mod tests {
 
     #[test]
     fn test_elevation_view_initial_state() {
-        let request =
-            ElevationRequest::for_shell("test-id", "cargo build", "network blocked", true, false);
+        let request = ElevationRequest::for_shell(
+            "test-id",
+            "cargo build",
+            "network blocked",
+            true,
+            false,
+            Locale::En,
+        );
         let view = ElevationView::new(request);
         assert_eq!(view.selected, 0);
     }
 
     #[test]
     fn test_elevation_view_keybindings() {
-        let request =
-            ElevationRequest::for_shell("test-id", "cargo test", "write blocked", false, true);
+        let request = ElevationRequest::for_shell(
+            "test-id",
+            "cargo test",
+            "write blocked",
+            false,
+            true,
+            Locale::En,
+        );
         let mut view = ElevationView::new(request);
 
         let action = view.handle_key(create_key_event(KeyCode::Char('n')));
@@ -1469,8 +1481,14 @@ mod tests {
             })
         ));
 
-        let request =
-            ElevationRequest::for_shell("test-id", "cargo build", "write blocked", false, true);
+        let request = ElevationRequest::for_shell(
+            "test-id",
+            "cargo build",
+            "write blocked",
+            false,
+            true,
+            Locale::En,
+        );
         let mut view = ElevationView::new(request);
         let action = view.handle_key(create_key_event(KeyCode::Char('w')));
         assert!(matches!(
@@ -1482,7 +1500,7 @@ mod tests {
         ));
 
         let request =
-            ElevationRequest::for_shell("test-id", "cargo build", "blocked", false, false);
+            ElevationRequest::for_shell("test-id", "cargo build", "blocked", false, false, Locale::En);
         let mut view = ElevationView::new(request);
         let action = view.handle_key(create_key_event(KeyCode::Char('f')));
         assert!(matches!(
@@ -1494,7 +1512,7 @@ mod tests {
         ));
 
         let request =
-            ElevationRequest::for_shell("test-id", "cargo build", "blocked", false, false);
+            ElevationRequest::for_shell("test-id", "cargo build", "blocked", false, false, Locale::En);
         let mut view = ElevationView::new(request);
         let action = view.handle_key(create_key_event(KeyCode::Esc));
         assert!(matches!(
@@ -1506,7 +1524,7 @@ mod tests {
         ));
 
         let request =
-            ElevationRequest::for_shell("test-id", "cargo build", "blocked", false, false);
+            ElevationRequest::for_shell("test-id", "cargo build", "blocked", false, false, Locale::En);
         let mut view = ElevationView::new(request);
         let action = view.handle_key(create_key_event(KeyCode::Char('a')));
         assert!(matches!(
@@ -1520,7 +1538,7 @@ mod tests {
 
     #[test]
     fn test_elevation_view_navigation() {
-        let request = ElevationRequest::for_shell("test-id", "cargo build", "blocked", true, false);
+        let request = ElevationRequest::for_shell("test-id", "cargo build", "blocked", true, false, Locale::En);
         let mut view = ElevationView::new(request);
 
         assert_eq!(view.selected, 0);
@@ -1540,7 +1558,7 @@ mod tests {
 
     #[test]
     fn test_elevation_view_enter_uses_selected_option() {
-        let request = ElevationRequest::for_shell("test-id", "cargo build", "blocked", true, false);
+        let request = ElevationRequest::for_shell("test-id", "cargo build", "blocked", true, false, Locale::En);
         let mut view = ElevationView::new(request);
 
         view.handle_key(create_key_event(KeyCode::Down));
@@ -1563,34 +1581,37 @@ mod tests {
     #[test]
     fn test_elevation_option_labels() {
         assert_eq!(
-            ElevationOption::WithNetwork.label(),
-            "Allow outbound network"
+            ElevationOption::WithNetwork.label(&Locale::En),
+            tr(&Locale::En, MessageId::ElevationOptionNetwork)
         );
         assert_eq!(
-            ElevationOption::FullAccess.label(),
-            "Full access (filesystem + network)"
+            ElevationOption::FullAccess.label(&Locale::En),
+            tr(&Locale::En, MessageId::ElevationOptionFullAccess)
         );
         assert!(
             ElevationOption::WithWriteAccess(vec![])
-                .label()
+                .label(&Locale::En)
                 .contains("write")
         );
-        assert_eq!(ElevationOption::Abort.label(), "Abort");
+        assert_eq!(
+            ElevationOption::Abort.label(&Locale::En),
+            tr(&Locale::En, MessageId::ElevationOptionAbort)
+        );
     }
 
     #[test]
     fn test_elevation_option_descriptions() {
         assert!(
             ElevationOption::WithNetwork
-                .description()
+                .description(&Locale::En)
                 .contains("network")
         );
         assert!(
             ElevationOption::FullAccess
-                .description()
+                .description(&Locale::En)
                 .contains("filesystem and network access")
         );
-        assert!(ElevationOption::Abort.description().contains("Cancel"));
+        assert!(ElevationOption::Abort.description(&Locale::En).contains("Cancel"));
     }
 
     #[test]
@@ -1626,6 +1647,7 @@ mod tests {
             "network blocked",
             true,
             false,
+            Locale::En,
         );
 
         assert_eq!(request.tool_id, "test-id");
@@ -1643,7 +1665,7 @@ mod tests {
     #[test]
     fn test_elevation_request_for_shell_with_write_block() {
         let request =
-            ElevationRequest::for_shell("test-id", "rm -rf /tmp", "write blocked", false, true);
+            ElevationRequest::for_shell("test-id", "rm -rf /tmp", "write blocked", false, true, Locale::En);
 
         assert_eq!(request.tool_id, "test-id");
         assert!(
@@ -1656,7 +1678,7 @@ mod tests {
 
     #[test]
     fn test_elevation_request_generic() {
-        let request = ElevationRequest::generic("test-id", "some_tool", "permission denied");
+        let request = ElevationRequest::generic("test-id", "some_tool", "permission denied", Locale::En);
 
         assert_eq!(request.tool_id, "test-id");
         assert_eq!(request.tool_name, "some_tool");
