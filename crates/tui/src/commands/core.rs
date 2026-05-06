@@ -3,7 +3,7 @@
 use std::fmt::Write;
 
 use crate::config::{COMMON_DEEPSEEK_MODELS, normalize_model_name};
-use crate::localization::{MessageId, tr};
+use crate::localization::{MessageId, tr, tr_fmt};
 use crate::tui::app::{App, AppAction, AppMode};
 use crate::tui::views::{HelpView, ModalKind, SubAgentsView};
 
@@ -129,17 +129,18 @@ pub fn subagents(app: &mut App) -> CommandResult {
 }
 
 /// Switch to a configured profile.
-pub fn profile_switch(_app: &mut App, arg: Option<&str>) -> CommandResult {
+pub fn profile_switch(app: &mut App, arg: Option<&str>) -> CommandResult {
     let profile_name = match arg {
         Some(name) if !name.trim().is_empty() => name.trim().to_string(),
         _ => {
-            return CommandResult::error(
-                "Usage: /profile <name>\n\nSwitch to a named config profile. Profiles are defined in ~/.deepseek/config.toml under [profiles] sections.",
-            );
+            return CommandResult::error(format!(
+                "{}\n\nSwitch to a named config profile. Profiles are defined in ~/.deepseek/config.toml under [profiles] sections.",
+                app.tr(MessageId::UsageProfile)
+            ));
         }
     };
     CommandResult::with_message_and_action(
-        format!("Switching to profile '{profile_name}'..."),
+        tr_fmt(app.ui_locale, MessageId::CmdProfileSwitched, &[("name", &profile_name)]),
         AppAction::SwitchProfile {
             profile: profile_name,
         },

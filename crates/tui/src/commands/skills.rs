@@ -2,6 +2,7 @@
 
 use std::fmt::Write;
 
+use crate::localization::{MessageId, tr_fmt};
 use crate::network_policy::NetworkPolicy;
 use crate::skills::SkillRegistry;
 use crate::skills::install::{
@@ -99,9 +100,10 @@ pub fn run_skill(app: &mut App, name: Option<&str>) -> CommandResult {
     let raw = match name {
         Some(n) => n.trim(),
         None => {
-            return CommandResult::error(
-                "Usage: /skill <name>\n\nSubcommands:\n  /skill install <github:owner/repo|https://…|<registry-name>>\n  /skill update <name>\n  /skill uninstall <name>\n  /skill trust <name>",
-            );
+            return CommandResult::error(format!(
+                "{}\n\nSubcommands:\n  /skill install <github:owner/repo|https://…|<registry-name>>\n  /skill update <name>\n  /skill uninstall <name>\n  /skill trust <name>",
+                app.tr(MessageId::UsageSkill)
+            ));
         }
     };
 
