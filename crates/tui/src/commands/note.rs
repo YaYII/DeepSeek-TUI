@@ -1,5 +1,6 @@
 //! Note command: append to persistent notes file
 
+use crate::localization::MessageId;
 use crate::tui::app::App;
 use std::fs;
 use std::io::Write;
@@ -11,12 +12,12 @@ pub fn note(app: &mut App, content: Option<&str>) -> CommandResult {
     let note_content = match content {
         Some(c) => c.trim(),
         None => {
-            return CommandResult::error("Usage: /note <text>");
+            return CommandResult::error(app.tr(MessageId::CmdNoteUsage));
         }
     };
 
     if note_content.is_empty() {
-        return CommandResult::error("Note content cannot be empty");
+        return CommandResult::error(app.tr(MessageId::CmdNoteEmpty));
     }
 
     // Determine notes path: workspace/.deepseek/notes.md
@@ -26,7 +27,10 @@ pub fn note(app: &mut App, content: Option<&str>) -> CommandResult {
     if let Some(parent) = notes_path.parent()
         && let Err(e) = fs::create_dir_all(parent)
     {
-        return CommandResult::error(format!("Failed to create notes directory: {e}"));
+        return CommandResult::error(
+            app.tr(MessageId::CmdNoteCreateDirFailed)
+                .replace("{err}", &e.to_string()),
+        );
     }
 
     // Append to notes file
@@ -37,16 +41,25 @@ pub fn note(app: &mut App, content: Option<&str>) -> CommandResult {
     {
         Ok(f) => f,
         Err(e) => {
-            return CommandResult::error(format!("Failed to open notes file: {e}"));
+            return CommandResult::error(
+                app.tr(MessageId::CmdNoteOpenFailed)
+                    .replace("{err}", &e.to_string()),
+            );
         }
     };
 
     // Write separator and note content
     if let Err(e) = writeln!(file, "\n---\n{}", note_content) {
-        return CommandResult::error(format!("Failed to write note: {e}"));
+        return CommandResult::error(
+            app.tr(MessageId::CmdNoteWriteFailed)
+                .replace("{err}", &e.to_string()),
+        );
     }
 
-    CommandResult::message(format!("Note appended to {}", notes_path.display()))
+    CommandResult::message(
+        app.tr(MessageId::CmdNoteAppended)
+            .replace("{path}", &notes_path.display().to_string()),
+    )
 }
 
 #[cfg(test)]

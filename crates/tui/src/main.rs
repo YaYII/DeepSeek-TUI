@@ -35,6 +35,7 @@ mod handoff;
 mod hooks;
 mod llm_client;
 mod localization;
+mod i18n_generator;
 mod logging;
 mod lsp;
 mod mcp;
@@ -1107,28 +1108,29 @@ fn run_setup(config: &Config, workspace: &Path, args: SetupArgs) -> Result<()> {
     let run_tools = args.tools || args.all;
     let run_plugins = args.plugins || args.all;
 
+    let locale = localization::Locale::default();
     println!(
         "{}",
-        "DeepSeek Setup".truecolor(aqua_r, aqua_g, aqua_b).bold()
+        localization::tr(locale, localization::MessageId::SetupTitle).truecolor(aqua_r, aqua_g, aqua_b).bold()
     );
-    println!("{}", "==============".truecolor(sky_r, sky_g, sky_b));
-    println!("Workspace: {}", crate::utils::display_path(workspace));
+    println!("{}", localization::tr(locale, localization::MessageId::SetupSeparator).truecolor(sky_r, sky_g, sky_b));
+    println!("{}", localization::tr(locale, localization::MessageId::SetupWorkspace).replace("{}", &crate::utils::display_path(workspace)));
 
     if run_mcp {
         let mcp_path = config.mcp_config_path();
         let status = init_mcp_config(&mcp_path, args.force)?;
         match status {
             WriteStatus::Created => {
-                println!("  ✓ Created MCP config at {}", mcp_path.display());
+                println!("{}", localization::tr(locale, localization::MessageId::SetupMcpCreated).replace("{}", &mcp_path.display().to_string()));
             }
             WriteStatus::Overwritten => {
-                println!("  ✓ Overwrote MCP config at {}", mcp_path.display());
+                println!("{}", localization::tr(locale, localization::MessageId::SetupMcpOverwritten).replace("{}", &mcp_path.display().to_string()));
             }
             WriteStatus::SkippedExists => {
-                println!("  · MCP config already exists at {}", mcp_path.display());
+                println!("{}", localization::tr(locale, localization::MessageId::SetupMcpExists).replace("{}", &mcp_path.display().to_string()));
             }
         }
-        println!("    Next: edit the file, then run `deepseek mcp list` or `deepseek mcp tools`.");
+        println!("{}", localization::tr(locale, localization::MessageId::SetupMcpNextStep));
     }
 
     if run_skills {
@@ -1140,65 +1142,66 @@ fn run_setup(config: &Config, workspace: &Path, args: SetupArgs) -> Result<()> {
         let (skill_path, status) = init_skills_dir(&skills_dir, args.force)?;
         match status {
             WriteStatus::Created => {
-                println!("  ✓ Created example skill at {}", skill_path.display());
+                println!("{}", localization::tr(locale, localization::MessageId::SetupSkillCreated).replace("{}", &skill_path.display().to_string()));
             }
             WriteStatus::Overwritten => {
-                println!("  ✓ Overwrote example skill at {}", skill_path.display());
+                println!("{}", localization::tr(locale, localization::MessageId::SetupSkillOverwritten).replace("{}", &skill_path.display().to_string()));
             }
             WriteStatus::SkippedExists => {
                 println!(
-                    "  · Example skill already exists at {}",
-                    skill_path.display()
+                    "{}",
+                    localization::tr(locale, localization::MessageId::SetupSkillExists).replace("{}", &skill_path.display().to_string())
                 );
             }
         }
         if args.local {
             println!(
-                "    Local skills dir enabled for this workspace: {}",
-                crate::utils::display_path(&skills_dir)
+                "{}",
+                localization::tr(locale, localization::MessageId::SetupSkillsLocalEnabled).replace("{}", &crate::utils::display_path(&skills_dir))
             );
         } else {
             println!(
-                "    Skills dir: {}",
-                crate::utils::display_path(&skills_dir)
+                "{}",
+                localization::tr(locale, localization::MessageId::SetupSkillsDir).replace("{}", &crate::utils::display_path(&skills_dir))
             );
         }
-        println!("    Next: run the TUI and use `/skills` then `/skill getting-started`.");
+        println!("{}", localization::tr(locale, localization::MessageId::SetupSkillsNextStep));
     }
 
     if run_tools {
         let tools_dir = default_tools_dir();
         let (dir, readme_status, example_status) = init_tools_dir(&tools_dir, args.force)?;
-        report_write_status("Tools README", &dir.join("README.md"), readme_status);
-        report_write_status("Example tool", &dir.join("example.sh"), example_status);
-        println!("    Tools dir: {}", crate::utils::display_path(&dir));
-        println!("    Next: drop scripts here; surface them via skills/MCP when ready.");
+        report_write_status(locale, localization::MessageId::SetupToolsReadme, &dir.join("README.md"), readme_status);
+        report_write_status(locale, localization::MessageId::SetupExampleTool, &dir.join("example.sh"), example_status);
+        println!("{}", localization::tr(locale, localization::MessageId::SetupToolsDir).replace("{}", &crate::utils::display_path(&dir)));
+        println!("{}", localization::tr(locale, localization::MessageId::SetupToolsNextStep));
     }
 
     if run_plugins {
         let plugins_dir = default_plugins_dir();
         let (readme_path, example_path, readme_status, example_status) =
             init_plugins_dir(&plugins_dir, args.force)?;
-        report_write_status("Plugins README", &readme_path, readme_status);
-        report_write_status("Example plugin", &example_path, example_status);
+        report_write_status(locale, localization::MessageId::SetupPluginsReadme, &readme_path, readme_status);
+        report_write_status(locale, localization::MessageId::SetupExamplePlugin, &example_path, example_status);
         println!(
-            "    Plugins dir: {}",
-            crate::utils::display_path(&plugins_dir)
+            "{}",
+            localization::tr(locale, localization::MessageId::SetupPluginsDir).replace("{}", &crate::utils::display_path(&plugins_dir))
         );
-        println!("    Next: copy the example dir, edit PLUGIN.md, wire via skill/MCP.");
+        println!("{}", localization::tr(locale, localization::MessageId::SetupPluginsNextStep));
     }
 
     let sandbox = crate::sandbox::get_platform_sandbox();
     if let Some(kind) = sandbox {
-        println!("  ✓ Sandbox available: {kind}");
+        println!("{}", localization::tr(locale, localization::MessageId::SetupSandboxAvailable).replace("{}", &kind.to_string()));
     } else {
-        println!("  · Sandbox not available on this platform (best-effort only).");
+        println!("{}", localization::tr(locale, localization::MessageId::SetupSandboxUnavailable));
     }
 
     Ok(())
 }
 
-fn report_write_status(label: &str, path: &Path, status: WriteStatus) {
+fn report_write_status(locale: localization::Locale, label_id: localization::MessageId, path: &Path, status: WriteStatus) {
+    let label = localization::tr(locale, label_id);
     match status {
         WriteStatus::Created => {
             println!("  ✓ Created {label} at {}", path.display());
@@ -1466,7 +1469,7 @@ async fn run_doctor(config: &Config, workspace: &Path, config_path_override: Opt
 
     println!(
         "{}",
-        "DeepSeek TUI Doctor"
+        localization::tr(localization::resolve_locale("auto"), localization::MessageId::DoctorTitle)
             .truecolor(blue_r, blue_g, blue_b)
             .bold()
     );
@@ -1474,13 +1477,13 @@ async fn run_doctor(config: &Config, workspace: &Path, config_path_override: Opt
     println!();
 
     // Version info
-    println!("{}", "Version Information:".bold());
+    println!("{}", localization::tr(localization::resolve_locale("auto"), localization::MessageId::DoctorVersionTitle).bold());
     println!("  deepseek-tui: {}", env!("CARGO_PKG_VERSION"));
     println!("  rust: {}", rustc_version());
     println!();
 
     // Configuration summary
-    println!("{}", "Configuration:".bold());
+    println!("{}", localization::tr(localization::resolve_locale("auto"), localization::MessageId::DoctorConfigTitle).bold());
     let default_config_dir =
         dirs::home_dir().map_or_else(|| PathBuf::from(".deepseek"), |h| h.join(".deepseek"));
     let config_path = config_path_override
@@ -1493,23 +1496,21 @@ async fn run_doctor(config: &Config, workspace: &Path, config_path_override: Opt
         .unwrap_or_else(|| default_config_dir.join("config.toml"));
 
     if config_path.exists() {
-        println!(
-            "  {} config.toml found at {}",
-            "✓".truecolor(aqua_r, aqua_g, aqua_b),
-            crate::utils::display_path(&config_path)
-        );
+        let locale = localization::resolve_locale("auto");
+        let msg = localization::tr(locale, localization::MessageId::DoctorConfigFound);
+        println!("  {} {}", "✓".truecolor(aqua_r, aqua_g, aqua_b), msg.replace("{}", &crate::utils::display_path(&config_path)));
     } else {
-        println!(
-            "  {} config.toml not found at {} (using defaults/env)",
-            "!".truecolor(sky_r, sky_g, sky_b),
-            crate::utils::display_path(&config_path)
-        );
+        let locale = localization::resolve_locale("auto");
+        let msg = localization::tr(locale, localization::MessageId::DoctorConfigNotFound);
+        println!("  {} {}", "!".truecolor(sky_r, sky_g, sky_b), msg.replace("{}", &crate::utils::display_path(&config_path)));
     }
-    println!("  workspace: {}", crate::utils::display_path(workspace));
+    let locale = localization::resolve_locale("auto");
+    let msg = localization::tr(locale, localization::MessageId::DoctorWorkspace);
+    println!("  {}", msg.replace("{}", &crate::utils::display_path(workspace)));
 
     // Check API keys
     println!();
-    println!("{}", "API Keys:".bold());
+    println!("{}", localization::tr(localization::resolve_locale("auto"), localization::MessageId::DoctorApiKeysTitle).bold());
 
     // Per-provider state: env + config file only (no values printed).
     // Keep doctor/status prompt-free even for unsigned rebuilt binaries.
@@ -1565,14 +1566,17 @@ async fn run_doctor(config: &Config, workspace: &Path, config_path_override: Opt
         } else {
             "·".dimmed()
         };
+        let locale = localization::resolve_locale("auto");
+        let msg = localization::tr(locale, localization::MessageId::DoctorApiKeyStatus);
         println!(
-            "  {} {slot}: env={}, config={}",
-            icon,
-            if in_env { "yes" } else { "no" },
-            if in_config { "yes" } else { "no" }
+            "  {}",
+            msg.replace("{}", &format!("{icon}", icon = icon))
+                .replace("{}", slot)
+                .replace("{}", if in_env { "yes" } else { "no" })
+                .replace("{}", if in_config { "yes" } else { "no" })
         );
     }
-    println!("  · credential precedence: ~/.deepseek/config.toml, then env");
+    println!("  {}", localization::tr(localization::resolve_locale("auto"), localization::MessageId::DoctorCredentialPrecedence));
 
     let api_key_source = resolve_api_key_source(config);
     let has_api_key = if config.deepseek_api_key().is_ok() {
@@ -1581,157 +1585,183 @@ async fn run_doctor(config: &Config, workspace: &Path, config_path_override: Opt
             ApiKeySource::Env => "environment",
             ApiKeySource::Missing => "unknown source",
         };
-        println!(
-            "  {} active provider key resolved from {source_label}",
-            "✓".truecolor(aqua_r, aqua_g, aqua_b)
-        );
+        let locale = localization::resolve_locale("auto");
+        let msg = localization::tr(locale, localization::MessageId::DoctorApiKeyResolved);
+        println!("  {}", msg.replace("{}", source_label));
         true
     } else {
         println!(
-            "  {} active provider key not configured",
-            "✗".truecolor(red_r, red_g, red_b)
+            "  {}",
+            localization::tr(localization::resolve_locale("auto"), localization::MessageId::DoctorApiKeyNotConfigured)
+                .truecolor(red_r, red_g, red_b)
         );
         println!(
-            "    Run 'deepseek auth set --provider <name>' to save a key to ~/.deepseek/config.toml."
+            "    {}",
+            localization::tr(localization::resolve_locale("auto"), localization::MessageId::DoctorApiKeyHint)
         );
         false
     };
 
     // API connectivity test
     println!();
-    println!("{}", "API Connectivity:".bold());
+    println!("{}", localization::tr(localization::resolve_locale("auto"), localization::MessageId::DoctorConnectivityTitle).bold());
     if has_api_key {
-        print!("  {} Testing connection to DeepSeek API...", "·".dimmed());
+        print!("  {} ", "·".dimmed());
+        print!("{}", localization::tr(localization::resolve_locale("auto"), localization::MessageId::DoctorTestingConnection));
         use std::io::Write;
         std::io::stdout().flush().ok();
 
         match test_api_connectivity(config).await {
             Ok(model) => {
+                let locale = localization::resolve_locale("auto");
+                let msg = localization::tr(locale, localization::MessageId::DoctorConnectionSuccess);
                 println!(
-                    "\r  {} API connection successful (model: {})",
-                    "✓".truecolor(aqua_r, aqua_g, aqua_b),
-                    model
+                    "\r  {}",
+                    msg.replace("{}", &model).truecolor(aqua_r, aqua_g, aqua_b)
                 );
+                
+                // 🆕 检查并生成 i18n.json
+                let settings = crate::settings::Settings::load().unwrap_or_default();
+                let locale = crate::localization::resolve_locale(&settings.locale);
+                
+                if crate::i18n_generator::should_regenerate(locale.tag()) {
+                    let msg = localization::tr(localization::resolve_locale("auto"), localization::MessageId::DoctorGeneratingTranslations);
+                    println!("  {}", msg.replace("{}", locale.tag()).dimmed());
+                    match crate::i18n_generator::generate_i18n(locale.tag(), config).await {
+                        Ok(_) => println!(
+                            "    {}",
+                            localization::tr(localization::resolve_locale("auto"), localization::MessageId::DoctorTranslationsSuccess)
+                                .truecolor(aqua_r, aqua_g, aqua_b)
+                        ),
+                        Err(e) => {
+                            let msg = localization::tr(localization::resolve_locale("auto"), localization::MessageId::DoctorTranslationsFailed);
+                            println!(
+                                "    {}",
+                                msg.replace("{}", &e.to_string()).truecolor(sky_r, sky_g, sky_b)
+                            )
+                        },
+                    }
+                }
             }
             Err(e) => {
                 let error_msg = e.to_string();
                 println!(
-                    "\r  {} API connection failed",
-                    "✗".truecolor(red_r, red_g, red_b)
+                    "\r  {}",
+                    localization::tr(localization::resolve_locale("auto"), localization::MessageId::DoctorConnectionFailed)
+                        .truecolor(red_r, red_g, red_b)
                 );
                 if error_msg.contains("401") || error_msg.contains("Unauthorized") {
-                    println!("    Invalid API key. Check your DEEPSEEK_API_KEY or config.toml");
+                    println!("    {}", localization::tr(localization::resolve_locale("auto"), localization::MessageId::DoctorInvalidApiKey));
                     if matches!(api_key_source, ApiKeySource::Env) {
                         println!(
-                            "    The rejected key came from DEEPSEEK_API_KEY; no saved config key is present."
+                            "    {}",
+                            localization::tr(localization::resolve_locale("auto"), localization::MessageId::DoctorEnvKeyRejected)
                         );
                         println!(
-                            "    Run `deepseek auth set --provider deepseek` to save a config key that overrides stale env."
+                            "    {}",
+                            localization::tr(localization::resolve_locale("auto"), localization::MessageId::DoctorSaveConfigKeyHint)
                         );
                     }
                 } else if error_msg.contains("403") || error_msg.contains("Forbidden") {
                     println!(
-                        "    API key lacks permissions. Verify key is active at platform.deepseek.com"
+                        "    {}",
+                        localization::tr(localization::resolve_locale("auto"), localization::MessageId::DoctorPermissionDenied)
                     );
                 } else if error_msg.contains("timeout") || error_msg.contains("Timeout") {
-                    println!("    Connection timed out. Check your network connection");
+                    println!("    {}", localization::tr(localization::resolve_locale("auto"), localization::MessageId::DoctorTimeoutError));
                 } else if error_msg.contains("dns") || error_msg.contains("resolve") {
-                    println!("    DNS resolution failed. Check your network connection");
+                    println!("    {}", localization::tr(localization::resolve_locale("auto"), localization::MessageId::DoctorDnsError));
                 } else if error_msg.contains("connect") {
-                    println!("    Connection failed. Check firewall settings or try again");
+                    println!("    {}", localization::tr(localization::resolve_locale("auto"), localization::MessageId::DoctorConnectionError));
                 } else {
-                    println!("    Error: {}", error_msg);
+                    let msg = localization::tr(localization::resolve_locale("auto"), localization::MessageId::DoctorGenericError);
+                    println!("    {}", msg.replace("{}", &error_msg));
                 }
             }
         }
     } else {
-        println!("  {} Skipped (no API key configured)", "·".dimmed());
+        println!("  {}", localization::tr(localization::resolve_locale("auto"), localization::MessageId::DoctorSkippedNoKey).dimmed());
     }
 
     // MCP configuration
     println!();
-    println!("{}", "MCP Servers:".bold());
+    let locale = localization::Locale::default();
+    println!("{}", localization::tr(locale, localization::MessageId::DoctorMcpServersTitle).bold());
     let features = config.features();
     if features.enabled(Feature::Mcp) {
         println!(
-            "  {} MCP feature flag enabled",
-            "✓".truecolor(aqua_r, aqua_g, aqua_b)
+            "  {} {}",
+            "✓".truecolor(aqua_r, aqua_g, aqua_b),
+            localization::tr(locale, localization::MessageId::DoctorMcpFeatureEnabled)
         );
     } else {
         println!(
-            "  {} MCP feature flag disabled",
-            "!".truecolor(sky_r, sky_g, sky_b)
+            "  {} {}",
+            "!".truecolor(sky_r, sky_g, sky_b),
+            localization::tr(locale, localization::MessageId::DoctorMcpFeatureDisabled)
         );
     }
 
     let mcp_config_path = config.mcp_config_path();
     if mcp_config_path.exists() {
+        let msg = localization::tr(locale, localization::MessageId::DoctorMcpConfigFound);
         println!(
-            "  {} MCP config found at {}",
+            "  {} {}",
             "✓".truecolor(aqua_r, aqua_g, aqua_b),
-            crate::utils::display_path(&mcp_config_path)
+            msg.replace("{}", &crate::utils::display_path(&mcp_config_path))
         );
         match load_mcp_config(&mcp_config_path) {
             Ok(cfg) if cfg.servers.is_empty() => {
-                println!("  {} 0 server(s) configured", "·".dimmed());
+                println!("  {} {}", "·".dimmed(), localization::tr(locale, localization::MessageId::DoctorMcpZeroServers));
             }
             Ok(cfg) => {
+                let msg = localization::tr(locale, localization::MessageId::DoctorMcpServersConfigured);
                 println!(
-                    "  {} {} server(s) configured",
+                    "  {} {}",
                     "·".dimmed(),
-                    cfg.servers.len()
+                    msg.replace("{}", &cfg.servers.len().to_string())
                 );
                 for (name, server) in &cfg.servers {
                     let status = doctor_check_mcp_server(server);
                     let icon = match status {
                         McpServerDoctorStatus::Ok(ref detail) => {
-                            format!(
-                                "  {} {name}: {}",
-                                "✓".truecolor(aqua_r, aqua_g, aqua_b),
-                                detail
-                            )
+                            format!("  ✓ {name}: {detail}")
                         }
                         McpServerDoctorStatus::Warning(ref detail) => {
-                            format!(
-                                "  {} {name}: {}",
-                                "!".truecolor(sky_r, sky_g, sky_b),
-                                detail
-                            )
+                            format!("  ! {name}: {detail}")
                         }
                         McpServerDoctorStatus::Error(ref detail) => {
-                            format!(
-                                "  {} {name}: {}",
-                                "✗".truecolor(red_r, red_g, red_b),
-                                detail
-                            )
+                            format!("  ✗ {name}: {detail}")
                         }
                     };
                     println!("{icon}");
                     if !server.enabled {
-                        println!("      (disabled)");
+                        println!("      {}", localization::tr(locale, localization::MessageId::DoctorMcpDisabled));
                     }
                 }
             }
             Err(err) => {
+                let msg = localization::tr(locale, localization::MessageId::DoctorMcpConfigParseError);
                 println!(
-                    "  {} MCP config parse error: {}",
+                    "  {} {}",
                     "✗".truecolor(red_r, red_g, red_b),
-                    err
+                    msg.replace("{}", &err.to_string())
                 );
             }
         }
     } else {
+        let msg = localization::tr(locale, localization::MessageId::DoctorMcpConfigNotFound);
         println!(
-            "  {} MCP config not found at {}",
+            "  {} {}",
             "·".dimmed(),
-            crate::utils::display_path(&mcp_config_path)
+            msg.replace("{}", &crate::utils::display_path(&mcp_config_path))
         );
-        println!("    Run `deepseek mcp init` or `deepseek setup --mcp`.");
+        println!("    {}", localization::tr(locale, localization::MessageId::DoctorMcpInitHint));
     }
 
     // Skills configuration
     println!();
-    println!("{}", "Skills:".bold());
+    println!("{}", localization::tr(locale, localization::MessageId::DoctorSkillsTitle).bold());
     let global_skills_dir = config.skills_dir();
     let agents_skills_dir = workspace.join(".agents").join("skills");
     let local_skills_dir = workspace.join("skills");
@@ -1756,47 +1786,53 @@ async fn run_doctor(config: &Config, workspace: &Path, config_path_override: Opt
     };
 
     if local_skills_dir.exists() {
+        let msg = localization::tr(locale, localization::MessageId::DoctorLocalSkillsFound);
         println!(
-            "  {} local skills dir found at {} ({} items)",
+            "  {} {}",
             "✓".truecolor(aqua_r, aqua_g, aqua_b),
-            crate::utils::display_path(&local_skills_dir),
-            describe_dir(&local_skills_dir)
+            msg.replace("{}", &crate::utils::display_path(&local_skills_dir))
+                .replace("{}", &describe_dir(&local_skills_dir).to_string())
         );
     } else {
+        let msg = localization::tr(locale, localization::MessageId::DoctorLocalSkillsNotFound);
         println!(
-            "  {} local skills dir not found at {}",
+            "  {} {}",
             "·".dimmed(),
-            crate::utils::display_path(&local_skills_dir)
+            msg.replace("{}", &crate::utils::display_path(&local_skills_dir))
         );
     }
 
     if agents_skills_dir.exists() {
+        let msg = localization::tr(locale, localization::MessageId::DoctorAgentsSkillsFound);
         println!(
-            "  {} .agents skills dir found at {} ({} items)",
+            "  {} {}",
             "✓".truecolor(aqua_r, aqua_g, aqua_b),
-            crate::utils::display_path(&agents_skills_dir),
-            describe_dir(&agents_skills_dir)
+            msg.replace("{}", &crate::utils::display_path(&agents_skills_dir))
+                .replace("{}", &describe_dir(&agents_skills_dir).to_string())
         );
     } else {
+        let msg = localization::tr(locale, localization::MessageId::DoctorAgentsSkillsNotFound);
         println!(
-            "  {} .agents skills dir not found at {}",
+            "  {} {}",
             "·".dimmed(),
-            crate::utils::display_path(&agents_skills_dir)
+            msg.replace("{}", &crate::utils::display_path(&agents_skills_dir))
         );
     }
 
     if global_skills_dir.exists() {
+        let msg = localization::tr(locale, localization::MessageId::DoctorGlobalSkillsFound);
         println!(
-            "  {} global skills dir found at {} ({} items)",
+            "  {} {}",
             "✓".truecolor(aqua_r, aqua_g, aqua_b),
-            crate::utils::display_path(&global_skills_dir),
-            describe_dir(&global_skills_dir)
+            msg.replace("{}", &crate::utils::display_path(&global_skills_dir))
+                .replace("{}", &describe_dir(&global_skills_dir).to_string())
         );
     } else {
+        let msg = localization::tr(locale, localization::MessageId::DoctorGlobalSkillsNotFound);
         println!(
-            "  {} global skills dir not found at {}",
+            "  {} {}",
             "·".dimmed(),
-            crate::utils::display_path(&global_skills_dir)
+            msg.replace("{}", &crate::utils::display_path(&global_skills_dir))
         );
     }
 
@@ -1804,76 +1840,83 @@ async fn run_doctor(config: &Config, workspace: &Path, config_path_override: Opt
     // .opencode/.claude folders are common and would just clutter
     // the report with false-positive "absent" lines.
     if opencode_skills_dir.exists() {
+        let msg = localization::tr(locale, localization::MessageId::DoctorOpencodeSkillsFound);
         println!(
-            "  {} .opencode skills dir found at {} ({} items)",
+            "  {} {}",
             "✓".truecolor(aqua_r, aqua_g, aqua_b),
-            crate::utils::display_path(&opencode_skills_dir),
-            describe_dir(&opencode_skills_dir)
+            msg.replace("{}", &crate::utils::display_path(&opencode_skills_dir))
+                .replace("{}", &describe_dir(&opencode_skills_dir).to_string())
         );
     }
     if claude_skills_dir.exists() {
+        let msg = localization::tr(locale, localization::MessageId::DoctorClaudeSkillsFound);
         println!(
-            "  {} .claude skills dir found at {} ({} items)",
+            "  {} {}",
             "✓".truecolor(aqua_r, aqua_g, aqua_b),
-            crate::utils::display_path(&claude_skills_dir),
-            describe_dir(&claude_skills_dir)
+            msg.replace("{}", &crate::utils::display_path(&claude_skills_dir))
+                .replace("{}", &describe_dir(&claude_skills_dir).to_string())
         );
     }
 
+    let msg = localization::tr(locale, localization::MessageId::DoctorSelectedSkillsDir);
     println!(
-        "  {} selected skills dir: {}",
+        "  {} {}",
         "·".dimmed(),
-        crate::utils::display_path(selected_skills_dir)
+        msg.replace("{}", &crate::utils::display_path(selected_skills_dir))
     );
     if !agents_skills_dir.exists() && !local_skills_dir.exists() && !global_skills_dir.exists() {
-        println!("    Run `deepseek setup --skills` (or add --local for ./skills).");
+        println!("    {}", localization::tr(locale, localization::MessageId::DoctorSkillsSetupHint));
     }
 
     // Tools directory
     println!();
-    println!("{}", "Tools:".bold());
+    println!("{}", localization::tr(locale, localization::MessageId::DoctorToolsTitle).bold());
     let tools_dir = default_tools_dir();
     if tools_dir.exists() {
         let count = count_dir_entries(&tools_dir);
+        let msg = localization::tr(locale, localization::MessageId::DoctorToolsDirFound);
         println!(
-            "  {} tools dir found at {} ({} items)",
+            "  {} {}",
             "✓".truecolor(aqua_r, aqua_g, aqua_b),
-            crate::utils::display_path(&tools_dir),
-            count
+            msg.replace("{}", &crate::utils::display_path(&tools_dir))
+                .replace("{}", &count.to_string())
         );
     } else {
+        let msg = localization::tr(locale, localization::MessageId::DoctorToolsDirNotFound);
         println!(
-            "  {} tools dir not found at {}",
+            "  {} {}",
             "·".dimmed(),
-            crate::utils::display_path(&tools_dir)
+            msg.replace("{}", &crate::utils::display_path(&tools_dir))
         );
-        println!("    Run `deepseek-tui setup --tools` to scaffold a starter dir.");
+        println!("    {}", localization::tr(locale, localization::MessageId::DoctorToolsSetupHint));
     }
 
     // Plugins directory
     println!();
-    println!("{}", "Plugins:".bold());
+    println!("{}", localization::tr(locale, localization::MessageId::DoctorPluginsTitle).bold());
     let plugins_dir = default_plugins_dir();
     if plugins_dir.exists() {
         let count = count_dir_entries(&plugins_dir);
+        let msg = localization::tr(locale, localization::MessageId::DoctorPluginsDirFound);
         println!(
-            "  {} plugins dir found at {} ({} items)",
+            "  {} {}",
             "✓".truecolor(aqua_r, aqua_g, aqua_b),
-            crate::utils::display_path(&plugins_dir),
-            count
+            msg.replace("{}", &crate::utils::display_path(&plugins_dir))
+                .replace("{}", &count.to_string())
         );
     } else {
+        let msg = localization::tr(locale, localization::MessageId::DoctorPluginsDirNotFound);
         println!(
-            "  {} plugins dir not found at {}",
+            "  {} {}",
             "·".dimmed(),
-            crate::utils::display_path(&plugins_dir)
+            msg.replace("{}", &crate::utils::display_path(&plugins_dir))
         );
-        println!("    Run `deepseek-tui setup --plugins` to scaffold a starter dir.");
+        println!("    {}", localization::tr(locale, localization::MessageId::DoctorPluginsSetupHint));
     }
 
     // Storage surfaces (#422 / #440 / #500)
     println!();
-    println!("{}", "Storage:".bold());
+    println!("{}", localization::tr(locale, localization::MessageId::DoctorStorageTitle).bold());
     if let Some(spillover_root) = crate::tools::truncate::spillover_root() {
         let (present, count) = if spillover_root.is_dir() {
             (true, count_dir_entries(&spillover_root))
@@ -1881,18 +1924,20 @@ async fn run_doctor(config: &Config, workspace: &Path, config_path_override: Opt
             (false, 0)
         };
         if present {
+            let msg = localization::tr(locale, localization::MessageId::DoctorSpilloverFound);
             println!(
-                "  {} tool-output spillover at {} ({} file{})",
+                "  {} {}",
                 "✓".truecolor(aqua_r, aqua_g, aqua_b),
-                crate::utils::display_path(&spillover_root),
-                count,
-                if count == 1 { "" } else { "s" }
+                msg.replace("{}", &crate::utils::display_path(&spillover_root))
+                    .replace("{}", &count.to_string())
+                    .replace("{}", if count == 1 { "" } else { "s" })
             );
         } else {
+            let msg = localization::tr(locale, localization::MessageId::DoctorSpilloverNotFound);
             println!(
-                "  {} tool-output spillover dir not yet created at {}",
+                "  {} {}",
                 "·".dimmed(),
-                crate::utils::display_path(&spillover_root)
+                msg.replace("{}", &crate::utils::display_path(&spillover_root))
             );
         }
     }
@@ -1900,45 +1945,49 @@ async fn run_doctor(config: &Config, workspace: &Path, config_path_override: Opt
     if let Some(stash_path) = stash_path {
         let stash_count = crate::composer_stash::load_stash().len();
         if stash_path.exists() {
+            let msg = localization::tr(locale, localization::MessageId::DoctorComposerStashFound);
             println!(
-                "  {} composer stash at {} ({} parked draft{})",
+                "  {} {}",
                 "✓".truecolor(aqua_r, aqua_g, aqua_b),
-                crate::utils::display_path(&stash_path),
-                stash_count,
-                if stash_count == 1 { "" } else { "s" }
+                msg.replace("{}", &crate::utils::display_path(&stash_path))
+                    .replace("{}", &stash_count.to_string())
+                    .replace("{}", if stash_count == 1 { "" } else { "s" })
             );
         } else {
             println!(
-                "  {} composer stash empty (Ctrl+S in the composer to park a draft)",
-                "·".dimmed()
+                "  {} {}",
+                "·".dimmed(),
+                localization::tr(locale, localization::MessageId::DoctorComposerStashEmpty)
             );
         }
     }
 
     // Platform and sandbox checks
     println!();
-    println!("{}", "Platform:".bold());
+    println!("{}", localization::tr(locale, localization::MessageId::DoctorPlatformTitle).bold());
     println!("  OS: {}", std::env::consts::OS);
     println!("  Arch: {}", std::env::consts::ARCH);
 
     let sandbox = crate::sandbox::get_platform_sandbox();
     if let Some(kind) = sandbox {
+        let msg = localization::tr(locale, localization::MessageId::DoctorSandboxAvailable);
         println!(
-            "  {} sandbox available: {}",
+            "  {} {}",
             "✓".truecolor(aqua_r, aqua_g, aqua_b),
-            kind
+            msg.replace("{}", &format!("{:?}", kind))
         );
     } else {
         println!(
-            "  {} sandbox not available (commands run best-effort)",
-            "!".truecolor(sky_r, sky_g, sky_b)
+            "  {} {}",
+            "!".truecolor(sky_r, sky_g, sky_b),
+            localization::tr(locale, localization::MessageId::DoctorSandboxNotAvailable)
         );
     }
 
     println!();
     println!(
         "{}",
-        "All checks complete!"
+        localization::tr(locale, localization::MessageId::DoctorAllChecksComplete)
             .truecolor(aqua_r, aqua_g, aqua_b)
             .bold()
     );
@@ -2837,38 +2886,39 @@ fn read_patch_from_stdin() -> Result<String> {
 
 async fn run_mcp_command(config: &Config, command: McpCommand) -> Result<()> {
     let config_path = config.mcp_config_path();
+    let locale = localization::Locale::default();
     match command {
         McpCommand::Init { force } => {
             let status = init_mcp_config(&config_path, force)?;
             match status {
                 WriteStatus::Created => {
-                    println!("Created MCP config at {}", config_path.display());
+                    println!("{}", localization::tr(locale, localization::MessageId::McpConfigCreated).replace("{}", &config_path.display().to_string()));
                 }
                 WriteStatus::Overwritten => {
-                    println!("Overwrote MCP config at {}", config_path.display());
+                    println!("{}", localization::tr(locale, localization::MessageId::McpConfigOverwritten).replace("{}", &config_path.display().to_string()));
                 }
                 WriteStatus::SkippedExists => {
                     println!(
-                        "MCP config already exists at {} (use --force to overwrite)",
-                        config_path.display()
+                        "{}",
+                        localization::tr(locale, localization::MessageId::McpConfigExists).replace("{}", &config_path.display().to_string())
                     );
                 }
             }
-            println!("Edit the file, then run `deepseek mcp list` or `deepseek mcp tools`.");
+            println!("{}", localization::tr(locale, localization::MessageId::McpEditHint));
             Ok(())
         }
         McpCommand::List => {
             let cfg = load_mcp_config(&config_path)?;
             if cfg.servers.is_empty() {
-                println!("No MCP servers configured in {}", config_path.display());
+                println!("{}", localization::tr(locale, localization::MessageId::McpNoServers).replace("{}", &config_path.display().to_string()));
                 return Ok(());
             }
-            println!("MCP servers ({}):", cfg.servers.len());
+            println!("{}", localization::tr(locale, localization::MessageId::McpServersTitle).replace("{}", &cfg.servers.len().to_string()));
             for (name, server) in cfg.servers {
                 let status = if server.enabled && !server.disabled {
-                    "enabled"
+                    localization::tr(locale, localization::MessageId::McpServerStatusEnabled)
                 } else {
-                    "disabled"
+                    localization::tr(locale, localization::MessageId::McpServerStatusDisabled)
                 };
                 let args = if server.args.is_empty() {
                     "".to_string()
@@ -2882,7 +2932,11 @@ async fn run_mcp_command(config: &Config, command: McpCommand) -> Result<()> {
                 } else {
                     "unknown".to_string()
                 };
-                let required = if server.required { " required" } else { "" };
+                let required = if server.required {
+                    localization::tr(locale, localization::MessageId::McpServerRequired)
+                } else {
+                    ""
+                };
                 println!("  - {name} [{status}{required}] {cmd_str}");
             }
             Ok(())
@@ -2891,14 +2945,14 @@ async fn run_mcp_command(config: &Config, command: McpCommand) -> Result<()> {
             let mut pool = McpPool::from_config_path(&config_path)?;
             if let Some(name) = server {
                 pool.get_or_connect(&name).await?;
-                println!("Connected to MCP server: {name}");
+                println!("{}", localization::tr(locale, localization::MessageId::McpConnectedServer).replace("{}", &name));
             } else {
                 let errors = pool.connect_all().await;
                 if errors.is_empty() {
-                    println!("Connected to all configured MCP servers.");
+                    println!("{}", localization::tr(locale, localization::MessageId::McpConnectedAll));
                 } else {
                     for (name, err) in errors {
-                        eprintln!("Failed to connect {name}: {err}");
+                        eprintln!("{}", localization::tr(locale, localization::MessageId::McpConnectFailed).replace("{}", &name).replace("{}", &err.to_string()));
                     }
                 }
             }
@@ -2909,17 +2963,13 @@ async fn run_mcp_command(config: &Config, command: McpCommand) -> Result<()> {
             if let Some(name) = server {
                 let conn = pool.get_or_connect(&name).await?;
                 if conn.tools().is_empty() {
-                    println!("No tools found for MCP server: {name}");
+                    println!("{}", localization::tr(locale, localization::MessageId::McpNoTools).replace("{}", &name));
                 } else {
-                    println!("Tools for {name}:");
+                    println!("{}", localization::tr(locale, localization::MessageId::McpToolsTitle).replace("{}", &name));
                     for tool in conn.tools() {
-                        println!(
-                            "  - {}{}",
-                            tool.name,
-                            tool.description
-                                .as_ref()
-                                .map_or(String::new(), |d| format!(": {d}"))
-                        );
+                        let desc = tool.description.as_ref()
+                            .map_or(String::new(), |d| format!(": {}", d));
+                        println!("  - {}{}", tool.name, desc);
                     }
                 }
             } else {
@@ -2930,13 +2980,9 @@ async fn run_mcp_command(config: &Config, command: McpCommand) -> Result<()> {
                 } else {
                     println!("MCP tools:");
                     for (name, tool) in tools {
-                        println!(
-                            "  - {}{}",
-                            name,
-                            tool.description
-                                .as_ref()
-                                .map_or(String::new(), |d| format!(": {d}"))
-                        );
+                        let desc = tool.description.as_ref()
+                            .map_or(String::new(), |d| format!(": {}", d));
+                        println!("  - {}{}", name, desc);
                     }
                 }
             }
@@ -2951,6 +2997,7 @@ async fn run_mcp_command(config: &Config, command: McpCommand) -> Result<()> {
             if command.is_none() && url.is_none() {
                 bail!("Provide either --command or --url for `mcp add`.");
             }
+            let is_stdio = command.is_some();
             let mut cfg = load_mcp_config(&config_path)?;
             cfg.servers.insert(
                 name.clone(),
@@ -2970,7 +3017,11 @@ async fn run_mcp_command(config: &Config, command: McpCommand) -> Result<()> {
                 },
             );
             save_mcp_config(&config_path, &cfg)?;
-            println!("Added MCP server '{name}' in {}", config_path.display());
+            if is_stdio {
+                println!("{}", localization::tr(locale, localization::MessageId::McpAddedStdioServer).replace("{}", &name));
+            } else {
+                println!("{}", localization::tr(locale, localization::MessageId::McpAddedHttpServer).replace("{}", &name));
+            }
             Ok(())
         }
         McpCommand::Remove { name } => {
@@ -2979,7 +3030,7 @@ async fn run_mcp_command(config: &Config, command: McpCommand) -> Result<()> {
                 bail!("MCP server '{name}' not found");
             }
             save_mcp_config(&config_path, &cfg)?;
-            println!("Removed MCP server '{name}'");
+            println!("{}", localization::tr(locale, localization::MessageId::McpRemovedServer).replace("{}", &name));
             Ok(())
         }
         McpCommand::Enable { name } => {
@@ -2991,7 +3042,7 @@ async fn run_mcp_command(config: &Config, command: McpCommand) -> Result<()> {
             server.enabled = true;
             server.disabled = false;
             save_mcp_config(&config_path, &cfg)?;
-            println!("Enabled MCP server '{name}'");
+            println!("{}", localization::tr(locale, localization::MessageId::McpEnabledServer).replace("{}", &name));
             Ok(())
         }
         McpCommand::Disable { name } => {
@@ -3003,14 +3054,14 @@ async fn run_mcp_command(config: &Config, command: McpCommand) -> Result<()> {
             server.enabled = false;
             server.disabled = true;
             save_mcp_config(&config_path, &cfg)?;
-            println!("Disabled MCP server '{name}'");
+            println!("{}", localization::tr(locale, localization::MessageId::McpDisabledServer).replace("{}", &name));
             Ok(())
         }
         McpCommand::Validate => {
             let mut pool = McpPool::from_config_path(&config_path)?;
             let errors = pool.connect_all().await;
             if errors.is_empty() {
-                println!("MCP config is valid. All enabled servers connected.");
+                println!("{}", localization::tr(locale, localization::MessageId::McpValidationSuccess));
                 return Ok(());
             }
             eprintln!("MCP validation failed:");
@@ -3591,6 +3642,13 @@ async fn run_interactive(
             ?err,
             "spillover prune skipped on boot"
         ),
+    }
+
+    // Initialize i18n translations from JSON file
+    if let Err(err) = crate::localization::init_translations() {
+        tracing::warn!(target: "i18n", ?err, "Failed to initialize translations, using defaults");
+    } else {
+        tracing::debug!(target: "i18n", "Translations initialized successfully");
     }
 
     tui::run_tui(

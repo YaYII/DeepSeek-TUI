@@ -5,24 +5,31 @@ use ratatui::layout::{Alignment, Rect};
 use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, Clear, Padding, Paragraph, Widget, Wrap};
 
+use crate::localization;
 use crate::palette;
 use crate::tui::views::{ModalKind, ModalView, ViewAction, ViewEvent};
 
-const PLAN_OPTIONS: [(&str, &str); 4] = [
-    (
-        "Accept plan (Agent)",
-        "Start implementation in Agent mode with approvals",
-    ),
-    (
-        "Accept plan (YOLO)",
-        "Start implementation in YOLO mode (auto-approve)",
-    ),
-    ("Revise plan", "Ask follow-ups or request plan changes"),
-    (
-        "Exit Plan mode",
-        "Return to Agent mode without implementation",
-    ),
-];
+fn get_plan_options() -> [(&'static str, &'static str); 4] {
+    let locale = localization::Locale::default();
+    [
+        (
+            localization::tr(locale, localization::MessageId::PopupOptionAcceptAndProceed),
+            localization::tr(locale, localization::MessageId::PopupOptionAcceptAndProceedDesc),
+        ),
+        (
+            localization::tr(locale, localization::MessageId::PopupOptionAcceptYolo),
+            localization::tr(locale, localization::MessageId::PopupOptionAcceptYoloDesc),
+        ),
+        (
+            localization::tr(locale, localization::MessageId::PopupOptionRevisePlan),
+            localization::tr(locale, localization::MessageId::PopupOptionRevisePlanDesc),
+        ),
+        (
+            localization::tr(locale, localization::MessageId::PopupOptionExitPlanMode),
+            localization::tr(locale, localization::MessageId::PopupOptionExitPlanModeDesc),
+        ),
+    ]
+}
 
 fn modal_block() -> Block<'static> {
     Block::default()
@@ -103,7 +110,7 @@ impl PlanPromptView {
     }
 
     fn max_index(&self) -> usize {
-        PLAN_OPTIONS.len().saturating_sub(1)
+        get_plan_options().len().saturating_sub(1)
     }
 
     fn submit_selected(&self) -> ViewAction {
@@ -113,7 +120,7 @@ impl PlanPromptView {
     }
 
     fn submit_number(number: u32) -> ViewAction {
-        if (1..=u32::try_from(PLAN_OPTIONS.len()).unwrap_or(0)).contains(&number) {
+        if (1..=u32::try_from(get_plan_options().len()).unwrap_or(0)).contains(&number) {
             ViewAction::EmitAndClose(ViewEvent::PlanPromptSelected {
                 option: usize::try_from(number).unwrap_or(1),
             })
@@ -185,18 +192,20 @@ impl ModalView for PlanPromptView {
     }
 
     fn render(&self, area: Rect, buf: &mut Buffer) {
+        let locale = localization::Locale::default();
+        let plan_options = get_plan_options();
         let mut lines: Vec<Line> = Vec::new();
         lines.push(Line::from(vec![Span::styled(
-            "Action required",
+            localization::tr(locale, localization::MessageId::PopupActionRequired),
             Style::default().fg(palette::DEEPSEEK_SKY).bold(),
         )]));
         lines.push(Line::from(vec![Span::styled(
-            "Choose what should happen after this plan.",
+            localization::tr(locale, localization::MessageId::PopupChooseAfterPlan),
             Style::default().fg(palette::TEXT_PRIMARY).bold(),
         )]));
         lines.push(Line::from(""));
 
-        for (idx, (label, description)) in PLAN_OPTIONS.iter().enumerate() {
+        for (idx, (label, description)) in plan_options.iter().enumerate() {
             let number = idx + 1;
             push_option_lines(&mut lines, self.selected == idx, number, label, description);
         }

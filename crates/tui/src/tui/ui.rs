@@ -77,6 +77,7 @@ use crate::tui::subagent_routing::{
 };
 #[cfg(test)]
 use crate::tui::tool_routing::exploring_label;
+use crate::localization;
 use crate::tui::tool_routing::{
     handle_tool_call_complete, handle_tool_call_started, maybe_add_patch_preview,
 };
@@ -1584,6 +1585,21 @@ async fn run_event_loop(
                 };
                 let advance_onboarding = |app: &mut App| {
                     app.status_message = None;
+                    // Auto-detect system locale and save it before showing Language screen
+                    let detected_locale = crate::localization::resolve_locale("auto");
+                    let detected_tag = detected_locale.tag();
+                    
+                    // Save detected locale to settings (only if not already set)
+                    if app.current_locale_tag() == "auto" {
+                        if let Ok(()) = app.set_locale_from_onboarding(detected_tag) {
+                            app.push_status_toast(
+                                format!("Auto-detected language: {}", detected_tag),
+                                StatusToastLevel::Info,
+                                Some(2_000),
+                            );
+                        }
+                    }
+                    
                     app.onboarding = OnboardingState::Language;
                 };
 
@@ -1602,42 +1618,17 @@ async fn run_event_loop(
                         app.onboarding = OnboardingState::Welcome;
                         app.status_message = None;
                     }
-                    // Language picker hotkeys: 1-5 select + persist (#566).
-                    //
-                    // Note: this used to be a single match-guard with `&& let`,
-                    // but `if_let_guard` is a nightly-only feature on Rust
-                    // before 1.94. Rewriting as a plain guard + nested `if let`
-                    // keeps `cargo install` working on stable.
-                    KeyCode::Char(c)
-                        if app.onboarding == OnboardingState::Language && c.is_ascii_digit() =>
-                    {
-                        if let Some((_, tag, _, _)) = onboarding::language::LANGUAGE_OPTIONS
-                            .iter()
-                            .find(|(hotkey, _, _, _)| *hotkey == c)
-                        {
-                            match app.set_locale_from_onboarding(tag) {
-                                Ok(()) => {
-                                    app.push_status_toast(
-                                        format!("Language set to {tag}"),
-                                        StatusToastLevel::Info,
-                                        Some(2_500),
-                                    );
-                                    advance_after_language(app);
-                                }
-                                Err(err) => {
-                                    app.status_message =
-                                        Some(format!("Failed to save locale: {err}"));
-                                }
-                            }
-                        }
+                    // Language screen: just press Enter to continue
+                    // (locale is auto-detected and already saved)
+                    KeyCode::Enter if app.onboarding == OnboardingState::Language => {
+                        advance_after_language(app);
                     }
                     KeyCode::Enter => match app.onboarding {
                         OnboardingState::Welcome => {
                             advance_onboarding(app);
                         }
                         OnboardingState::Language => {
-                            // Enter without a digit pick keeps the existing
-                            // setting (which defaults to "auto").
+                            // Already handled above (auto-detected)
                             advance_after_language(app);
                         }
                         OnboardingState::ApiKey => {
@@ -1703,7 +1694,7 @@ async fn run_event_loop(
                             app.finish_onboarding();
                         }
                         OnboardingState::None => {}
-                    },
+                    }
                     KeyCode::Char('y') | KeyCode::Char('Y')
                         if app.onboarding == OnboardingState::TrustDirectory =>
                     {
@@ -4189,21 +4180,22 @@ async fn handle_mcp_ui_action(
         crate::tui::app::McpUiAction::Show => Ok(()),
         crate::tui::app::McpUiAction::Init { force } => {
             changed = true;
+            let locale = localization::Locale::default();
             match mcp::init_config(&path, force) {
                 Ok(McpWriteStatus::Created) => {
-                    message = Some(format!("Created MCP config at {}", path.display()));
+                    let msg = localization::tr(locale, localization::MessageId::PopupMcpConfigCreated);
+                    message = Some(msg.replace("{}", &path.display().to_string()));
                     Ok(())
                 }
                 Ok(McpWriteStatus::Overwritten) => {
-                    message = Some(format!("Overwrote MCP config at {}", path.display()));
+                    let msg = localization::tr(locale, localization::MessageId::PopupMcpConfigOverwritten);
+                    message = Some(msg.replace("{}", &path.display().to_string()));
                     Ok(())
                 }
                 Ok(McpWriteStatus::SkippedExists) => {
                     changed = false;
-                    message = Some(format!(
-                        "MCP config already exists at {} (use /mcp init --force to overwrite)",
-                        path.display()
-                    ));
+                    let msg = localization::tr(locale, localization::MessageId::PopupMcpConfigExists);
+                    message = Some(msg.replace("{}", &path.display().to_string()));
                     Ok(())
                 }
                 Err(err) => Err(err),
@@ -4215,30 +4207,43 @@ async fn handle_mcp_ui_action(
             args,
         } => {
             changed = true;
+            let locale = localization::Locale::default();
+            let msg = localization::tr(locale, localization::MessageId::PopupMcpServerAdded);
             mcp::add_server_config(&path, name.clone(), Some(command), None, args)
-                .map(|()| message = Some(format!("Added MCP stdio server '{name}'")))
+                .map(|()| message = Some(msg.replace("{}", &name)))
         }
         crate::tui::app::McpUiAction::AddHttp { name, url } => {
             changed = true;
+            let locale = localization::Locale::default();
+            let msg = localization::tr(locale, localization::MessageId::PopupMcpHttpServerAdded);
             mcp::add_server_config(&path, name.clone(), None, Some(url), Vec::new())
-                .map(|()| message = Some(format!("Added MCP HTTP/SSE server '{name}'")))
+                .map(|()| message = Some(msg.replace("{}", &name)))
         }
         crate::tui::app::McpUiAction::Enable { name } => {
             changed = true;
+            let locale = localization::Locale::default();
+            let msg = localization::tr(locale, localization::MessageId::PopupMcpServerEnabled);
             mcp::set_server_enabled(&path, &name, true)
-                .map(|()| message = Some(format!("Enabled MCP server '{name}'")))
+                .map(|()| message = Some(msg.replace("{}", &name)))
         }
         crate::tui::app::McpUiAction::Disable { name } => {
             changed = true;
+            let locale = localization::Locale::default();
+            let msg = localization::tr(locale, localization::MessageId::PopupMcpServerDisabled);
             mcp::set_server_enabled(&path, &name, false)
-                .map(|()| message = Some(format!("Disabled MCP server '{name}'")))
+                .map(|()| message = Some(msg.replace("{}", &name)))
         }
         crate::tui::app::McpUiAction::Remove { name } => {
             changed = true;
+            let locale = localization::Locale::default();
+            let msg = localization::tr(locale, localization::MessageId::PopupMcpServerRemoved);
             mcp::remove_server_config(&path, &name)
-                .map(|()| message = Some(format!("Removed MCP server '{name}'")))
+                .map(|()| message = Some(msg.replace("{}", &name)))
         }
-        crate::tui::app::McpUiAction::Validate | crate::tui::app::McpUiAction::Reload => Ok(()),
+        crate::tui::app::McpUiAction::Validate | crate::tui::app::McpUiAction::Reload => {
+            let locale = localization::Locale::default();
+            Ok(())
+        }
     };
 
     if let Err(err) = action_result {

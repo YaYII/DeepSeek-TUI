@@ -3,29 +3,38 @@
 use std::path::{Path, PathBuf};
 
 use super::CommandResult;
+use crate::localization::MessageId;
 use crate::tui::app::App;
 
 pub fn attach(app: &mut App, arg: Option<&str>) -> CommandResult {
     let Some(raw_path) = arg.map(str::trim).filter(|value| !value.is_empty()) else {
-        return CommandResult::error("Usage: /attach <image-or-video-path>");
+        return CommandResult::error(app.tr(MessageId::CmdAttachUsage));
     };
 
     let path = resolve_attachment_path(raw_path, &app.workspace);
     let Ok(path) = path.canonicalize() else {
-        return CommandResult::error(format!("Attachment not found: {}", path.display()));
+        return CommandResult::error(
+            app.tr(MessageId::CmdAttachNotFound)
+                .replace("{path}", &path.display().to_string()),
+        );
     };
     if !path.is_file() {
-        return CommandResult::error(format!("Attachment is not a file: {}", path.display()));
+        return CommandResult::error(
+            app.tr(MessageId::CmdAttachNotFile)
+                .replace("{path}", &path.display().to_string()),
+        );
     }
 
     let Some(kind) = media_kind(&path) else {
-        return CommandResult::error(
-            "Unsupported attachment type. /attach is for image/video paths; use @path for text files or directories.",
-        );
+        return CommandResult::error(app.tr(MessageId::CmdAttachUnsupported));
     };
 
     app.insert_media_attachment(kind, &path, None);
-    CommandResult::message(format!("Attached {kind}: {}", path.display()))
+    CommandResult::message(
+        app.tr(MessageId::CmdAttachAttached)
+            .replace("{kind}", kind)
+            .replace("{path}", &path.display().to_string()),
+    )
 }
 
 fn resolve_attachment_path(raw_path: &str, workspace: &Path) -> PathBuf {

@@ -3,33 +3,35 @@
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 
+use crate::localization;
 use crate::palette;
 use crate::tui::app::App;
 
 pub fn lines(app: &App) -> Vec<Line<'static>> {
+    let locale = app.ui_locale;
     let mut lines = vec![
         Line::from(Span::styled(
-            "Connect your DeepSeek API key",
+            localization::tr(locale, localization::MessageId::OnboardingApiKeyTitle),
             Style::default()
                 .fg(palette::DEEPSEEK_SKY)
                 .add_modifier(Modifier::BOLD),
         )),
         Line::from(""),
         Line::from(Span::styled(
-            "Step 1.  Open https://platform.deepseek.com/api_keys and create a key.",
+            localization::tr(locale, localization::MessageId::OnboardingApiKeyStep1),
             Style::default().fg(palette::TEXT_PRIMARY),
         )),
         Line::from(Span::styled(
-            "Step 2.  Paste it below and press Enter.",
+            localization::tr(locale, localization::MessageId::OnboardingApiKeyStep2),
             Style::default().fg(palette::TEXT_PRIMARY),
         )),
         Line::from(""),
         Line::from(Span::styled(
-            "Saved to ~/.deepseek/config.toml so it works from any folder.",
+            localization::tr(locale, localization::MessageId::OnboardingApiKeySavedTo),
             Style::default().fg(palette::TEXT_MUTED),
         )),
         Line::from(Span::styled(
-            "Paste the full key exactly as issued (no spaces or newlines).",
+            localization::tr(locale, localization::MessageId::OnboardingApiKeyPasteExact),
             Style::default().fg(palette::TEXT_MUTED),
         )),
         Line::from(""),
@@ -37,12 +39,12 @@ pub fn lines(app: &App) -> Vec<Line<'static>> {
 
     let masked = mask_key(&app.api_key_input);
     let display = if masked.is_empty() {
-        "(paste key here)"
+        localization::tr(locale, localization::MessageId::OnboardingApiKeyPlaceholder)
     } else {
         masked.as_str()
     };
     lines.push(Line::from(vec![
-        Span::styled("Key: ", Style::default().fg(palette::TEXT_MUTED)),
+        Span::styled(localization::tr(locale, localization::MessageId::OnboardingApiKeyLabel), Style::default().fg(palette::TEXT_MUTED)),
         Span::styled(
             display.to_string(),
             Style::default()
@@ -62,7 +64,7 @@ pub fn lines(app: &App) -> Vec<Line<'static>> {
 
     lines.push(Line::from(""));
     lines.push(Line::from(Span::styled(
-        "Press Enter to save, Esc to go back.",
+        localization::tr(locale, localization::MessageId::OnboardingApiKeyInstructions),
         Style::default().fg(palette::TEXT_MUTED),
     )));
 

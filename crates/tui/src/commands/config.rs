@@ -66,14 +66,6 @@ pub fn config_command(app: &mut App, arg: Option<&str>) -> CommandResult {
 /// Show the current value of a single setting.
 fn show_single_setting(app: &App, key: &str) -> CommandResult {
     let key = key.to_lowercase();
-    fn locale_display(l: crate::localization::Locale) -> &'static str {
-        match l {
-            crate::localization::Locale::En => "en",
-            crate::localization::Locale::ZhHans => "zh-Hans",
-            crate::localization::Locale::Ja => "ja",
-            crate::localization::Locale::PtBr => "pt-BR",
-        }
-    }
     fn density_display(d: crate::tui::app::ComposerDensity) -> &'static str {
         match d {
             crate::tui::app::ComposerDensity::Compact => "compact",
@@ -97,7 +89,7 @@ fn show_single_setting(app: &App, key: &str) -> CommandResult {
             }
         }
         "approval_mode" | "approval" => Some(app.approval_mode.label().to_string()),
-        "locale" | "language" => Some(locale_display(app.ui_locale).to_string()),
+        "locale" | "language" => Some(app.ui_locale.tag().to_string()),
         "auto_compact" | "compact" => {
             Some(if app.auto_compact { "true" } else { "false" }.to_string())
         }
