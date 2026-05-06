@@ -3,6 +3,7 @@
 use crate::tui::app::App;
 
 use super::CommandResult;
+use crate::localization::MessageId;
 
 /// Set or show the current goal
 pub fn goal(app: &mut App, arg: Option<&str>) -> CommandResult {
@@ -11,7 +12,7 @@ pub fn goal(app: &mut App, arg: Option<&str>) -> CommandResult {
             app.goal.goal_objective = None;
             app.goal.goal_token_budget = None;
             app.goal.goal_started_at = None;
-            CommandResult::message("Goal cleared.")
+            CommandResult::message(app.tr(MessageId::CmdGoalCleared))
         }
         Some(text) if !text.is_empty() => {
             // Parse optional budget: "/goal Implement login | budget: 50000"
@@ -20,12 +21,16 @@ pub fn goal(app: &mut App, arg: Option<&str>) -> CommandResult {
             app.goal.goal_token_budget = budget;
             app.goal.goal_started_at = Some(std::time::Instant::now());
             let budget_str = budget
-                .map(|b| format!(" (budget: {b} tokens)"))
+                .map(|b| {
+                    app.tr(MessageId::CmdGoalBudgetSuffix)
+                        .replace("{budget}", &b.to_string())
+                })
                 .unwrap_or_default();
-            CommandResult::message(format!(
-                "Goal set: \"{}\"{} — tracking progress.",
-                objective, budget_str
-            ))
+            CommandResult::message(
+                app.tr(MessageId::CmdGoalSet)
+                    .replace("{objective}", &objective)
+                    .replace("{budget}", &budget_str),
+            )
         }
         _ => {
             // Show current goal
@@ -37,7 +42,7 @@ pub fn goal(app: &mut App, arg: Option<&str>) -> CommandResult {
                     .goal
                     .goal_started_at
                     .map(|t| crate::tui::notifications::humanize_duration(t.elapsed()))
-                    .unwrap_or_else(|| "unknown".to_string());
+                    .unwrap_or_else(|| app.tr(MessageId::CmdGoalUnknownElapsed).to_string());
                 let budget_str = app
                     .goal
                     .goal_token_budget
@@ -48,15 +53,20 @@ pub fn goal(app: &mut App, arg: Option<&str>) -> CommandResult {
                         } else {
                             0.0
                         };
-                        format!(" | tokens: {used}/{b} ({pct:.0}%)")
+                        app.tr(MessageId::CmdGoalTokensSuffix)
+                            .replace("{used}", &used.to_string())
+                            .replace("{budget}", &b.to_string())
+                            .replace("{percent}", &format!("{pct:.0}"))
                     })
                     .unwrap_or_default();
-                CommandResult::message(format!("Goal: \"{obj}\" — elapsed: {elapsed}{budget_str}"))
-            } else {
                 CommandResult::message(
-                    "No goal set. Use /goal <objective> [budget: N] to set one.\n\
-                     /goal clear — remove the current goal.",
+                    app.tr(MessageId::CmdGoalCurrent)
+                        .replace("{objective}", obj)
+                        .replace("{elapsed}", &elapsed)
+                        .replace("{budget}", &budget_str),
                 )
+            } else {
+                CommandResult::message(app.tr(MessageId::CmdGoalEmptyHelp))
             }
         }
     }

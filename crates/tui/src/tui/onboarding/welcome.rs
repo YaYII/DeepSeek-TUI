@@ -26,7 +26,10 @@ pub fn lines(app: &App) -> Vec<Line<'static>> {
         )),
         Line::from(""),
         Line::from(Span::styled(
-            localization::tr(locale, localization::MessageId::OnboardingWelcomeDescription),
+            localization::tr(
+                locale,
+                localization::MessageId::OnboardingWelcomeDescription,
+            ),
             Style::default().fg(palette::TEXT_PRIMARY),
         )),
         Line::from(Span::styled(

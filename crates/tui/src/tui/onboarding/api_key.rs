@@ -44,7 +44,10 @@ pub fn lines(app: &App) -> Vec<Line<'static>> {
         masked.as_str()
     };
     lines.push(Line::from(vec![
-        Span::styled(localization::tr(locale, localization::MessageId::OnboardingApiKeyLabel), Style::default().fg(palette::TEXT_MUTED)),
+        Span::styled(
+            localization::tr(locale, localization::MessageId::OnboardingApiKeyLabel),
+            Style::default().fg(palette::TEXT_MUTED),
+        ),
         Span::styled(
             display.to_string(),
             Style::default()
@@ -64,7 +67,10 @@ pub fn lines(app: &App) -> Vec<Line<'static>> {
 
     lines.push(Line::from(""));
     lines.push(Line::from(Span::styled(
-        localization::tr(locale, localization::MessageId::OnboardingApiKeyInstructions),
+        localization::tr(
+            locale,
+            localization::MessageId::OnboardingApiKeyInstructions,
+        ),
         Style::default().fg(palette::TEXT_MUTED),
     )));
 

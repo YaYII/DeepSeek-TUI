@@ -3,6 +3,7 @@
 use std::fmt::Write;
 use std::path::PathBuf;
 
+use crate::localization::MessageId;
 use crate::session_manager::create_saved_session_with_mode;
 use crate::tui::app::{App, AppAction};
 use crate::tui::history::{HistoryCell, history_cells_from_message};
@@ -38,21 +39,35 @@ pub fn save(app: &mut App, path: Option<&str>) -> CommandResult {
         Ok(()) => {
             let json = match serde_json::to_string_pretty(&session) {
                 Ok(j) => j,
-                Err(e) => return CommandResult::error(format!("Failed to serialize session: {e}")),
+                Err(e) => {
+                    return CommandResult::error(
+                        app.tr(MessageId::CmdSessionSerializeFailed)
+                            .replace("{err}", &e.to_string()),
+                    );
+                }
             };
             match std::fs::write(&save_path, json) {
                 Ok(()) => {
                     app.current_session_id = Some(session.metadata.id.clone());
-                    CommandResult::message(format!(
-                        "Session saved to {} (ID: {})",
-                        save_path.display(),
-                        crate::session_manager::truncate_id(&session.metadata.id)
-                    ))
+                    CommandResult::message(
+                        app.tr(MessageId::CmdSessionSaved)
+                            .replace("{path}", &save_path.display().to_string())
+                            .replace(
+                                "{id}",
+                                &crate::session_manager::truncate_id(&session.metadata.id),
+                            ),
+                    )
                 }
-                Err(e) => CommandResult::error(format!("Failed to save session: {e}")),
+                Err(e) => CommandResult::error(
+                    app.tr(MessageId::CmdSessionSaveFailed)
+                        .replace("{err}", &e.to_string()),
+                ),
             }
         }
-        Err(e) => CommandResult::error(format!("Failed to create directory: {e}")),
+        Err(e) => CommandResult::error(
+            app.tr(MessageId::CmdSessionCreateDirFailed)
+                .replace("{err}", &e.to_string()),
+        ),
     }
 }
 
@@ -65,20 +80,26 @@ pub fn load(app: &mut App, path: Option<&str>) -> CommandResult {
             app.workspace.join(p)
         }
     } else {
-        return CommandResult::error("Usage: /load <path>");
+        return CommandResult::error(app.tr(MessageId::CmdSessionLoadUsage));
     };
 
     let content = match std::fs::read_to_string(&load_path) {
         Ok(c) => c,
         Err(e) => {
-            return CommandResult::error(format!("Failed to read session file: {e}"));
+            return CommandResult::error(
+                app.tr(MessageId::CmdSessionReadFailed)
+                    .replace("{err}", &e.to_string()),
+            );
         }
     };
 
     let session: crate::session_manager::SavedSession = match serde_json::from_str(&content) {
         Ok(s) => s,
         Err(e) => {
-            return CommandResult::error(format!("Failed to parse session file: {e}"));
+            return CommandResult::error(
+                app.tr(MessageId::CmdSessionParseFailed)
+                    .replace("{err}", &e.to_string()),
+            );
         }
     };
 
@@ -106,12 +127,13 @@ pub fn load(app: &mut App, path: Option<&str>) -> CommandResult {
     app.scroll_to_bottom();
 
     CommandResult::with_message_and_action(
-        format!(
-            "Session loaded from {} (ID: {}, {} messages)",
-            load_path.display(),
-            crate::session_manager::truncate_id(&session.metadata.id),
-            session.metadata.message_count
-        ),
+        app.tr(MessageId::CmdSessionLoaded)
+            .replace("{path}", &load_path.display().to_string())
+            .replace(
+                "{id}",
+                &crate::session_manager::truncate_id(&session.metadata.id),
+            )
+            .replace("{count}", &session.metadata.message_count.to_string()),
         crate::tui::app::AppAction::SyncSession {
             messages: app.api_messages.clone(),
             system_prompt: app.system_prompt.clone(),
@@ -125,7 +147,11 @@ pub fn load(app: &mut App, path: Option<&str>) -> CommandResult {
 pub fn compact(_app: &mut App) -> CommandResult {
     // Trigger immediate compaction via engine
     CommandResult::with_message_and_action(
-        "Context compaction triggered...".to_string(),
+        crate::localization::tr(
+            crate::localization::Locale::default(),
+            MessageId::CmdSessionCompactTriggered,
+        )
+        .to_string(),
         AppAction::CompactContext,
     )
 }
@@ -141,35 +167,64 @@ pub fn export(app: &mut App, path: Option<&str>) -> CommandResult {
     );
 
     let mut content = String::new();
-    content.push_str("# Chat Export\n\n");
+    content.push_str(app.tr(MessageId::CmdSessionExportTitle));
+    content.push_str("\n\n");
     let _ = write!(
         content,
-        "**Model:** {}\n**Workspace:** {}\n**Date:** {}\n\n---\n\n",
+        "**{}:** {}\n**{}:** {}\n**{}:** {}\n\n---\n\n",
+        app.tr(MessageId::CmdSessionExportModel),
         app.model,
+        app.tr(MessageId::CmdSessionExportWorkspace),
         app.workspace.display(),
+        app.tr(MessageId::CmdSessionExportDate),
         chrono::Local::now().format("%Y-%m-%d %H:%M:%S")
     );
 
     for cell in &app.history {
         let (role, body) = match cell {
-            HistoryCell::User { content } => ("**You:**", content.clone()),
-            HistoryCell::Assistant { content, .. } => ("**Assistant:**", content.clone()),
-            HistoryCell::System { content } => ("*System:*", content.clone()),
+            HistoryCell::User { content } => {
+                (app.tr(MessageId::CmdSessionExportRoleYou), content.clone())
+            }
+            HistoryCell::Assistant { content, .. } => (
+                app.tr(MessageId::CmdSessionExportRoleAssistant),
+                content.clone(),
+            ),
+            HistoryCell::System { content } => (
+                app.tr(MessageId::CmdSessionExportRoleSystem),
+                content.clone(),
+            ),
             HistoryCell::Error { message, severity } => match severity {
-                crate::error_taxonomy::ErrorSeverity::Warning => ("**Warning:**", message.clone()),
-                crate::error_taxonomy::ErrorSeverity::Info => ("*Info:*", message.clone()),
-                _ => ("**Error:**", message.clone()),
+                crate::error_taxonomy::ErrorSeverity::Warning => (
+                    app.tr(MessageId::CmdSessionExportRoleWarning),
+                    message.clone(),
+                ),
+                crate::error_taxonomy::ErrorSeverity::Info => {
+                    (app.tr(MessageId::CmdSessionExportRoleInfo), message.clone())
+                }
+                _ => (
+                    app.tr(MessageId::CmdSessionExportRoleError),
+                    message.clone(),
+                ),
             },
-            HistoryCell::Thinking { content, .. } => ("*Thinking:*", content.clone()),
-            HistoryCell::Tool(tool) => ("**Tool:**", render_tool_cell(tool, 80)),
-            HistoryCell::SubAgent(sub) => ("**Sub-agent:**", render_subagent_cell(sub, 80)),
+            HistoryCell::Thinking { content, .. } => (
+                app.tr(MessageId::CmdSessionExportRoleThinking),
+                content.clone(),
+            ),
+            HistoryCell::Tool(tool) => (
+                app.tr(MessageId::CmdSessionExportRoleTool),
+                render_tool_cell(tool, 80),
+            ),
+            HistoryCell::SubAgent(sub) => (
+                app.tr(MessageId::CmdSessionExportRoleSubagent),
+                render_subagent_cell(sub, 80),
+            ),
             HistoryCell::ArchivedContext {
                 level,
                 range,
                 summary,
                 ..
             } => (
-                "**Archived Context:**",
+                app.tr(MessageId::CmdSessionExportRoleArchivedContext),
                 format!("L{level} [{range}]: {summary}"),
             ),
         };
@@ -178,8 +233,14 @@ pub fn export(app: &mut App, path: Option<&str>) -> CommandResult {
     }
 
     match std::fs::write(&export_path, content) {
-        Ok(()) => CommandResult::message(format!("Exported to {}", export_path.display())),
-        Err(e) => CommandResult::error(format!("Failed to export: {e}")),
+        Ok(()) => CommandResult::message(
+            app.tr(MessageId::CmdSessionExported)
+                .replace("{path}", &export_path.display().to_string()),
+        ),
+        Err(e) => CommandResult::error(
+            app.tr(MessageId::CmdSessionExportFailed)
+                .replace("{err}", &e.to_string()),
+        ),
     }
 }
 
@@ -200,9 +261,10 @@ pub fn sessions(app: &mut App, arg: Option<&str>) -> CommandResult {
             app.view_stack.push(SessionPickerView::new());
             CommandResult::ok()
         }
-        _ => CommandResult::error(format!(
-            "unknown subcommand `{action}`. usage: /sessions [show|prune <days>]"
-        )),
+        _ => CommandResult::error(
+            app.tr(MessageId::CmdSessionsUnknownSubcommand)
+                .replace("{action}", &action),
+        ),
     }
 }
 
@@ -215,35 +277,63 @@ fn prune(_app: &mut App, days_arg: Option<&str>) -> CommandResult {
     let days_str = match days_arg {
         Some(s) => s,
         None => {
-            return CommandResult::error(
-                "usage: /sessions prune <days>   (e.g. `/sessions prune 30` to drop sessions older than 30 days)",
-            );
+            return CommandResult::error(crate::localization::tr(
+                crate::localization::Locale::default(),
+                MessageId::CmdSessionsPruneUsage,
+            ));
         }
     };
     let days: u64 = match days_str.parse() {
         Ok(n) if n > 0 => n,
         _ => {
-            return CommandResult::error(format!(
-                "expected a positive integer number of days, got `{days_str}`"
-            ));
+            return CommandResult::error(
+                crate::localization::tr(
+                    crate::localization::Locale::default(),
+                    MessageId::CmdSessionsPruneInvalidDays,
+                )
+                .replace("{days}", days_str),
+            );
         }
     };
 
     let manager = match crate::session_manager::SessionManager::default_location() {
         Ok(m) => m,
         Err(err) => {
-            return CommandResult::error(format!("could not open sessions directory: {err}"));
+            return CommandResult::error(
+                crate::localization::tr(
+                    crate::localization::Locale::default(),
+                    MessageId::CmdSessionsOpenFailed,
+                )
+                .replace("{err}", &err.to_string()),
+            );
         }
     };
 
     let max_age = std::time::Duration::from_secs(days.saturating_mul(24 * 60 * 60));
     match manager.prune_sessions_older_than(max_age) {
-        Ok(0) => CommandResult::message(format!("no sessions older than {days}d to prune")),
-        Ok(n) => CommandResult::message(format!(
-            "pruned {n} session{} older than {days}d",
-            if n == 1 { "" } else { "s" }
-        )),
-        Err(err) => CommandResult::error(format!("prune failed: {err}")),
+        Ok(0) => CommandResult::message(
+            crate::localization::tr(
+                crate::localization::Locale::default(),
+                MessageId::CmdSessionsPruneNone,
+            )
+            .replace("{days}", &days.to_string()),
+        ),
+        Ok(n) => CommandResult::message(
+            crate::localization::tr(
+                crate::localization::Locale::default(),
+                MessageId::CmdSessionsPruned,
+            )
+            .replace("{count}", &n.to_string())
+            .replace("{plural}", if n == 1 { "" } else { "s" })
+            .replace("{days}", &days.to_string()),
+        ),
+        Err(err) => CommandResult::error(
+            crate::localization::tr(
+                crate::localization::Locale::default(),
+                MessageId::CmdSessionsPruneFailed,
+            )
+            .replace("{err}", &err.to_string()),
+        ),
     }
 }
 

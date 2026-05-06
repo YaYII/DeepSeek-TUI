@@ -33,9 +33,9 @@ mod execpolicy;
 mod features;
 mod handoff;
 mod hooks;
+mod i18n_files;
 mod llm_client;
 mod localization;
-mod i18n_generator;
 mod logging;
 mod lsp;
 mod mcp;
@@ -1111,26 +1111,51 @@ fn run_setup(config: &Config, workspace: &Path, args: SetupArgs) -> Result<()> {
     let locale = localization::Locale::default();
     println!(
         "{}",
-        localization::tr(locale, localization::MessageId::SetupTitle).truecolor(aqua_r, aqua_g, aqua_b).bold()
+        localization::tr(locale, localization::MessageId::SetupTitle)
+            .truecolor(aqua_r, aqua_g, aqua_b)
+            .bold()
     );
-    println!("{}", localization::tr(locale, localization::MessageId::SetupSeparator).truecolor(sky_r, sky_g, sky_b));
-    println!("{}", localization::tr(locale, localization::MessageId::SetupWorkspace).replace("{}", &crate::utils::display_path(workspace)));
+    println!(
+        "{}",
+        localization::tr(locale, localization::MessageId::SetupSeparator)
+            .truecolor(sky_r, sky_g, sky_b)
+    );
+    println!(
+        "{}",
+        localization::tr(locale, localization::MessageId::SetupWorkspace)
+            .replace("{}", &crate::utils::display_path(workspace))
+    );
 
     if run_mcp {
         let mcp_path = config.mcp_config_path();
         let status = init_mcp_config(&mcp_path, args.force)?;
         match status {
             WriteStatus::Created => {
-                println!("{}", localization::tr(locale, localization::MessageId::SetupMcpCreated).replace("{}", &mcp_path.display().to_string()));
+                println!(
+                    "{}",
+                    localization::tr(locale, localization::MessageId::SetupMcpCreated)
+                        .replace("{}", &mcp_path.display().to_string())
+                );
             }
             WriteStatus::Overwritten => {
-                println!("{}", localization::tr(locale, localization::MessageId::SetupMcpOverwritten).replace("{}", &mcp_path.display().to_string()));
+                println!(
+                    "{}",
+                    localization::tr(locale, localization::MessageId::SetupMcpOverwritten)
+                        .replace("{}", &mcp_path.display().to_string())
+                );
             }
             WriteStatus::SkippedExists => {
-                println!("{}", localization::tr(locale, localization::MessageId::SetupMcpExists).replace("{}", &mcp_path.display().to_string()));
+                println!(
+                    "{}",
+                    localization::tr(locale, localization::MessageId::SetupMcpExists)
+                        .replace("{}", &mcp_path.display().to_string())
+                );
             }
         }
-        println!("{}", localization::tr(locale, localization::MessageId::SetupMcpNextStep));
+        println!(
+            "{}",
+            localization::tr(locale, localization::MessageId::SetupMcpNextStep)
+        );
     }
 
     if run_skills {
@@ -1142,65 +1167,122 @@ fn run_setup(config: &Config, workspace: &Path, args: SetupArgs) -> Result<()> {
         let (skill_path, status) = init_skills_dir(&skills_dir, args.force)?;
         match status {
             WriteStatus::Created => {
-                println!("{}", localization::tr(locale, localization::MessageId::SetupSkillCreated).replace("{}", &skill_path.display().to_string()));
+                println!(
+                    "{}",
+                    localization::tr(locale, localization::MessageId::SetupSkillCreated)
+                        .replace("{}", &skill_path.display().to_string())
+                );
             }
             WriteStatus::Overwritten => {
-                println!("{}", localization::tr(locale, localization::MessageId::SetupSkillOverwritten).replace("{}", &skill_path.display().to_string()));
+                println!(
+                    "{}",
+                    localization::tr(locale, localization::MessageId::SetupSkillOverwritten)
+                        .replace("{}", &skill_path.display().to_string())
+                );
             }
             WriteStatus::SkippedExists => {
                 println!(
                     "{}",
-                    localization::tr(locale, localization::MessageId::SetupSkillExists).replace("{}", &skill_path.display().to_string())
+                    localization::tr(locale, localization::MessageId::SetupSkillExists)
+                        .replace("{}", &skill_path.display().to_string())
                 );
             }
         }
         if args.local {
             println!(
                 "{}",
-                localization::tr(locale, localization::MessageId::SetupSkillsLocalEnabled).replace("{}", &crate::utils::display_path(&skills_dir))
+                localization::tr(locale, localization::MessageId::SetupSkillsLocalEnabled)
+                    .replace("{}", &crate::utils::display_path(&skills_dir))
             );
         } else {
             println!(
                 "{}",
-                localization::tr(locale, localization::MessageId::SetupSkillsDir).replace("{}", &crate::utils::display_path(&skills_dir))
+                localization::tr(locale, localization::MessageId::SetupSkillsDir)
+                    .replace("{}", &crate::utils::display_path(&skills_dir))
             );
         }
-        println!("{}", localization::tr(locale, localization::MessageId::SetupSkillsNextStep));
+        println!(
+            "{}",
+            localization::tr(locale, localization::MessageId::SetupSkillsNextStep)
+        );
     }
 
     if run_tools {
         let tools_dir = default_tools_dir();
         let (dir, readme_status, example_status) = init_tools_dir(&tools_dir, args.force)?;
-        report_write_status(locale, localization::MessageId::SetupToolsReadme, &dir.join("README.md"), readme_status);
-        report_write_status(locale, localization::MessageId::SetupExampleTool, &dir.join("example.sh"), example_status);
-        println!("{}", localization::tr(locale, localization::MessageId::SetupToolsDir).replace("{}", &crate::utils::display_path(&dir)));
-        println!("{}", localization::tr(locale, localization::MessageId::SetupToolsNextStep));
+        report_write_status(
+            locale,
+            localization::MessageId::SetupToolsReadme,
+            &dir.join("README.md"),
+            readme_status,
+        );
+        report_write_status(
+            locale,
+            localization::MessageId::SetupExampleTool,
+            &dir.join("example.sh"),
+            example_status,
+        );
+        println!(
+            "{}",
+            localization::tr(locale, localization::MessageId::SetupToolsDir)
+                .replace("{}", &crate::utils::display_path(&dir))
+        );
+        println!(
+            "{}",
+            localization::tr(locale, localization::MessageId::SetupToolsNextStep)
+        );
     }
 
     if run_plugins {
         let plugins_dir = default_plugins_dir();
         let (readme_path, example_path, readme_status, example_status) =
             init_plugins_dir(&plugins_dir, args.force)?;
-        report_write_status(locale, localization::MessageId::SetupPluginsReadme, &readme_path, readme_status);
-        report_write_status(locale, localization::MessageId::SetupExamplePlugin, &example_path, example_status);
+        report_write_status(
+            locale,
+            localization::MessageId::SetupPluginsReadme,
+            &readme_path,
+            readme_status,
+        );
+        report_write_status(
+            locale,
+            localization::MessageId::SetupExamplePlugin,
+            &example_path,
+            example_status,
+        );
         println!(
             "{}",
-            localization::tr(locale, localization::MessageId::SetupPluginsDir).replace("{}", &crate::utils::display_path(&plugins_dir))
+            localization::tr(locale, localization::MessageId::SetupPluginsDir)
+                .replace("{}", &crate::utils::display_path(&plugins_dir))
         );
-        println!("{}", localization::tr(locale, localization::MessageId::SetupPluginsNextStep));
+        println!(
+            "{}",
+            localization::tr(locale, localization::MessageId::SetupPluginsNextStep)
+        );
     }
 
     let sandbox = crate::sandbox::get_platform_sandbox();
     if let Some(kind) = sandbox {
-        println!("{}", localization::tr(locale, localization::MessageId::SetupSandboxAvailable).replace("{}", &kind.to_string()));
+        println!(
+            "{}",
+            localization::tr(locale, localization::MessageId::SetupSandboxAvailable)
+                .replace("{}", &kind.to_string())
+        );
     } else {
-        println!("{}", localization::tr(locale, localization::MessageId::SetupSandboxUnavailable));
+        println!(
+            "{}",
+            localization::tr(locale, localization::MessageId::SetupSandboxUnavailable)
+        );
     }
 
     Ok(())
 }
 
-fn report_write_status(locale: localization::Locale, label_id: localization::MessageId, path: &Path, status: WriteStatus) {
+fn report_write_status(
+    locale: localization::Locale,
+    label_id: localization::MessageId,
+    path: &Path,
+    status: WriteStatus,
+) {
     let label = localization::tr(locale, label_id);
     match status {
         WriteStatus::Created => {
@@ -1213,6 +1295,10 @@ fn report_write_status(locale: localization::Locale, label_id: localization::Mes
             println!("  · {label} already exists at {}", path.display());
         }
     }
+}
+
+fn tr_cli(id: localization::MessageId) -> &'static str {
+    localization::tr(localization::Locale::default(), id)
 }
 
 /// Source of the resolved DeepSeek API key, used in status reports.
@@ -1268,19 +1354,30 @@ fn run_setup_status(config: &Config, workspace: &Path) -> Result<()> {
 
     println!(
         "{}",
-        "DeepSeek Status".truecolor(aqua_r, aqua_g, aqua_b).bold()
+        tr_cli(localization::MessageId::CliStatusTitle)
+            .truecolor(aqua_r, aqua_g, aqua_b)
+            .bold()
     );
-    println!("{}", "===============".truecolor(sky_r, sky_g, sky_b));
-    println!("workspace: {}", workspace.display());
+    println!(
+        "{}",
+        tr_cli(localization::MessageId::CliStatusSeparator).truecolor(sky_r, sky_g, sky_b)
+    );
+    println!(
+        "{}",
+        tr_cli(localization::MessageId::CliStatusWorkspace)
+            .replace("{workspace}", &workspace.display().to_string())
+    );
 
     match resolve_api_key_source(config) {
         ApiKeySource::Env => println!(
-            "  {} api_key: set via DEEPSEEK_API_KEY",
-            "✓".truecolor(aqua_r, aqua_g, aqua_b)
+            "  {} {}",
+            "✓".truecolor(aqua_r, aqua_g, aqua_b),
+            tr_cli(localization::MessageId::CliStatusApiKeyEnv)
         ),
         ApiKeySource::Config => println!(
-            "  {} api_key: set via config",
-            "✓".truecolor(aqua_r, aqua_g, aqua_b)
+            "  {} {}",
+            "✓".truecolor(aqua_r, aqua_g, aqua_b),
+            tr_cli(localization::MessageId::CliStatusApiKeyConfig)
         ),
         ApiKeySource::Missing => {
             let (env_var, login_hint) = match config.api_provider() {
@@ -1309,113 +1406,152 @@ fn run_setup_status(config: &Config, workspace: &Path) -> Result<()> {
                 }
             };
             println!(
-                "  {} api_key: missing  (set {env_var} or `[providers.{}].api_key` in ~/.deepseek/config.toml; or run `{login_hint}`)",
+                "  {} {}",
                 "✗".truecolor(red_r, red_g, red_b),
-                match config.api_provider() {
-                    crate::config::ApiProvider::NvidiaNim => "nvidia_nim",
-                    crate::config::ApiProvider::Openrouter => "openrouter",
-                    crate::config::ApiProvider::Novita => "novita",
-                    crate::config::ApiProvider::Fireworks => "fireworks",
-                    crate::config::ApiProvider::Sglang => "sglang",
-                    crate::config::ApiProvider::Deepseek
-                    | crate::config::ApiProvider::DeepseekCN => "deepseek",
-                }
+                tr_cli(localization::MessageId::CliStatusApiKeyMissing)
+                    .replace("{env_var}", env_var)
+                    .replace(
+                        "{provider}",
+                        match config.api_provider() {
+                            crate::config::ApiProvider::NvidiaNim => "nvidia_nim",
+                            crate::config::ApiProvider::Openrouter => "openrouter",
+                            crate::config::ApiProvider::Novita => "novita",
+                            crate::config::ApiProvider::Fireworks => "fireworks",
+                            crate::config::ApiProvider::Sglang => "sglang",
+                            crate::config::ApiProvider::Deepseek
+                            | crate::config::ApiProvider::DeepseekCN => "deepseek",
+                        }
+                    )
+                    .replace("{login_hint}", login_hint)
             );
         }
     }
     println!(
-        "  · base_url: {}",
-        config
-            .base_url
-            .as_deref()
-            .unwrap_or("https://api.deepseek.com")
+        "  · {}",
+        tr_cli(localization::MessageId::CliStatusBaseUrl).replace(
+            "{base_url}",
+            config
+                .base_url
+                .as_deref()
+                .unwrap_or("https://api.deepseek.com")
+        )
     );
     let model = config
         .default_text_model
         .clone()
         .unwrap_or_else(|| DEFAULT_TEXT_MODEL.to_string());
-    println!("  · default_text_model: {model}");
+    println!(
+        "  · {}",
+        tr_cli(localization::MessageId::CliStatusDefaultTextModel).replace("{model}", &model)
+    );
 
     let mcp_path = config.mcp_config_path();
     let mcp_count = match load_mcp_config(&mcp_path) {
         Ok(cfg) => cfg.servers.len(),
         Err(_) => 0,
     };
-    let mcp_present = if mcp_path.exists() { "" } else { "  (missing)" };
+    let mcp_present = if mcp_path.exists() {
+        ""
+    } else {
+        tr_cli(localization::MessageId::CliStatusMissingSuffix)
+    };
     println!(
-        "  · mcp servers: {mcp_count} at {}{mcp_present}",
-        mcp_path.display()
+        "  · {}",
+        tr_cli(localization::MessageId::CliStatusMcpServers)
+            .replace("{count}", &mcp_count.to_string())
+            .replace("{path}", &mcp_path.display().to_string())
+            .replace("{suffix}", mcp_present)
     );
 
     let skills_dir = config.skills_dir();
     println!(
-        "  · skills: {} at {}",
-        skills_count_for(&skills_dir),
-        crate::utils::display_path(&skills_dir)
+        "  · {}",
+        tr_cli(localization::MessageId::CliStatusSkills)
+            .replace("{count}", &skills_count_for(&skills_dir).to_string())
+            .replace("{path}", &crate::utils::display_path(&skills_dir))
     );
 
     let tools_dir = default_tools_dir();
     let tools_present = if tools_dir.exists() {
         ""
     } else {
-        "  (missing — run `setup --tools`)"
+        tr_cli(localization::MessageId::CliStatusToolsMissingSuffix)
     };
     println!(
-        "  · tools: {} entries at {}{tools_present}",
-        if tools_dir.exists() {
-            count_dir_entries(&tools_dir)
-        } else {
-            0
-        },
-        crate::utils::display_path(&tools_dir)
+        "  · {}",
+        tr_cli(localization::MessageId::CliStatusTools)
+            .replace(
+                "{count}",
+                &if tools_dir.exists() {
+                    count_dir_entries(&tools_dir)
+                } else {
+                    0
+                }
+                .to_string()
+            )
+            .replace("{path}", &crate::utils::display_path(&tools_dir))
+            .replace("{suffix}", tools_present)
     );
 
     let plugins_dir = default_plugins_dir();
     let plugins_present = if plugins_dir.exists() {
         ""
     } else {
-        "  (missing — run `setup --plugins`)"
+        tr_cli(localization::MessageId::CliStatusPluginsMissingSuffix)
     };
     println!(
-        "  · plugins: {} entries at {}{plugins_present}",
-        if plugins_dir.exists() {
-            count_dir_entries(&plugins_dir)
-        } else {
-            0
-        },
-        crate::utils::display_path(&plugins_dir)
+        "  · {}",
+        tr_cli(localization::MessageId::CliStatusPlugins)
+            .replace(
+                "{count}",
+                &if plugins_dir.exists() {
+                    count_dir_entries(&plugins_dir)
+                } else {
+                    0
+                }
+                .to_string()
+            )
+            .replace("{path}", &crate::utils::display_path(&plugins_dir))
+            .replace("{suffix}", plugins_present)
     );
 
     let sandbox = crate::sandbox::get_platform_sandbox();
     match sandbox {
         Some(kind) => println!(
-            "  {} sandbox: {kind}",
-            "✓".truecolor(aqua_r, aqua_g, aqua_b)
+            "  {} {}",
+            "✓".truecolor(aqua_r, aqua_g, aqua_b),
+            tr_cli(localization::MessageId::CliStatusSandboxAvailable)
+                .replace("{kind}", &kind.to_string())
         ),
         None => println!(
-            "  {} sandbox: unavailable (commands run best-effort)",
-            "!".truecolor(sky_r, sky_g, sky_b)
+            "  {} {}",
+            "!".truecolor(sky_r, sky_g, sky_b),
+            tr_cli(localization::MessageId::CliStatusSandboxUnavailable)
         ),
     }
 
     println!("  {} {}", "·".dimmed(), dotenv_status_line(workspace));
 
     println!();
-    println!("Run `deepseek-tui doctor --json` for a machine-readable check.");
+    println!(
+        "{}",
+        tr_cli(localization::MessageId::CliStatusDoctorJsonHint)
+    );
     Ok(())
 }
 
 fn dotenv_status_line(workspace: &Path) -> String {
     let dotenv = workspace.join(".env");
     if dotenv.exists() {
-        return format!(".env present at {}", dotenv.display());
+        return tr_cli(localization::MessageId::CliDotenvPresent)
+            .replace("{path}", &dotenv.display().to_string());
     }
 
     if workspace.join(".env.example").exists() {
-        return ".env not present in workspace (run `cp .env.example .env` and edit)".to_string();
+        return tr_cli(localization::MessageId::CliDotenvMissingWithExample).to_string();
     }
 
-    ".env not present in workspace".to_string()
+    tr_cli(localization::MessageId::CliDotenvMissing).to_string()
 }
 
 fn run_setup_clean(checkpoints_dir: &Path, force: bool) -> Result<()> {
@@ -1423,8 +1559,9 @@ fn run_setup_clean(checkpoints_dir: &Path, force: bool) -> Result<()> {
 
     if !checkpoints_dir.exists() {
         println!(
-            "Nothing to clean — checkpoints dir does not exist: {}",
-            checkpoints_dir.display()
+            "{}",
+            tr_cli(localization::MessageId::CliCleanNothingNoDir)
+                .replace("{path}", &checkpoints_dir.display().to_string())
         );
         return Ok(());
     }
@@ -1432,16 +1569,18 @@ fn run_setup_clean(checkpoints_dir: &Path, force: bool) -> Result<()> {
     let plan = collect_clean_targets(checkpoints_dir);
     if plan.targets.is_empty() {
         println!(
-            "Nothing to clean — no checkpoint files in {}",
-            checkpoints_dir.display()
+            "{}",
+            tr_cli(localization::MessageId::CliCleanNothingNoFiles)
+                .replace("{path}", &checkpoints_dir.display().to_string())
         );
         return Ok(());
     }
 
     if !force {
         println!(
-            "Would remove {} checkpoint file(s) (use --force to apply):",
-            plan.targets.len()
+            "{}",
+            tr_cli(localization::MessageId::CliCleanWouldRemove)
+                .replace("{count}", &plan.targets.len().to_string())
         );
         for path in &plan.targets {
             println!("  · {}", path.display());
@@ -1450,7 +1589,10 @@ fn run_setup_clean(checkpoints_dir: &Path, force: bool) -> Result<()> {
     }
 
     let removed = execute_clean_plan(&plan)?;
-    println!("{}", "Cleaned checkpoints:".bold());
+    println!(
+        "{}",
+        tr_cli(localization::MessageId::CliCleanedCheckpoints).bold()
+    );
     for path in &removed {
         println!("  ✓ {}", path.display());
     }
@@ -1469,21 +1611,38 @@ async fn run_doctor(config: &Config, workspace: &Path, config_path_override: Opt
 
     println!(
         "{}",
-        localization::tr(localization::resolve_locale("auto"), localization::MessageId::DoctorTitle)
-            .truecolor(blue_r, blue_g, blue_b)
-            .bold()
+        localization::tr(
+            localization::resolve_locale("auto"),
+            localization::MessageId::DoctorTitle
+        )
+        .truecolor(blue_r, blue_g, blue_b)
+        .bold()
     );
     println!("{}", "==================".truecolor(sky_r, sky_g, sky_b));
     println!();
 
     // Version info
-    println!("{}", localization::tr(localization::resolve_locale("auto"), localization::MessageId::DoctorVersionTitle).bold());
+    println!(
+        "{}",
+        localization::tr(
+            localization::resolve_locale("auto"),
+            localization::MessageId::DoctorVersionTitle
+        )
+        .bold()
+    );
     println!("  deepseek-tui: {}", env!("CARGO_PKG_VERSION"));
     println!("  rust: {}", rustc_version());
     println!();
 
     // Configuration summary
-    println!("{}", localization::tr(localization::resolve_locale("auto"), localization::MessageId::DoctorConfigTitle).bold());
+    println!(
+        "{}",
+        localization::tr(
+            localization::resolve_locale("auto"),
+            localization::MessageId::DoctorConfigTitle
+        )
+        .bold()
+    );
     let default_config_dir =
         dirs::home_dir().map_or_else(|| PathBuf::from(".deepseek"), |h| h.join(".deepseek"));
     let config_path = config_path_override
@@ -1498,19 +1657,37 @@ async fn run_doctor(config: &Config, workspace: &Path, config_path_override: Opt
     if config_path.exists() {
         let locale = localization::resolve_locale("auto");
         let msg = localization::tr(locale, localization::MessageId::DoctorConfigFound);
-        println!("  {} {}", "✓".truecolor(aqua_r, aqua_g, aqua_b), msg.replace("{}", &crate::utils::display_path(&config_path)));
+        println!(
+            "  {} {}",
+            "✓".truecolor(aqua_r, aqua_g, aqua_b),
+            msg.replace("{}", &crate::utils::display_path(&config_path))
+        );
     } else {
         let locale = localization::resolve_locale("auto");
         let msg = localization::tr(locale, localization::MessageId::DoctorConfigNotFound);
-        println!("  {} {}", "!".truecolor(sky_r, sky_g, sky_b), msg.replace("{}", &crate::utils::display_path(&config_path)));
+        println!(
+            "  {} {}",
+            "!".truecolor(sky_r, sky_g, sky_b),
+            msg.replace("{}", &crate::utils::display_path(&config_path))
+        );
     }
     let locale = localization::resolve_locale("auto");
     let msg = localization::tr(locale, localization::MessageId::DoctorWorkspace);
-    println!("  {}", msg.replace("{}", &crate::utils::display_path(workspace)));
+    println!(
+        "  {}",
+        msg.replace("{}", &crate::utils::display_path(workspace))
+    );
 
     // Check API keys
     println!();
-    println!("{}", localization::tr(localization::resolve_locale("auto"), localization::MessageId::DoctorApiKeysTitle).bold());
+    println!(
+        "{}",
+        localization::tr(
+            localization::resolve_locale("auto"),
+            localization::MessageId::DoctorApiKeysTitle
+        )
+        .bold()
+    );
 
     // Per-provider state: env + config file only (no values printed).
     // Keep doctor/status prompt-free even for unsigned rebuilt binaries.
@@ -1576,7 +1753,13 @@ async fn run_doctor(config: &Config, workspace: &Path, config_path_override: Opt
                 .replace("{}", if in_config { "yes" } else { "no" })
         );
     }
-    println!("  {}", localization::tr(localization::resolve_locale("auto"), localization::MessageId::DoctorCredentialPrecedence));
+    println!(
+        "  {}",
+        localization::tr(
+            localization::resolve_locale("auto"),
+            localization::MessageId::DoctorCredentialPrecedence
+        )
+    );
 
     let api_key_source = resolve_api_key_source(config);
     let has_api_key = if config.deepseek_api_key().is_ok() {
@@ -1592,101 +1775,153 @@ async fn run_doctor(config: &Config, workspace: &Path, config_path_override: Opt
     } else {
         println!(
             "  {}",
-            localization::tr(localization::resolve_locale("auto"), localization::MessageId::DoctorApiKeyNotConfigured)
-                .truecolor(red_r, red_g, red_b)
+            localization::tr(
+                localization::resolve_locale("auto"),
+                localization::MessageId::DoctorApiKeyNotConfigured
+            )
+            .truecolor(red_r, red_g, red_b)
         );
         println!(
             "    {}",
-            localization::tr(localization::resolve_locale("auto"), localization::MessageId::DoctorApiKeyHint)
+            localization::tr(
+                localization::resolve_locale("auto"),
+                localization::MessageId::DoctorApiKeyHint
+            )
         );
         false
     };
 
     // API connectivity test
     println!();
-    println!("{}", localization::tr(localization::resolve_locale("auto"), localization::MessageId::DoctorConnectivityTitle).bold());
+    println!(
+        "{}",
+        localization::tr(
+            localization::resolve_locale("auto"),
+            localization::MessageId::DoctorConnectivityTitle
+        )
+        .bold()
+    );
     if has_api_key {
         print!("  {} ", "·".dimmed());
-        print!("{}", localization::tr(localization::resolve_locale("auto"), localization::MessageId::DoctorTestingConnection));
+        print!(
+            "{}",
+            localization::tr(
+                localization::resolve_locale("auto"),
+                localization::MessageId::DoctorTestingConnection
+            )
+        );
         use std::io::Write;
         std::io::stdout().flush().ok();
 
         match test_api_connectivity(config).await {
             Ok(model) => {
                 let locale = localization::resolve_locale("auto");
-                let msg = localization::tr(locale, localization::MessageId::DoctorConnectionSuccess);
+                let msg =
+                    localization::tr(locale, localization::MessageId::DoctorConnectionSuccess);
                 println!(
                     "\r  {}",
                     msg.replace("{}", &model).truecolor(aqua_r, aqua_g, aqua_b)
                 );
-                
-                // 🆕 检查并生成 i18n.json
-                let settings = crate::settings::Settings::load().unwrap_or_default();
-                let locale = crate::localization::resolve_locale(&settings.locale);
-                
-                if crate::i18n_generator::should_regenerate(locale.tag()) {
-                    let msg = localization::tr(localization::resolve_locale("auto"), localization::MessageId::DoctorGeneratingTranslations);
-                    println!("  {}", msg.replace("{}", locale.tag()).dimmed());
-                    match crate::i18n_generator::generate_i18n(locale.tag(), config).await {
-                        Ok(_) => println!(
-                            "    {}",
-                            localization::tr(localization::resolve_locale("auto"), localization::MessageId::DoctorTranslationsSuccess)
-                                .truecolor(aqua_r, aqua_g, aqua_b)
-                        ),
-                        Err(e) => {
-                            let msg = localization::tr(localization::resolve_locale("auto"), localization::MessageId::DoctorTranslationsFailed);
-                            println!(
-                                "    {}",
-                                msg.replace("{}", &e.to_string()).truecolor(sky_r, sky_g, sky_b)
-                            )
-                        },
-                    }
-                }
+
+                println!(
+                    "  {}",
+                    "· Localization generation is interactive; run /localize <locale> in the TUI to create or repair i18n.json."
+                        .dimmed()
+                );
             }
             Err(e) => {
                 let error_msg = e.to_string();
                 println!(
                     "\r  {}",
-                    localization::tr(localization::resolve_locale("auto"), localization::MessageId::DoctorConnectionFailed)
-                        .truecolor(red_r, red_g, red_b)
+                    localization::tr(
+                        localization::resolve_locale("auto"),
+                        localization::MessageId::DoctorConnectionFailed
+                    )
+                    .truecolor(red_r, red_g, red_b)
                 );
                 if error_msg.contains("401") || error_msg.contains("Unauthorized") {
-                    println!("    {}", localization::tr(localization::resolve_locale("auto"), localization::MessageId::DoctorInvalidApiKey));
+                    println!(
+                        "    {}",
+                        localization::tr(
+                            localization::resolve_locale("auto"),
+                            localization::MessageId::DoctorInvalidApiKey
+                        )
+                    );
                     if matches!(api_key_source, ApiKeySource::Env) {
                         println!(
                             "    {}",
-                            localization::tr(localization::resolve_locale("auto"), localization::MessageId::DoctorEnvKeyRejected)
+                            localization::tr(
+                                localization::resolve_locale("auto"),
+                                localization::MessageId::DoctorEnvKeyRejected
+                            )
                         );
                         println!(
                             "    {}",
-                            localization::tr(localization::resolve_locale("auto"), localization::MessageId::DoctorSaveConfigKeyHint)
+                            localization::tr(
+                                localization::resolve_locale("auto"),
+                                localization::MessageId::DoctorSaveConfigKeyHint
+                            )
                         );
                     }
                 } else if error_msg.contains("403") || error_msg.contains("Forbidden") {
                     println!(
                         "    {}",
-                        localization::tr(localization::resolve_locale("auto"), localization::MessageId::DoctorPermissionDenied)
+                        localization::tr(
+                            localization::resolve_locale("auto"),
+                            localization::MessageId::DoctorPermissionDenied
+                        )
                     );
                 } else if error_msg.contains("timeout") || error_msg.contains("Timeout") {
-                    println!("    {}", localization::tr(localization::resolve_locale("auto"), localization::MessageId::DoctorTimeoutError));
+                    println!(
+                        "    {}",
+                        localization::tr(
+                            localization::resolve_locale("auto"),
+                            localization::MessageId::DoctorTimeoutError
+                        )
+                    );
                 } else if error_msg.contains("dns") || error_msg.contains("resolve") {
-                    println!("    {}", localization::tr(localization::resolve_locale("auto"), localization::MessageId::DoctorDnsError));
+                    println!(
+                        "    {}",
+                        localization::tr(
+                            localization::resolve_locale("auto"),
+                            localization::MessageId::DoctorDnsError
+                        )
+                    );
                 } else if error_msg.contains("connect") {
-                    println!("    {}", localization::tr(localization::resolve_locale("auto"), localization::MessageId::DoctorConnectionError));
+                    println!(
+                        "    {}",
+                        localization::tr(
+                            localization::resolve_locale("auto"),
+                            localization::MessageId::DoctorConnectionError
+                        )
+                    );
                 } else {
-                    let msg = localization::tr(localization::resolve_locale("auto"), localization::MessageId::DoctorGenericError);
+                    let msg = localization::tr(
+                        localization::resolve_locale("auto"),
+                        localization::MessageId::DoctorGenericError,
+                    );
                     println!("    {}", msg.replace("{}", &error_msg));
                 }
             }
         }
     } else {
-        println!("  {}", localization::tr(localization::resolve_locale("auto"), localization::MessageId::DoctorSkippedNoKey).dimmed());
+        println!(
+            "  {}",
+            localization::tr(
+                localization::resolve_locale("auto"),
+                localization::MessageId::DoctorSkippedNoKey
+            )
+            .dimmed()
+        );
     }
 
     // MCP configuration
     println!();
     let locale = localization::Locale::default();
-    println!("{}", localization::tr(locale, localization::MessageId::DoctorMcpServersTitle).bold());
+    println!(
+        "{}",
+        localization::tr(locale, localization::MessageId::DoctorMcpServersTitle).bold()
+    );
     let features = config.features();
     if features.enabled(Feature::Mcp) {
         println!(
@@ -1712,10 +1947,15 @@ async fn run_doctor(config: &Config, workspace: &Path, config_path_override: Opt
         );
         match load_mcp_config(&mcp_config_path) {
             Ok(cfg) if cfg.servers.is_empty() => {
-                println!("  {} {}", "·".dimmed(), localization::tr(locale, localization::MessageId::DoctorMcpZeroServers));
+                println!(
+                    "  {} {}",
+                    "·".dimmed(),
+                    localization::tr(locale, localization::MessageId::DoctorMcpZeroServers)
+                );
             }
             Ok(cfg) => {
-                let msg = localization::tr(locale, localization::MessageId::DoctorMcpServersConfigured);
+                let msg =
+                    localization::tr(locale, localization::MessageId::DoctorMcpServersConfigured);
                 println!(
                     "  {} {}",
                     "·".dimmed(),
@@ -1736,12 +1976,16 @@ async fn run_doctor(config: &Config, workspace: &Path, config_path_override: Opt
                     };
                     println!("{icon}");
                     if !server.enabled {
-                        println!("      {}", localization::tr(locale, localization::MessageId::DoctorMcpDisabled));
+                        println!(
+                            "      {}",
+                            localization::tr(locale, localization::MessageId::DoctorMcpDisabled)
+                        );
                     }
                 }
             }
             Err(err) => {
-                let msg = localization::tr(locale, localization::MessageId::DoctorMcpConfigParseError);
+                let msg =
+                    localization::tr(locale, localization::MessageId::DoctorMcpConfigParseError);
                 println!(
                     "  {} {}",
                     "✗".truecolor(red_r, red_g, red_b),
@@ -1756,12 +2000,18 @@ async fn run_doctor(config: &Config, workspace: &Path, config_path_override: Opt
             "·".dimmed(),
             msg.replace("{}", &crate::utils::display_path(&mcp_config_path))
         );
-        println!("    {}", localization::tr(locale, localization::MessageId::DoctorMcpInitHint));
+        println!(
+            "    {}",
+            localization::tr(locale, localization::MessageId::DoctorMcpInitHint)
+        );
     }
 
     // Skills configuration
     println!();
-    println!("{}", localization::tr(locale, localization::MessageId::DoctorSkillsTitle).bold());
+    println!(
+        "{}",
+        localization::tr(locale, localization::MessageId::DoctorSkillsTitle).bold()
+    );
     let global_skills_dir = config.skills_dir();
     let agents_skills_dir = workspace.join(".agents").join("skills");
     let local_skills_dir = workspace.join("skills");
@@ -1865,12 +2115,18 @@ async fn run_doctor(config: &Config, workspace: &Path, config_path_override: Opt
         msg.replace("{}", &crate::utils::display_path(selected_skills_dir))
     );
     if !agents_skills_dir.exists() && !local_skills_dir.exists() && !global_skills_dir.exists() {
-        println!("    {}", localization::tr(locale, localization::MessageId::DoctorSkillsSetupHint));
+        println!(
+            "    {}",
+            localization::tr(locale, localization::MessageId::DoctorSkillsSetupHint)
+        );
     }
 
     // Tools directory
     println!();
-    println!("{}", localization::tr(locale, localization::MessageId::DoctorToolsTitle).bold());
+    println!(
+        "{}",
+        localization::tr(locale, localization::MessageId::DoctorToolsTitle).bold()
+    );
     let tools_dir = default_tools_dir();
     if tools_dir.exists() {
         let count = count_dir_entries(&tools_dir);
@@ -1888,12 +2144,18 @@ async fn run_doctor(config: &Config, workspace: &Path, config_path_override: Opt
             "·".dimmed(),
             msg.replace("{}", &crate::utils::display_path(&tools_dir))
         );
-        println!("    {}", localization::tr(locale, localization::MessageId::DoctorToolsSetupHint));
+        println!(
+            "    {}",
+            localization::tr(locale, localization::MessageId::DoctorToolsSetupHint)
+        );
     }
 
     // Plugins directory
     println!();
-    println!("{}", localization::tr(locale, localization::MessageId::DoctorPluginsTitle).bold());
+    println!(
+        "{}",
+        localization::tr(locale, localization::MessageId::DoctorPluginsTitle).bold()
+    );
     let plugins_dir = default_plugins_dir();
     if plugins_dir.exists() {
         let count = count_dir_entries(&plugins_dir);
@@ -1911,12 +2173,18 @@ async fn run_doctor(config: &Config, workspace: &Path, config_path_override: Opt
             "·".dimmed(),
             msg.replace("{}", &crate::utils::display_path(&plugins_dir))
         );
-        println!("    {}", localization::tr(locale, localization::MessageId::DoctorPluginsSetupHint));
+        println!(
+            "    {}",
+            localization::tr(locale, localization::MessageId::DoctorPluginsSetupHint)
+        );
     }
 
     // Storage surfaces (#422 / #440 / #500)
     println!();
-    println!("{}", localization::tr(locale, localization::MessageId::DoctorStorageTitle).bold());
+    println!(
+        "{}",
+        localization::tr(locale, localization::MessageId::DoctorStorageTitle).bold()
+    );
     if let Some(spillover_root) = crate::tools::truncate::spillover_root() {
         let (present, count) = if spillover_root.is_dir() {
             (true, count_dir_entries(&spillover_root))
@@ -1964,7 +2232,10 @@ async fn run_doctor(config: &Config, workspace: &Path, config_path_override: Opt
 
     // Platform and sandbox checks
     println!();
-    println!("{}", localization::tr(locale, localization::MessageId::DoctorPlatformTitle).bold());
+    println!(
+        "{}",
+        localization::tr(locale, localization::MessageId::DoctorPlatformTitle).bold()
+    );
     println!("  OS: {}", std::env::consts::OS);
     println!("  Arch: {}", std::env::consts::ARCH);
 
@@ -2250,13 +2521,16 @@ async fn run_models(config: &Config, args: ModelsArgs) -> Result<()> {
     }
 
     if models.is_empty() {
-        println!("No models returned by the API.");
+        println!("{}", tr_cli(localization::MessageId::CliModelsEmpty));
         return Ok(());
     }
 
     let default_model = config.default_model();
 
-    println!("Available models (default: {default_model})");
+    println!(
+        "{}",
+        tr_cli(localization::MessageId::CliModelsTitle).replace("{model}", &default_model)
+    );
     for model in models {
         let marker = if model.id == default_model { "*" } else { " " };
         if let Some(owner) = model.owned_by {
@@ -2337,19 +2611,30 @@ fn list_sessions(limit: usize, search: Option<String>) -> Result<()> {
     };
 
     if sessions.is_empty() {
-        println!("{}", "No sessions found.".truecolor(sky_r, sky_g, sky_b));
         println!(
-            "Start a new session with: {}",
-            "deepseek".truecolor(blue_r, blue_g, blue_b)
+            "{}",
+            tr_cli(localization::MessageId::CliSessionsEmpty).truecolor(sky_r, sky_g, sky_b)
+        );
+        println!(
+            "{}",
+            tr_cli(localization::MessageId::CliSessionsStartHint).replace(
+                "{cmd}",
+                &"deepseek".truecolor(blue_r, blue_g, blue_b).to_string()
+            )
         );
         return Ok(());
     }
 
     println!(
         "{}",
-        "Saved Sessions".truecolor(blue_r, blue_g, blue_b).bold()
+        tr_cli(localization::MessageId::CliSessionsTitle)
+            .truecolor(blue_r, blue_g, blue_b)
+            .bold()
     );
-    println!("{}", "==============".truecolor(sky_r, sky_g, sky_b));
+    println!(
+        "{}",
+        tr_cli(localization::MessageId::CliSessionsSeparator).truecolor(sky_r, sky_g, sky_b)
+    );
     println!();
 
     for (i, session) in sessions.iter().take(limit).enumerate() {
@@ -2365,20 +2650,32 @@ fn list_sessions(limit: usize, search: Option<String>) -> Result<()> {
     if total > limit {
         println!();
         println!(
-            "  {} more session(s). Use --limit to show more.",
-            total - limit
+            "  {}",
+            tr_cli(localization::MessageId::CliSessionsMore)
+                .replace("{count}", &(total - limit).to_string())
         );
     }
 
     println!();
     println!(
-        "Resume with: {} {}",
-        "deepseek --resume".truecolor(blue_r, blue_g, blue_b),
-        "<session-id>".dimmed()
+        "{}",
+        tr_cli(localization::MessageId::CliSessionsResumeHint)
+            .replace(
+                "{cmd}",
+                &"deepseek --resume"
+                    .truecolor(blue_r, blue_g, blue_b)
+                    .to_string()
+            )
+            .replace("{arg}", &"<session-id>".dimmed().to_string())
     );
     println!(
-        "Continue latest: {}",
-        "deepseek --continue".truecolor(blue_r, blue_g, blue_b)
+        "{}",
+        tr_cli(localization::MessageId::CliSessionsContinueHint).replace(
+            "{cmd}",
+            &"deepseek --continue"
+                .truecolor(blue_r, blue_g, blue_b)
+                .to_string()
+        )
     );
 
     Ok(())
@@ -2399,9 +2696,10 @@ fn init_project() -> Result<()> {
 
     if agents_path.exists() {
         println!(
-            "{} AGENTS.md already exists at {}",
+            "{} {}",
             "!".truecolor(sky_r, sky_g, sky_b),
-            agents_path.display()
+            tr_cli(localization::MessageId::CliInitAgentsExists)
+                .replace("{path}", &agents_path.display().to_string())
         );
         return Ok(());
     }
@@ -2409,19 +2707,24 @@ fn init_project() -> Result<()> {
     match create_default_agents_md(&workspace) {
         Ok(path) => {
             println!(
-                "{} Created {}",
+                "{} {}",
                 "✓".truecolor(aqua_r, aqua_g, aqua_b),
-                path.display()
+                tr_cli(localization::MessageId::CliInitAgentsCreated)
+                    .replace("{path}", &path.display().to_string())
             );
             println!();
-            println!("Edit this file to customize how the AI agent works with your project.");
-            println!("The instructions will be loaded automatically when you run deepseek.");
+            println!("{}", tr_cli(localization::MessageId::CliInitAgentsEditHint));
+            println!(
+                "{}",
+                tr_cli(localization::MessageId::CliInitAgentsLoadedHint)
+            );
         }
         Err(e) => {
             println!(
-                "{} Failed to create AGENTS.md: {}",
+                "{} {}",
                 "✗".truecolor(red_r, red_g, red_b),
-                e
+                tr_cli(localization::MessageId::CliInitAgentsFailed)
+                    .replace("{err}", &e.to_string())
             );
         }
     }
@@ -2448,13 +2751,13 @@ fn load_config_from_cli(cli: &Cli) -> Result<Config> {
 fn read_api_key_from_stdin() -> Result<String> {
     let mut stdin = io::stdin();
     if stdin.is_terminal() {
-        bail!("No API key provided. Pass --api-key or pipe one via stdin.");
+        bail!("{}", tr_cli(localization::MessageId::CliAuthNoApiKeyArg));
     }
     let mut buffer = String::new();
     stdin.read_to_string(&mut buffer)?;
     let api_key = buffer.trim().to_string();
     if api_key.is_empty() {
-        bail!("No API key provided via stdin.");
+        bail!("{}", tr_cli(localization::MessageId::CliAuthNoApiKeyStdin));
     }
     Ok(api_key)
 }
@@ -2465,13 +2768,16 @@ fn run_login(api_key: Option<String>) -> Result<()> {
         None => read_api_key_from_stdin()?,
     };
     let saved = config::save_api_key(&api_key)?;
-    println!("Saved API key to {}", saved.describe());
+    println!(
+        "{}",
+        tr_cli(localization::MessageId::CliAuthSaved).replace("{path}", &saved.describe())
+    );
     Ok(())
 }
 
 fn run_logout() -> Result<()> {
     config::clear_api_key()?;
-    println!("Cleared saved API key.");
+    println!("{}", tr_cli(localization::MessageId::CliAuthCleared));
     Ok(())
 }
 
@@ -2489,7 +2795,7 @@ fn fork_session(session_id: Option<String>, last: bool) -> Result<String> {
     let manager = SessionManager::default_location()?;
     let saved = if last {
         let Some(meta) = manager.get_latest_session()? else {
-            bail!("No saved sessions found.");
+            bail!("{}", tr_cli(localization::MessageId::CliSessionNoneSaved));
         };
         manager.load_session(&meta.id)?
     } else {
@@ -2516,28 +2822,40 @@ fn pick_session_id() -> Result<String> {
     let manager = SessionManager::default_location()?;
     let sessions = manager.list_sessions()?;
     if sessions.is_empty() {
-        bail!("No saved sessions found.");
+        bail!("{}", tr_cli(localization::MessageId::CliSessionNoneSaved));
     }
 
-    println!("Select a session to resume:");
+    println!(
+        "{}",
+        tr_cli(localization::MessageId::CliSessionSelectPrompt)
+    );
     for (idx, session) in sessions.iter().enumerate() {
         println!("  {:>2}. {} ({})", idx + 1, session.title, session.id);
     }
-    print!("Enter a number (or press Enter to cancel): ");
+    print!("{}", tr_cli(localization::MessageId::CliSessionInputPrompt));
     io::stdout().flush()?;
 
     let mut input = String::new();
     io::stdin().read_line(&mut input)?;
     let input = input.trim();
     if input.is_empty() {
-        bail!("No session selected.");
+        bail!(
+            "{}",
+            tr_cli(localization::MessageId::CliSessionNoneSelected)
+        );
     }
-    let idx: usize = input
-        .parse()
-        .map_err(|_| anyhow::anyhow!("Invalid input"))?;
-    let session = sessions
-        .get(idx.saturating_sub(1))
-        .ok_or_else(|| anyhow::anyhow!("Selection out of range"))?;
+    let idx: usize = input.parse().map_err(|_| {
+        anyhow::anyhow!(
+            "{}",
+            tr_cli(localization::MessageId::CliSessionInvalidInput)
+        )
+    })?;
+    let session = sessions.get(idx.saturating_sub(1)).ok_or_else(|| {
+        anyhow::anyhow!(
+            "{}",
+            tr_cli(localization::MessageId::CliSessionSelectionOutOfRange)
+        )
+    })?;
     Ok(session.id.clone())
 }
 
@@ -2546,7 +2864,7 @@ async fn run_review(config: &Config, args: ReviewArgs) -> Result<()> {
 
     let diff = collect_diff(&args)?;
     if diff.trim().is_empty() {
-        bail!("No diff to review.");
+        bail!("{}", tr_cli(localization::MessageId::CliReviewNoDiff));
     }
 
     let model = args
@@ -2852,7 +3170,7 @@ fn run_apply(args: ApplyArgs) -> Result<()> {
         read_patch_from_stdin()?
     };
     if patch.trim().is_empty() {
-        bail!("Patch is empty.");
+        bail!("{}", tr_cli(localization::MessageId::CliApplyPatchEmpty));
     }
 
     let mut tmp = NamedTempFile::new()?;
@@ -2870,14 +3188,14 @@ fn run_apply(args: ApplyArgs) -> Result<()> {
         let stderr = String::from_utf8_lossy(&output.stderr);
         bail!("git apply failed: {}", stderr.trim());
     }
-    println!("Applied patch successfully.");
+    println!("{}", tr_cli(localization::MessageId::CliApplySuccess));
     Ok(())
 }
 
 fn read_patch_from_stdin() -> Result<String> {
     let mut stdin = io::stdin();
     if stdin.is_terminal() {
-        bail!("No patch file provided and stdin is empty.");
+        bail!("{}", tr_cli(localization::MessageId::CliApplyNoPatch));
     }
     let mut buffer = String::new();
     stdin.read_to_string(&mut buffer)?;
@@ -2892,28 +3210,48 @@ async fn run_mcp_command(config: &Config, command: McpCommand) -> Result<()> {
             let status = init_mcp_config(&config_path, force)?;
             match status {
                 WriteStatus::Created => {
-                    println!("{}", localization::tr(locale, localization::MessageId::McpConfigCreated).replace("{}", &config_path.display().to_string()));
+                    println!(
+                        "{}",
+                        localization::tr(locale, localization::MessageId::McpConfigCreated)
+                            .replace("{}", &config_path.display().to_string())
+                    );
                 }
                 WriteStatus::Overwritten => {
-                    println!("{}", localization::tr(locale, localization::MessageId::McpConfigOverwritten).replace("{}", &config_path.display().to_string()));
+                    println!(
+                        "{}",
+                        localization::tr(locale, localization::MessageId::McpConfigOverwritten)
+                            .replace("{}", &config_path.display().to_string())
+                    );
                 }
                 WriteStatus::SkippedExists => {
                     println!(
                         "{}",
-                        localization::tr(locale, localization::MessageId::McpConfigExists).replace("{}", &config_path.display().to_string())
+                        localization::tr(locale, localization::MessageId::McpConfigExists)
+                            .replace("{}", &config_path.display().to_string())
                     );
                 }
             }
-            println!("{}", localization::tr(locale, localization::MessageId::McpEditHint));
+            println!(
+                "{}",
+                localization::tr(locale, localization::MessageId::McpEditHint)
+            );
             Ok(())
         }
         McpCommand::List => {
             let cfg = load_mcp_config(&config_path)?;
             if cfg.servers.is_empty() {
-                println!("{}", localization::tr(locale, localization::MessageId::McpNoServers).replace("{}", &config_path.display().to_string()));
+                println!(
+                    "{}",
+                    localization::tr(locale, localization::MessageId::McpNoServers)
+                        .replace("{}", &config_path.display().to_string())
+                );
                 return Ok(());
             }
-            println!("{}", localization::tr(locale, localization::MessageId::McpServersTitle).replace("{}", &cfg.servers.len().to_string()));
+            println!(
+                "{}",
+                localization::tr(locale, localization::MessageId::McpServersTitle)
+                    .replace("{}", &cfg.servers.len().to_string())
+            );
             for (name, server) in cfg.servers {
                 let status = if server.enabled && !server.disabled {
                     localization::tr(locale, localization::MessageId::McpServerStatusEnabled)
@@ -2945,14 +3283,26 @@ async fn run_mcp_command(config: &Config, command: McpCommand) -> Result<()> {
             let mut pool = McpPool::from_config_path(&config_path)?;
             if let Some(name) = server {
                 pool.get_or_connect(&name).await?;
-                println!("{}", localization::tr(locale, localization::MessageId::McpConnectedServer).replace("{}", &name));
+                println!(
+                    "{}",
+                    localization::tr(locale, localization::MessageId::McpConnectedServer)
+                        .replace("{}", &name)
+                );
             } else {
                 let errors = pool.connect_all().await;
                 if errors.is_empty() {
-                    println!("{}", localization::tr(locale, localization::MessageId::McpConnectedAll));
+                    println!(
+                        "{}",
+                        localization::tr(locale, localization::MessageId::McpConnectedAll)
+                    );
                 } else {
                     for (name, err) in errors {
-                        eprintln!("{}", localization::tr(locale, localization::MessageId::McpConnectFailed).replace("{}", &name).replace("{}", &err.to_string()));
+                        eprintln!(
+                            "{}",
+                            localization::tr(locale, localization::MessageId::McpConnectFailed)
+                                .replace("{}", &name)
+                                .replace("{}", &err.to_string())
+                        );
                     }
                 }
             }
@@ -2963,11 +3313,21 @@ async fn run_mcp_command(config: &Config, command: McpCommand) -> Result<()> {
             if let Some(name) = server {
                 let conn = pool.get_or_connect(&name).await?;
                 if conn.tools().is_empty() {
-                    println!("{}", localization::tr(locale, localization::MessageId::McpNoTools).replace("{}", &name));
+                    println!(
+                        "{}",
+                        localization::tr(locale, localization::MessageId::McpNoTools)
+                            .replace("{}", &name)
+                    );
                 } else {
-                    println!("{}", localization::tr(locale, localization::MessageId::McpToolsTitle).replace("{}", &name));
+                    println!(
+                        "{}",
+                        localization::tr(locale, localization::MessageId::McpToolsTitle)
+                            .replace("{}", &name)
+                    );
                     for tool in conn.tools() {
-                        let desc = tool.description.as_ref()
+                        let desc = tool
+                            .description
+                            .as_ref()
                             .map_or(String::new(), |d| format!(": {}", d));
                         println!("  - {}{}", tool.name, desc);
                     }
@@ -2980,7 +3340,9 @@ async fn run_mcp_command(config: &Config, command: McpCommand) -> Result<()> {
                 } else {
                     println!("MCP tools:");
                     for (name, tool) in tools {
-                        let desc = tool.description.as_ref()
+                        let desc = tool
+                            .description
+                            .as_ref()
                             .map_or(String::new(), |d| format!(": {}", d));
                         println!("  - {}{}", name, desc);
                     }
@@ -3018,9 +3380,17 @@ async fn run_mcp_command(config: &Config, command: McpCommand) -> Result<()> {
             );
             save_mcp_config(&config_path, &cfg)?;
             if is_stdio {
-                println!("{}", localization::tr(locale, localization::MessageId::McpAddedStdioServer).replace("{}", &name));
+                println!(
+                    "{}",
+                    localization::tr(locale, localization::MessageId::McpAddedStdioServer)
+                        .replace("{}", &name)
+                );
             } else {
-                println!("{}", localization::tr(locale, localization::MessageId::McpAddedHttpServer).replace("{}", &name));
+                println!(
+                    "{}",
+                    localization::tr(locale, localization::MessageId::McpAddedHttpServer)
+                        .replace("{}", &name)
+                );
             }
             Ok(())
         }
@@ -3030,7 +3400,11 @@ async fn run_mcp_command(config: &Config, command: McpCommand) -> Result<()> {
                 bail!("MCP server '{name}' not found");
             }
             save_mcp_config(&config_path, &cfg)?;
-            println!("{}", localization::tr(locale, localization::MessageId::McpRemovedServer).replace("{}", &name));
+            println!(
+                "{}",
+                localization::tr(locale, localization::MessageId::McpRemovedServer)
+                    .replace("{}", &name)
+            );
             Ok(())
         }
         McpCommand::Enable { name } => {
@@ -3042,7 +3416,11 @@ async fn run_mcp_command(config: &Config, command: McpCommand) -> Result<()> {
             server.enabled = true;
             server.disabled = false;
             save_mcp_config(&config_path, &cfg)?;
-            println!("{}", localization::tr(locale, localization::MessageId::McpEnabledServer).replace("{}", &name));
+            println!(
+                "{}",
+                localization::tr(locale, localization::MessageId::McpEnabledServer)
+                    .replace("{}", &name)
+            );
             Ok(())
         }
         McpCommand::Disable { name } => {
@@ -3054,14 +3432,21 @@ async fn run_mcp_command(config: &Config, command: McpCommand) -> Result<()> {
             server.enabled = false;
             server.disabled = true;
             save_mcp_config(&config_path, &cfg)?;
-            println!("{}", localization::tr(locale, localization::MessageId::McpDisabledServer).replace("{}", &name));
+            println!(
+                "{}",
+                localization::tr(locale, localization::MessageId::McpDisabledServer)
+                    .replace("{}", &name)
+            );
             Ok(())
         }
         McpCommand::Validate => {
             let mut pool = McpPool::from_config_path(&config_path)?;
             let errors = pool.connect_all().await;
             if errors.is_empty() {
-                println!("{}", localization::tr(locale, localization::MessageId::McpValidationSuccess));
+                println!(
+                    "{}",
+                    localization::tr(locale, localization::MessageId::McpValidationSuccess)
+                );
                 return Ok(());
             }
             eprintln!("MCP validation failed:");

@@ -1602,6 +1602,10 @@ fn default_memory_path() -> Option<PathBuf> {
     effective_home_dir().map(|home| home.join(".deepseek").join("memory.md"))
 }
 
+pub(crate) fn default_i18n_dir() -> Option<PathBuf> {
+    effective_home_dir().map(|home| home.join(".deepseek").join("i18n"))
+}
+
 // === Environment Overrides ===
 
 fn apply_env_overrides(config: &mut Config) {

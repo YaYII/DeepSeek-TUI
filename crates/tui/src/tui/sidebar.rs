@@ -219,10 +219,8 @@ fn render_sidebar_plan(f: &mut Frame, area: Rect, app: &App) {
                     )));
                 }
             } else {
-                let locale = localization::Locale::default();
                 let (pending, in_progress, completed) = plan.counts();
                 let total = pending + in_progress + completed;
-                let progress_msg = localization::tr(locale, localization::MessageId::SidebarPlanSteps);
                 lines.push(Line::from(vec![
                     Span::styled(
                         format!("{}%", plan.progress_percent()),
@@ -279,7 +277,12 @@ fn render_sidebar_plan(f: &mut Frame, area: Rect, app: &App) {
     }
 
     let locale = localization::Locale::default();
-    render_sidebar_section(f, area, localization::tr(locale, localization::MessageId::SidebarPlanTitle), lines);
+    render_sidebar_section(
+        f,
+        area,
+        localization::tr(locale, localization::MessageId::SidebarPlanTitle),
+        lines,
+    );
 }
 
 /// One-line hint shown when the Plan section has nothing to display
@@ -346,9 +349,11 @@ fn render_sidebar_todos(f: &mut Frame, area: Rect, app: &App) {
 
                 let remaining = snapshot.items.len().saturating_sub(max_items);
                 if remaining > 0 {
-                    let msg = localization::tr(locale, localization::MessageId::SidebarTodosItemsCount);
+                    let msg =
+                        localization::tr(locale, localization::MessageId::SidebarTodosItemsCount);
                     lines.push(Line::from(Span::styled(
-                        format!("+{remaining} ").to_string() + &msg.replace("{}", &remaining.to_string()),
+                        format!("+{remaining} ").to_string()
+                            + &msg.replace("{}", &remaining.to_string()),
                         Style::default().fg(palette::TEXT_MUTED),
                     )));
                 }
@@ -362,7 +367,12 @@ fn render_sidebar_todos(f: &mut Frame, area: Rect, app: &App) {
         }
     }
 
-    render_sidebar_section(f, area, localization::tr(locale, localization::MessageId::SidebarTodosTitle), lines);
+    render_sidebar_section(
+        f,
+        area,
+        localization::tr(locale, localization::MessageId::SidebarTodosTitle),
+        lines,
+    );
 }
 
 fn render_sidebar_tasks(f: &mut Frame, area: Rect, app: &App) {
@@ -383,8 +393,7 @@ fn render_sidebar_tasks(f: &mut Frame, area: Rect, app: &App) {
         let msg = localization::tr(locale, localization::MessageId::SidebarTasksTurn);
         lines.push(Line::from(Span::styled(
             truncate_line_to_width(
-                &msg.replace("{}", turn_id)
-                    .replace("{}", &status),
+                &msg.replace("{}", turn_id).replace("{}", &status),
                 content_width.max(1),
             ),
             Style::default().fg(palette::DEEPSEEK_SKY),
@@ -404,7 +413,8 @@ fn render_sidebar_tasks(f: &mut Frame, area: Rect, app: &App) {
             .count();
         let running_msg = localization::tr(locale, localization::MessageId::SidebarTasksRunning);
         let active_msg = localization::tr(locale, localization::MessageId::SidebarTasksActive);
-        let running_count_msg = localization::tr(locale, localization::MessageId::SidebarTasksRunningCount);
+        let running_count_msg =
+            localization::tr(locale, localization::MessageId::SidebarTasksRunningCount);
         lines.push(Line::from(vec![
             Span::styled(
                 if running == app.task_panel.len() {
@@ -462,7 +472,12 @@ fn render_sidebar_tasks(f: &mut Frame, area: Rect, app: &App) {
         }
     }
 
-    render_sidebar_section(f, area, localization::tr(locale, localization::MessageId::SidebarTasksTitle), lines);
+    render_sidebar_section(
+        f,
+        area,
+        localization::tr(locale, localization::MessageId::SidebarTasksTitle),
+        lines,
+    );
 }
 
 fn render_sidebar_subagents(f: &mut Frame, area: Rect, app: &App) {
@@ -516,7 +531,12 @@ fn render_sidebar_subagents(f: &mut Frame, area: Rect, app: &App) {
     let lines = subagent_navigator_lines(&summary, content_width);
 
     let locale = localization::Locale::default();
-    render_sidebar_section(f, area, localization::tr(locale, localization::MessageId::SidebarAgentsTitle), lines);
+    render_sidebar_section(
+        f,
+        area,
+        localization::tr(locale, localization::MessageId::SidebarAgentsTitle),
+        lines,
+    );
 }
 
 /// Minimal projection of the data the sub-agent sidebar needs. Lifted out
@@ -576,7 +596,6 @@ pub fn subagent_navigator_lines(
         )
     };
     let done = total.saturating_sub(live_running);
-    let running_msg = localization::tr(locale, localization::MessageId::SidebarAgentsCount);
     let header = if live_running > 0 {
         vec![
             Span::styled(

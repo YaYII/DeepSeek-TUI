@@ -126,6 +126,158 @@ pub const AGENT_PROMPT: &str = include_str!("prompts/agent.txt");
 pub const YOLO_PROMPT: &str = include_str!("prompts/yolo.txt");
 pub const PLAN_PROMPT: &str = include_str!("prompts/plan.txt");
 
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct PromptLayer {
+    pub relative_path: &'static str,
+    pub builtin: &'static str,
+}
+
+/// Prompt layers that can be translated into `~/.deepseek/i18n`.
+///
+/// Localized files use the flat `name.i18n.ext` convention, e.g.
+/// `base.md` -> `base.i18n.md` and `modes/agent.md` -> `agent.i18n.md`.
+pub(crate) const LOCALIZABLE_PROMPT_LAYERS: &[PromptLayer] = &[
+    PromptLayer {
+        relative_path: "base.md",
+        builtin: BASE_PROMPT,
+    },
+    PromptLayer {
+        relative_path: "personalities/calm.md",
+        builtin: CALM_PERSONALITY,
+    },
+    PromptLayer {
+        relative_path: "personalities/playful.md",
+        builtin: PLAYFUL_PERSONALITY,
+    },
+    PromptLayer {
+        relative_path: "modes/agent.md",
+        builtin: AGENT_MODE,
+    },
+    PromptLayer {
+        relative_path: "modes/plan.md",
+        builtin: PLAN_MODE,
+    },
+    PromptLayer {
+        relative_path: "modes/yolo.md",
+        builtin: YOLO_MODE,
+    },
+    PromptLayer {
+        relative_path: "approvals/auto.md",
+        builtin: AUTO_APPROVAL,
+    },
+    PromptLayer {
+        relative_path: "approvals/suggest.md",
+        builtin: SUGGEST_APPROVAL,
+    },
+    PromptLayer {
+        relative_path: "approvals/never.md",
+        builtin: NEVER_APPROVAL,
+    },
+    PromptLayer {
+        relative_path: "compact.md",
+        builtin: COMPACT_TEMPLATE,
+    },
+    PromptLayer {
+        relative_path: "agent.txt",
+        builtin: AGENT_PROMPT,
+    },
+    PromptLayer {
+        relative_path: "yolo.txt",
+        builtin: YOLO_PROMPT,
+    },
+    PromptLayer {
+        relative_path: "plan.txt",
+        builtin: PLAN_PROMPT,
+    },
+];
+
+pub(crate) fn bundled_prompt_path(relative_path: &str) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("src")
+        .join("prompts")
+        .join(relative_path)
+}
+
+pub(crate) fn i18n_prompt_file_name(relative_path: &str) -> String {
+    let path = Path::new(relative_path);
+    let file_name = path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or(relative_path);
+
+    if let Some((stem, extension)) = file_name.rsplit_once('.') {
+        format!("{stem}.i18n.{extension}")
+    } else {
+        format!("{file_name}.i18n")
+    }
+}
+
+fn prompt_i18n_dir() -> Option<PathBuf> {
+    if let Ok(path) = std::env::var("DEEPSEEK_I18N_DIR") {
+        let trimmed = path.trim();
+        if !trimmed.is_empty() {
+            return Some(crate::config::expand_path(trimmed));
+        }
+    }
+
+    #[cfg(test)]
+    {
+        None
+    }
+
+    #[cfg(not(test))]
+    {
+        crate::config::default_i18n_dir()
+    }
+}
+
+fn localized_prompt_from_dir(dir: &Path, relative_path: &str) -> Option<String> {
+    let path = dir.join(i18n_prompt_file_name(relative_path));
+    match std::fs::read_to_string(&path) {
+        Ok(raw) => {
+            let trimmed = raw.trim();
+            if trimmed.is_empty() {
+                tracing::warn!(
+                    target: "i18n",
+                    ?path,
+                    "skipping empty localized prompt file"
+                );
+                None
+            } else {
+                Some(trimmed.to_string())
+            }
+        }
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => None,
+        Err(err) => {
+            tracing::warn!(
+                target: "i18n",
+                ?err,
+                ?path,
+                "skipping unreadable localized prompt file"
+            );
+            None
+        }
+    }
+}
+
+fn prompt_layer(relative_path: &str, builtin: &str) -> String {
+    prompt_i18n_dir()
+        .and_then(|dir| localized_prompt_from_dir(&dir, relative_path))
+        .unwrap_or_else(|| builtin.trim().to_string())
+}
+
+fn prompt_layer_from(layer: PromptLayer) -> String {
+    prompt_layer(layer.relative_path, layer.builtin)
+}
+
+fn find_prompt_layer(relative_path: &str) -> PromptLayer {
+    LOCALIZABLE_PROMPT_LAYERS
+        .iter()
+        .copied()
+        .find(|layer| layer.relative_path == relative_path)
+        .expect("prompt layer must be registered")
+}
+
 // ── Personality selection ─────────────────────────────────────────────
 
 /// Which personality overlay to apply.
@@ -152,29 +304,29 @@ impl Personality {
         }
     }
 
-    fn prompt(self) -> &'static str {
+    fn prompt(self) -> String {
         match self {
-            Self::Calm => CALM_PERSONALITY,
-            Self::Playful => PLAYFUL_PERSONALITY,
+            Self::Calm => prompt_layer_from(find_prompt_layer("personalities/calm.md")),
+            Self::Playful => prompt_layer_from(find_prompt_layer("personalities/playful.md")),
         }
     }
 }
 
 // ── Composition ───────────────────────────────────────────────────────
 
-fn mode_prompt(mode: AppMode) -> &'static str {
+fn mode_prompt(mode: AppMode) -> String {
     match mode {
-        AppMode::Agent => AGENT_MODE,
-        AppMode::Yolo => YOLO_MODE,
-        AppMode::Plan => PLAN_MODE,
+        AppMode::Agent => prompt_layer_from(find_prompt_layer("modes/agent.md")),
+        AppMode::Yolo => prompt_layer_from(find_prompt_layer("modes/yolo.md")),
+        AppMode::Plan => prompt_layer_from(find_prompt_layer("modes/plan.md")),
     }
 }
 
-fn approval_prompt(mode: AppMode) -> &'static str {
+fn approval_prompt(mode: AppMode) -> String {
     match mode {
-        AppMode::Agent => SUGGEST_APPROVAL,
-        AppMode::Yolo => AUTO_APPROVAL,
-        AppMode::Plan => NEVER_APPROVAL,
+        AppMode::Agent => prompt_layer_from(find_prompt_layer("approvals/suggest.md")),
+        AppMode::Yolo => prompt_layer_from(find_prompt_layer("approvals/auto.md")),
+        AppMode::Plan => prompt_layer_from(find_prompt_layer("approvals/never.md")),
     }
 }
 
@@ -187,11 +339,11 @@ fn approval_prompt(mode: AppMode) -> &'static str {
 /// Each layer is separated by a blank line for readability in the
 /// rendered prompt (the model sees them as contiguous sections).
 pub fn compose_prompt(mode: AppMode, personality: Personality) -> String {
-    let parts: [&str; 4] = [
-        BASE_PROMPT.trim(),
-        personality.prompt().trim(),
-        mode_prompt(mode).trim(),
-        approval_prompt(mode).trim(),
+    let parts = [
+        prompt_layer_from(find_prompt_layer("base.md")),
+        personality.prompt(),
+        mode_prompt(mode),
+        approval_prompt(mode),
     ];
 
     let mut out =
@@ -372,7 +524,7 @@ pub fn system_prompt_for_mode_with_context_skills_and_session(
     // 5. Compaction handoff template — so the model knows the format to use
     //    when writing `.deepseek/handoff.md` on exit / `/compact`.
     full_prompt.push_str("\n\n");
-    full_prompt.push_str(COMPACT_TEMPLATE);
+    full_prompt.push_str(&prompt_layer_from(find_prompt_layer("compact.md")));
 
     // ── Volatile-content boundary ─────────────────────────────────────────
     // Everything below drifts mid-session and busts the prefix cache for
@@ -399,7 +551,7 @@ pub fn build_system_prompt(base: &str, project_context: Option<&ProjectContext>)
 // ── Legacy functions for backwards compatibility ──────────────────────
 
 pub fn base_system_prompt() -> SystemPrompt {
-    SystemPrompt::Text(BASE_PROMPT.trim().to_string())
+    SystemPrompt::Text(prompt_layer_from(find_prompt_layer("base.md")))
 }
 
 pub fn normal_system_prompt() -> SystemPrompt {
@@ -416,6 +568,22 @@ pub fn yolo_system_prompt() -> SystemPrompt {
 
 pub fn plan_system_prompt() -> SystemPrompt {
     system_prompt_for_mode(AppMode::Plan)
+}
+
+/// Legacy monolithic Agent prompt with the same local-i18n-first behavior as
+/// the layered prompt path. Prefer [`agent_system_prompt`] for new call sites.
+pub fn legacy_agent_system_prompt() -> SystemPrompt {
+    SystemPrompt::Text(prompt_layer_from(find_prompt_layer("agent.txt")))
+}
+
+/// Legacy monolithic YOLO prompt with local-i18n-first fallback.
+pub fn legacy_yolo_system_prompt() -> SystemPrompt {
+    SystemPrompt::Text(prompt_layer_from(find_prompt_layer("yolo.txt")))
+}
+
+/// Legacy monolithic Plan prompt with local-i18n-first fallback.
+pub fn legacy_plan_system_prompt() -> SystemPrompt {
+    SystemPrompt::Text(prompt_layer_from(find_prompt_layer("plan.txt")))
 }
 
 #[cfg(test)]
@@ -666,6 +834,67 @@ mod tests {
         assert!(!AGENT_PROMPT.is_empty());
         assert!(!YOLO_PROMPT.is_empty());
         assert!(!PLAN_PROMPT.is_empty());
+    }
+
+    #[test]
+    fn localizable_prompt_layers_cover_all_runtime_prompt_files() {
+        let expected = [
+            "base.md",
+            "personalities/calm.md",
+            "personalities/playful.md",
+            "modes/agent.md",
+            "modes/plan.md",
+            "modes/yolo.md",
+            "approvals/auto.md",
+            "approvals/suggest.md",
+            "approvals/never.md",
+            "compact.md",
+            "agent.txt",
+            "yolo.txt",
+            "plan.txt",
+        ];
+        let actual = LOCALIZABLE_PROMPT_LAYERS
+            .iter()
+            .map(|layer| layer.relative_path)
+            .collect::<Vec<_>>();
+
+        assert_eq!(actual, expected);
+
+        for layer in LOCALIZABLE_PROMPT_LAYERS {
+            let raw = std::fs::read_to_string(bundled_prompt_path(layer.relative_path))
+                .expect("bundled prompt file");
+            assert_eq!(layer.builtin, raw);
+        }
+    }
+
+    #[test]
+    fn localized_prompt_file_name_uses_i18n_before_extension() {
+        assert_eq!(i18n_prompt_file_name("base.md"), "base.i18n.md");
+        assert_eq!(
+            i18n_prompt_file_name("personalities/calm.md"),
+            "calm.i18n.md"
+        );
+        assert_eq!(i18n_prompt_file_name("agent.txt"), "agent.i18n.txt");
+        assert_eq!(i18n_prompt_file_name("README"), "README.i18n");
+    }
+
+    #[test]
+    fn localized_prompt_from_dir_prefers_local_file_when_present() {
+        let tmp = tempdir().expect("tempdir");
+        std::fs::write(tmp.path().join("base.i18n.md"), "LOCALIZED BASE\n").unwrap();
+
+        let prompt = localized_prompt_from_dir(tmp.path(), "base.md").expect("localized prompt");
+
+        assert_eq!(prompt, "LOCALIZED BASE");
+    }
+
+    #[test]
+    fn localized_prompt_from_dir_skips_missing_and_empty_files() {
+        let tmp = tempdir().expect("tempdir");
+        assert!(localized_prompt_from_dir(tmp.path(), "base.md").is_none());
+
+        std::fs::write(tmp.path().join("base.i18n.md"), "   \n").unwrap();
+        assert!(localized_prompt_from_dir(tmp.path(), "base.md").is_none());
     }
 
     // ── Cache-prefix stability harness (#263 step 2) ───────────────────────

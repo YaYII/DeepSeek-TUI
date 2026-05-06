@@ -39,6 +39,7 @@ use crate::core::engine::{EngineConfig, EngineHandle, spawn_engine};
 use crate::core::events::Event as EngineEvent;
 use crate::core::ops::Op;
 use crate::hooks::HookEvent;
+use crate::localization;
 use crate::models::{ContentBlock, Message, SystemPrompt, context_window_for_model};
 use crate::palette;
 use crate::prompts;
@@ -77,7 +78,6 @@ use crate::tui::subagent_routing::{
 };
 #[cfg(test)]
 use crate::tui::tool_routing::exploring_label;
-use crate::localization;
 use crate::tui::tool_routing::{
     handle_tool_call_complete, handle_tool_call_started, maybe_add_patch_preview,
 };
@@ -1588,7 +1588,7 @@ async fn run_event_loop(
                     // Auto-detect system locale and save it before showing Language screen
                     let detected_locale = crate::localization::resolve_locale("auto");
                     let detected_tag = detected_locale.tag();
-                    
+
                     // Save detected locale to settings (only if not already set)
                     if app.current_locale_tag() == "auto" {
                         if let Ok(()) = app.set_locale_from_onboarding(detected_tag) {
@@ -1599,7 +1599,7 @@ async fn run_event_loop(
                             );
                         }
                     }
-                    
+
                     app.onboarding = OnboardingState::Language;
                 };
 
@@ -1694,7 +1694,7 @@ async fn run_event_loop(
                             app.finish_onboarding();
                         }
                         OnboardingState::None => {}
-                    }
+                    },
                     KeyCode::Char('y') | KeyCode::Char('Y')
                         if app.onboarding == OnboardingState::TrustDirectory =>
                     {
@@ -4183,18 +4183,23 @@ async fn handle_mcp_ui_action(
             let locale = localization::Locale::default();
             match mcp::init_config(&path, force) {
                 Ok(McpWriteStatus::Created) => {
-                    let msg = localization::tr(locale, localization::MessageId::PopupMcpConfigCreated);
+                    let msg =
+                        localization::tr(locale, localization::MessageId::PopupMcpConfigCreated);
                     message = Some(msg.replace("{}", &path.display().to_string()));
                     Ok(())
                 }
                 Ok(McpWriteStatus::Overwritten) => {
-                    let msg = localization::tr(locale, localization::MessageId::PopupMcpConfigOverwritten);
+                    let msg = localization::tr(
+                        locale,
+                        localization::MessageId::PopupMcpConfigOverwritten,
+                    );
                     message = Some(msg.replace("{}", &path.display().to_string()));
                     Ok(())
                 }
                 Ok(McpWriteStatus::SkippedExists) => {
                     changed = false;
-                    let msg = localization::tr(locale, localization::MessageId::PopupMcpConfigExists);
+                    let msg =
+                        localization::tr(locale, localization::MessageId::PopupMcpConfigExists);
                     message = Some(msg.replace("{}", &path.display().to_string()));
                     Ok(())
                 }
@@ -4240,10 +4245,7 @@ async fn handle_mcp_ui_action(
             mcp::remove_server_config(&path, &name)
                 .map(|()| message = Some(msg.replace("{}", &name)))
         }
-        crate::tui::app::McpUiAction::Validate | crate::tui::app::McpUiAction::Reload => {
-            let locale = localization::Locale::default();
-            Ok(())
-        }
+        crate::tui::app::McpUiAction::Validate | crate::tui::app::McpUiAction::Reload => Ok(()),
     };
 
     if let Err(err) = action_result {

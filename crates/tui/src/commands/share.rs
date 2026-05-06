@@ -12,6 +12,7 @@ use std::io::Write;
 use std::path::Path;
 
 use super::CommandResult;
+use crate::localization::MessageId;
 use crate::tui::app::{App, AppAction};
 
 /// Share the current session as a web URL.
@@ -20,20 +21,8 @@ pub fn share(app: &mut App, arg: Option<&str>) -> CommandResult {
 
     match raw {
         "" => do_share(app),
-        "help" | "--help" | "-h" => CommandResult::message(
-            "/share — Export the current session as a shareable web URL.\n\
-             \n\
-             Usage:\n\
-             /share         Export and upload the current session\n\
-             \n\
-             The session transcript is rendered as static HTML and uploaded\n\
-             to a GitHub Gist using the `gh` CLI. The Gist URL is displayed\n\
-             so you can paste it into Slack, GitHub, Twitter, etc."
-                .to_string(),
-        ),
-        _ => CommandResult::error(format!(
-            "Unknown /share argument `{raw}`. Use `/share` with no arguments or `/share help`."
-        )),
+        "help" | "--help" | "-h" => CommandResult::message(app.tr(MessageId::CmdShareHelp)),
+        _ => CommandResult::error(app.tr(MessageId::CmdShareUnknownArg).replace("{arg}", raw)),
     }
 }
 
@@ -41,7 +30,7 @@ pub fn share(app: &mut App, arg: Option<&str>) -> CommandResult {
 fn do_share(app: &mut App) -> CommandResult {
     // Check if there's any session content to share
     if app.history.is_empty() {
-        return CommandResult::error("Nothing to share. The current session is empty.");
+        return CommandResult::error(app.tr(MessageId::CmdShareNothing));
     }
 
     // Sanity-check: the extra info block is optional; the session itself
@@ -52,11 +41,10 @@ fn do_share(app: &mut App) -> CommandResult {
 
     // Use an AppAction to signal the engine to perform the async work.
     CommandResult::with_message_and_action(
-        format!(
-            "Exporting {history_len} cell(s) from {model} ({mode}) session...\n\n\
-             The session will be rendered as static HTML and uploaded to a GitHub Gist.\n\
-             This requires the `gh` CLI to be installed and authenticated."
-        ),
+        app.tr(MessageId::CmdShareExporting)
+            .replace("{count}", &history_len.to_string())
+            .replace("{model}", model)
+            .replace("{mode}", mode),
         AppAction::ShareSession {
             history_len,
             model: model.clone(),
@@ -76,13 +64,19 @@ pub async fn perform_share(history_json: &str, model: &str, mode: &str) -> Resul
     // Write to a temp file
     let tmp = match write_temp_html(&html) {
         Ok(file) => file,
-        Err(e) => return Err(format!("Failed to write temp file: {e}")),
+        Err(e) => {
+            return Err(
+                tr_default(MessageId::CmdShareWriteTempFailed).replace("{err}", &e.to_string())
+            );
+        }
     };
 
     // Upload via `gh gist create`
     let url = match upload_gist(tmp.path()).await {
         Ok(url) => url,
-        Err(e) => return Err(format!("Failed to upload Gist: {e}")),
+        Err(e) => {
+            return Err(tr_default(MessageId::CmdShareUploadFailed).replace("{err}", &e));
+        }
     };
 
     Ok(url)
@@ -168,19 +162,23 @@ async fn upload_gist(path: &Path) -> Result<String, String> {
         ])
         .output()
         .await
-        .map_err(|e| format!("Failed to run `gh gist create`: {e}"))?;
+        .map_err(|e| tr_default(MessageId::CmdShareGhRunFailed).replace("{err}", &e.to_string()))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("`gh gist create` failed: {stderr}"));
+        return Err(tr_default(MessageId::CmdShareGhFailed).replace("{err}", stderr.trim()));
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
     if stdout.is_empty() {
-        return Err("`gh gist create` returned no output".to_string());
+        return Err(tr_default(MessageId::CmdShareGhNoOutput).to_string());
     }
 
     Ok(stdout)
+}
+
+fn tr_default(id: MessageId) -> &'static str {
+    crate::localization::tr(crate::localization::Locale::default(), id)
 }
 
 #[cfg(test)]

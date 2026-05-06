@@ -14,7 +14,10 @@ fn get_plan_options() -> [(&'static str, &'static str); 4] {
     [
         (
             localization::tr(locale, localization::MessageId::PopupOptionAcceptAndProceed),
-            localization::tr(locale, localization::MessageId::PopupOptionAcceptAndProceedDesc),
+            localization::tr(
+                locale,
+                localization::MessageId::PopupOptionAcceptAndProceedDesc,
+            ),
         ),
         (
             localization::tr(locale, localization::MessageId::PopupOptionAcceptYolo),

@@ -8,6 +8,7 @@
 //! one-shot revert without a safety net.
 
 use super::CommandResult;
+use crate::localization::MessageId;
 use crate::snapshot::SnapshotRepo;
 use crate::tui::app::App;
 
@@ -19,22 +20,26 @@ pub fn restore(app: &mut App, arg: Option<&str>) -> CommandResult {
     let repo = match SnapshotRepo::open_or_init(&workspace) {
         Ok(r) => r,
         Err(e) => {
-            return CommandResult::error(format!(
-                "Snapshot repo unavailable for {}: {e}",
-                workspace.display(),
-            ));
+            return CommandResult::error(
+                app.tr(MessageId::CmdRestoreRepoUnavailable)
+                    .replace("{workspace}", &workspace.display().to_string())
+                    .replace("{err}", &e.to_string()),
+            );
         }
     };
 
     let snapshots = match repo.list(LIST_LIMIT) {
         Ok(s) => s,
-        Err(e) => return CommandResult::error(format!("Failed to list snapshots: {e}")),
+        Err(e) => {
+            return CommandResult::error(
+                app.tr(MessageId::CmdRestoreListFailed)
+                    .replace("{err}", &e.to_string()),
+            );
+        }
     };
 
     if snapshots.is_empty() {
-        return CommandResult::message(
-            "No snapshots yet. Send a message to create the first pre-turn snapshot.",
-        );
+        return CommandResult::message(app.tr(MessageId::CmdRestoreNoSnapshots));
     }
 
     let Some(arg) = arg.map(str::trim).filter(|s| !s.is_empty()) else {
@@ -44,17 +49,16 @@ pub fn restore(app: &mut App, arg: Option<&str>) -> CommandResult {
     let n: usize = match arg.parse() {
         Ok(n) if n >= 1 => n,
         _ => {
-            return CommandResult::error(format!(
-                "Usage: /restore <N>  (N is 1-based; got '{arg}')",
-            ));
+            return CommandResult::error(app.tr(MessageId::CmdRestoreUsage).replace("{arg}", arg));
         }
     };
 
     if n > snapshots.len() {
-        return CommandResult::error(format!(
-            "Only {} snapshot(s) available; asked for #{n}.",
-            snapshots.len(),
-        ));
+        return CommandResult::error(
+            app.tr(MessageId::CmdRestoreOnlyAvailable)
+                .replace("{count}", &snapshots.len().to_string())
+                .replace("{index}", &n.to_string()),
+        );
     }
 
     // Non-YOLO sessions get a confirmation gate. We don't have a true
@@ -62,27 +66,36 @@ pub fn restore(app: &mut App, arg: Option<&str>) -> CommandResult {
     // is "require trust mode" — `/trust on` or YOLO. Users in plain
     // Agent mode get a clear message explaining how to proceed.
     if !(app.yolo || app.trust_mode) {
-        return CommandResult::message(format!(
-            "Refusing to restore snapshot #{n} ('{}') outside trusted mode.\n\
-             Run `/trust on` or `/yolo` first, then re-run `/restore {n}`.",
-            snapshots[n - 1].label,
-        ));
+        return CommandResult::message(
+            app.tr(MessageId::CmdRestoreRefusing)
+                .replace("{index}", &n.to_string())
+                .replace("{label}", &snapshots[n - 1].label),
+        );
     }
 
     let target = &snapshots[n - 1];
     if let Err(e) = repo.restore(&target.id) {
-        return CommandResult::error(format!("Restore failed: {e}"));
+        return CommandResult::error(
+            app.tr(MessageId::CmdRestoreFailed)
+                .replace("{err}", &e.to_string()),
+        );
     }
 
-    CommandResult::message(format!(
-        "Restored snapshot #{n} ('{}', {}). Workspace files have been reverted; conversation history is unchanged.",
-        target.label,
-        short_sha(target.id.as_str()),
-    ))
+    CommandResult::message(
+        app.tr(MessageId::CmdRestoreSuccess)
+            .replace("{index}", &n.to_string())
+            .replace("{label}", &target.label)
+            .replace("{sha}", short_sha(target.id.as_str())),
+    )
 }
 
 fn format_listing(snapshots: &[crate::snapshot::Snapshot]) -> String {
-    let mut out = String::from("Recent snapshots (newest first; pass /restore <N> to revert):\n");
+    let mut out = crate::localization::tr(
+        crate::localization::Locale::default(),
+        MessageId::CmdRestoreListingHeader,
+    )
+    .to_string();
+    out.push('\n');
     for (i, s) in snapshots.iter().enumerate() {
         out.push_str(&format!(
             "  #{:<2}  {}  {}\n",

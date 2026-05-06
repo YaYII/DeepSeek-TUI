@@ -2,6 +2,7 @@
 
 use std::fmt::Write;
 
+use crate::localization::MessageId;
 use crate::network_policy::NetworkPolicy;
 use crate::skills::SkillRegistry;
 use crate::skills::install::{
@@ -13,13 +14,18 @@ use crate::tui::history::HistoryCell;
 
 use super::CommandResult;
 
-fn render_skill_warnings(registry: &SkillRegistry) -> String {
+fn render_skill_warnings(app: &App, registry: &SkillRegistry) -> String {
     if registry.warnings().is_empty() {
         return String::new();
     }
 
     let mut out = String::new();
-    let _ = writeln!(out, "\nWarnings ({}):", registry.warnings().len());
+    let _ = writeln!(
+        out,
+        "\n{}",
+        app.tr(MessageId::CmdSkillsWarningsHeader)
+            .replace("{count}", &registry.warnings().len().to_string())
+    );
     for warning in registry.warnings() {
         let _ = writeln!(out, "  - {warning}");
     }
@@ -40,42 +46,36 @@ pub fn list_skills(app: &mut App, arg: Option<&str>) -> CommandResult {
             return sync_skills(app);
         }
         if !trimmed.is_empty() {
-            return CommandResult::error("Usage: /skills [--remote|sync]");
+            return CommandResult::error(app.tr(MessageId::CmdSkillsUsage));
         }
     }
     let skills_dir = app.skills_dir.clone();
     let registry = SkillRegistry::discover(&skills_dir);
-    let warnings = render_skill_warnings(&registry);
+    let warnings = render_skill_warnings(app, &registry);
 
     if registry.is_empty() {
-        let msg = format!(
-            "No skills found.\n\n\
-             Skills location: {}\n\n\
-             To add skills, create directories with SKILL.md files:\n  \
-             {}/my-skill/SKILL.md\n\n\
-             Format:\n  \
-             ---\n  \
-             name: my-skill\n  \
-             description: What this skill does\n  \
-             allowed-tools: read_file, list_dir\n  \
-             ---\n\n  \
-             <instructions here>{warnings}",
-            skills_dir.display(),
-            skills_dir.display()
-        );
+        let msg = app
+            .tr(MessageId::CmdSkillsNoneFound)
+            .replace("{dir}", &skills_dir.display().to_string())
+            .replace("{warnings}", &warnings);
         return CommandResult::message(msg);
     }
 
-    let mut output = format!("Available skills ({}):\n", registry.len());
+    let mut output = format!(
+        "{}\n",
+        app.tr(MessageId::CmdSkillsAvailableHeader)
+            .replace("{count}", &registry.len().to_string())
+    );
     output.push_str("─────────────────────────────\n");
     for skill in registry.list() {
         let _ = writeln!(output, "  /{} - {}", skill.name, skill.description);
     }
     let _ = write!(
         output,
-        "\nUse /skill <name> to run a skill\nSkills location: {}{}",
-        skills_dir.display(),
-        warnings
+        "\n{}",
+        app.tr(MessageId::CmdSkillsUseHint)
+            .replace("{dir}", &skills_dir.display().to_string())
+            .replace("{warnings}", &warnings)
     );
 
     CommandResult::message(output)
@@ -99,9 +99,7 @@ pub fn run_skill(app: &mut App, name: Option<&str>) -> CommandResult {
     let raw = match name {
         Some(n) => n.trim(),
         None => {
-            return CommandResult::error(
-                "Usage: /skill <name>\n\nSubcommands:\n  /skill install <github:owner/repo|https://…|<registry-name>>\n  /skill update <name>\n  /skill uninstall <name>\n  /skill trust <name>",
-            );
+            return CommandResult::error(app.tr(MessageId::CmdSkillUsage));
         }
     };
 
@@ -135,30 +133,36 @@ fn activate_skill(app: &mut App, name: &str) -> CommandResult {
         );
 
         app.add_message(HistoryCell::System {
-            content: format!("Activated skill: {}\n\n{}", skill.name, skill.description),
+            content: app
+                .tr(MessageId::CmdSkillSystemActivated)
+                .replace("{name}", &skill.name)
+                .replace("{description}", &skill.description),
         });
 
         app.active_skill = Some(instruction);
 
-        CommandResult::message(format!(
-            "Skill '{}' activated.\n\nDescription: {}\n\nType your request and the skill instructions will be applied.",
-            skill.name, skill.description
-        ))
+        CommandResult::message(
+            app.tr(MessageId::CmdSkillActivated)
+                .replace("{name}", &skill.name)
+                .replace("{description}", &skill.description),
+        )
     } else {
         let available: Vec<String> = registry.list().iter().map(|s| s.name.clone()).collect();
-        let warnings = render_skill_warnings(&registry);
+        let warnings = render_skill_warnings(app, &registry);
 
         if available.is_empty() {
-            CommandResult::error(format!(
-                "Skill '{name}' not found. No skills installed.\n\nUse /skills to see how to add skills.{warnings}"
-            ))
+            CommandResult::error(
+                app.tr(MessageId::CmdSkillNotFoundNone)
+                    .replace("{name}", name)
+                    .replace("{warnings}", &warnings),
+            )
         } else {
-            CommandResult::error(format!(
-                "Skill '{}' not found.\n\nAvailable skills: {}{}",
-                name,
-                available.join(", "),
-                warnings
-            ))
+            CommandResult::error(
+                app.tr(MessageId::CmdSkillNotFoundAvailable)
+                    .replace("{name}", name)
+                    .replace("{available}", &available.join(", "))
+                    .replace("{warnings}", &warnings),
+            )
         }
     }
 }
@@ -167,13 +171,16 @@ fn activate_skill(app: &mut App, name: &str) -> CommandResult {
 
 fn install_skill(app: &mut App, spec: &str) -> CommandResult {
     if spec.is_empty() {
-        return CommandResult::error(
-            "Usage: /skill install <github:owner/repo|https://…|<registry-name>>",
-        );
+        return CommandResult::error(app.tr(MessageId::CmdSkillInstallUsage));
     }
     let source = match InstallSource::parse(spec) {
         Ok(s) => s,
-        Err(err) => return CommandResult::error(format!("Invalid install source: {err}")),
+        Err(err) => {
+            return CommandResult::error(
+                app.tr(MessageId::CmdSkillInvalidInstallSource)
+                    .replace("{err}", &err.to_string()),
+            );
+        }
     };
     let skills_dir = app.skills_dir.clone();
     let (network, max_size, registry_url) = installer_settings(app);
@@ -193,10 +200,12 @@ fn install_skill(app: &mut App, spec: &str) -> CommandResult {
     match outcome {
         Ok(InstallOutcome::Installed(installed)) => {
             let path_str = path_or_default(&installed.path);
-            CommandResult::message(format!(
-                "Installed skill '{}' from {}.\nLocation: {}\n\nRun /skills to see it in the list.",
-                installed.name, spec, path_str
-            ))
+            CommandResult::message(
+                app.tr(MessageId::CmdSkillInstalled)
+                    .replace("{name}", &installed.name)
+                    .replace("{source}", spec)
+                    .replace("{path}", &path_str),
+            )
         }
         Ok(InstallOutcome::NeedsApproval(host)) => {
             CommandResult::error(needs_approval_message(&host))
@@ -204,7 +213,10 @@ fn install_skill(app: &mut App, spec: &str) -> CommandResult {
         Ok(InstallOutcome::NetworkDenied(host)) => {
             CommandResult::error(network_denied_message(&host))
         }
-        Err(err) => CommandResult::error(format!("Install failed: {err:#}")),
+        Err(err) => CommandResult::error(
+            app.tr(MessageId::CmdSkillInstallFailed)
+                .replace("{err}", &format!("{err:#}")),
+        ),
     }
 }
 
@@ -212,7 +224,7 @@ fn install_skill(app: &mut App, spec: &str) -> CommandResult {
 
 fn update_skill(app: &mut App, name: &str) -> CommandResult {
     if name.is_empty() {
-        return CommandResult::error("Usage: /skill update <name>");
+        return CommandResult::error(app.tr(MessageId::CmdSkillUpdateUsage));
     }
     let skills_dir = app.skills_dir.clone();
     let (network, max_size, registry_url) = installer_settings(app);
@@ -224,20 +236,23 @@ fn update_skill(app: &mut App, name: &str) -> CommandResult {
 
     match outcome {
         Ok(UpdateResult::NoChange) => {
-            CommandResult::message(format!("Skill '{name}': no upstream change."))
+            CommandResult::message(app.tr(MessageId::CmdSkillNoChange).replace("{name}", name))
         }
-        Ok(UpdateResult::Updated(installed)) => CommandResult::message(format!(
-            "Skill '{}' updated. Location: {}",
-            installed.name,
-            path_or_default(&installed.path)
-        )),
+        Ok(UpdateResult::Updated(installed)) => CommandResult::message(
+            app.tr(MessageId::CmdSkillUpdated)
+                .replace("{name}", &installed.name)
+                .replace("{path}", &path_or_default(&installed.path)),
+        ),
         Ok(UpdateResult::NeedsApproval(host)) => {
             CommandResult::error(needs_approval_message(&host))
         }
         Ok(UpdateResult::NetworkDenied(host)) => {
             CommandResult::error(network_denied_message(&host))
         }
-        Err(err) => CommandResult::error(format!("Update failed: {err:#}")),
+        Err(err) => CommandResult::error(
+            app.tr(MessageId::CmdSkillUpdateFailed)
+                .replace("{err}", &format!("{err:#}")),
+        ),
     }
 }
 
@@ -245,11 +260,16 @@ fn update_skill(app: &mut App, name: &str) -> CommandResult {
 
 fn uninstall_skill(app: &mut App, name: &str) -> CommandResult {
     if name.is_empty() {
-        return CommandResult::error("Usage: /skill uninstall <name>");
+        return CommandResult::error(app.tr(MessageId::CmdSkillUninstallUsage));
     }
     match install::uninstall(name, &app.skills_dir) {
-        Ok(()) => CommandResult::message(format!("Removed skill '{name}'.")),
-        Err(err) => CommandResult::error(format!("Uninstall failed: {err:#}")),
+        Ok(()) => {
+            CommandResult::message(app.tr(MessageId::CmdSkillRemoved).replace("{name}", name))
+        }
+        Err(err) => CommandResult::error(
+            app.tr(MessageId::CmdSkillUninstallFailed)
+                .replace("{err}", &format!("{err:#}")),
+        ),
     }
 }
 
@@ -257,13 +277,16 @@ fn uninstall_skill(app: &mut App, name: &str) -> CommandResult {
 
 fn trust_skill(app: &mut App, name: &str) -> CommandResult {
     if name.is_empty() {
-        return CommandResult::error("Usage: /skill trust <name>");
+        return CommandResult::error(app.tr(MessageId::CmdSkillTrustUsage));
     }
     match install::trust(name, &app.skills_dir) {
-        Ok(()) => CommandResult::message(format!(
-            "Marked skill '{name}' as trusted. Tools that consult the .trusted marker may now invoke its scripts/."
-        )),
-        Err(err) => CommandResult::error(format!("Trust failed: {err:#}")),
+        Ok(()) => {
+            CommandResult::message(app.tr(MessageId::CmdSkillTrusted).replace("{name}", name))
+        }
+        Err(err) => CommandResult::error(
+            app.tr(MessageId::CmdSkillTrustFailed)
+                .replace("{err}", &format!("{err:#}")),
+        ),
     }
 }
 
@@ -276,9 +299,13 @@ pub fn list_remote_skills(app: &mut App) -> CommandResult {
     match registry {
         Ok(RegistryFetchResult::Loaded(doc)) => {
             if doc.skills.is_empty() {
-                return CommandResult::message("Registry is empty.");
+                return CommandResult::message(app.tr(MessageId::CmdSkillsRegistryEmpty));
             }
-            let mut out = format!("Available remote skills ({}):\n", doc.skills.len());
+            let mut out = format!(
+                "{}\n",
+                app.tr(MessageId::CmdSkillsRemoteHeader)
+                    .replace("{count}", &doc.skills.len().to_string())
+            );
             out.push_str("─────────────────────────────\n");
             for (name, entry) in &doc.skills {
                 let _ = writeln!(
@@ -288,7 +315,7 @@ pub fn list_remote_skills(app: &mut App) -> CommandResult {
                     entry.source
                 );
             }
-            let _ = write!(out, "\nInstall with: /skill install <name>");
+            let _ = write!(out, "\n{}", app.tr(MessageId::CmdSkillsRemoteInstallHint));
             CommandResult::message(out)
         }
         Ok(RegistryFetchResult::NeedsApproval(host)) => {
@@ -297,7 +324,10 @@ pub fn list_remote_skills(app: &mut App) -> CommandResult {
         Ok(RegistryFetchResult::Denied(host)) => {
             CommandResult::error(network_denied_message(&host))
         }
-        Err(err) => CommandResult::error(format!("Failed to fetch registry: {err:#}")),
+        Err(err) => CommandResult::error(
+            app.tr(MessageId::CmdSkillsFetchFailed)
+                .replace("{err}", &format!("{err:#}")),
+        ),
     }
 }
 
@@ -326,31 +356,58 @@ fn sync_skills(app: &mut App) -> CommandResult {
             let mut downloaded = 0usize;
             let mut fresh = 0usize;
             let mut failed = 0usize;
-            let mut out = String::from("Registry sync complete.\n\n");
+            let mut out = app.tr(MessageId::CmdSkillsSyncComplete).to_string();
+            out.push_str("\n\n");
 
             for outcome in &outcomes {
                 match outcome {
                     SkillSyncOutcome::Downloaded { name, path } => {
                         downloaded += 1;
-                        let _ = writeln!(out, "  [+] {name} — downloaded to {}", path.display());
+                        let _ = writeln!(
+                            out,
+                            "{}",
+                            app.tr(MessageId::CmdSkillsSyncDownloaded)
+                                .replace("{name}", name)
+                                .replace("{path}", &path.display().to_string())
+                        );
                     }
                     SkillSyncOutcome::Fresh { name } => {
                         fresh += 1;
-                        let _ = writeln!(out, "  [=] {name} — already up to date");
+                        let _ = writeln!(
+                            out,
+                            "{}",
+                            app.tr(MessageId::CmdSkillsSyncFresh)
+                                .replace("{name}", name)
+                        );
                     }
                     SkillSyncOutcome::Failed { name, reason } => {
                         failed += 1;
-                        let _ = writeln!(out, "  [!] {name} — failed: {reason}");
+                        let _ = writeln!(
+                            out,
+                            "{}",
+                            app.tr(MessageId::CmdSkillsSyncFailedItem)
+                                .replace("{name}", name)
+                                .replace("{reason}", reason)
+                        );
                     }
                     SkillSyncOutcome::Denied { name, host } => {
                         failed += 1;
-                        let _ = writeln!(out, "  [x] {name} — network denied ({host})");
+                        let _ = writeln!(
+                            out,
+                            "{}",
+                            app.tr(MessageId::CmdSkillsSyncDeniedItem)
+                                .replace("{name}", name)
+                                .replace("{host}", host)
+                        );
                     }
                     SkillSyncOutcome::NeedsApproval { name, host } => {
                         failed += 1;
                         let _ = writeln!(
                             out,
-                            "  [?] {name} — needs approval for {host} (run `/network allow {host}` then retry)"
+                            "{}",
+                            app.tr(MessageId::CmdSkillsSyncNeedsApprovalItem)
+                                .replace("{name}", name)
+                                .replace("{host}", host)
                         );
                     }
                 }
@@ -358,12 +415,20 @@ fn sync_skills(app: &mut App) -> CommandResult {
 
             let _ = write!(
                 out,
-                "\n{total} skill(s) processed: {downloaded} downloaded, {fresh} up-to-date, {failed} failed."
+                "\n{}",
+                app.tr(MessageId::CmdSkillsSyncSummary)
+                    .replace("{total}", &total.to_string())
+                    .replace("{downloaded}", &downloaded.to_string())
+                    .replace("{fresh}", &fresh.to_string())
+                    .replace("{failed}", &failed.to_string())
             );
 
             CommandResult::message(out)
         }
-        Err(err) => CommandResult::error(format!("Sync failed: {err:#}")),
+        Err(err) => CommandResult::error(
+            app.tr(MessageId::CmdSkillsSyncFailed)
+                .replace("{err}", &format!("{err:#}")),
+        ),
     }
 }
 
@@ -424,17 +489,15 @@ fn path_or_default(path: &std::path::Path) -> String {
 }
 
 fn needs_approval_message(host: &str) -> String {
-    format!(
-        "Network policy requires approval for {host}.\n\
-         Add it to your allow list with `/network allow {host}` (or set [network].default = \"allow\" in ~/.deepseek/config.toml), then retry."
-    )
+    tr_default(MessageId::CmdSkillsNetworkNeedsApproval).replace("{host}", host)
 }
 
 fn network_denied_message(host: &str) -> String {
-    format!(
-        "Network policy denied access to {host}.\n\
-         Remove the deny entry from ~/.deepseek/config.toml under [network] or contact your administrator."
-    )
+    tr_default(MessageId::CmdSkillsNetworkDenied).replace("{host}", host)
+}
+
+fn tr_default(id: MessageId) -> &'static str {
+    crate::localization::tr(crate::localization::Locale::default(), id)
 }
 
 #[cfg(test)]

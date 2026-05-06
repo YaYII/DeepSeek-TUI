@@ -21,33 +21,20 @@ use std::fs;
 use std::path::Path;
 
 use super::CommandResult;
+use crate::localization::MessageId;
 use crate::tui::app::App;
 
-const MEMORY_USAGE: &str = "/memory [show|path|clear|edit|help]";
-
 fn memory_help(path: &Path) -> String {
-    format!(
-        "Inspect or manage your persistent user-memory file.\n\n\
-         Usage: {MEMORY_USAGE}\n\n\
-         Current path: {}\n\n\
-         Subcommands:\n\
-           /memory          Show the resolved path and current contents\n\
-           /memory show     Alias for the no-arg form\n\
-           /memory path     Print just the resolved path\n\
-           /memory clear    Replace the file contents with an empty marker\n\
-           /memory edit     Print the editor command for this file\n\
-           /memory help     Show this help\n\n\
-         Quick capture: type `# foo` in the composer to append a timestamped\n\
-         bullet without firing a turn.",
-        path.display()
+    crate::localization::tr(
+        crate::localization::Locale::default(),
+        MessageId::CmdMemoryHelp,
     )
+    .replace("{path}", &path.display().to_string())
 }
 
 pub fn memory(app: &mut App, arg: Option<&str>) -> CommandResult {
     if !app.use_memory {
-        return CommandResult::error(
-            "user memory is disabled. Enable with `[memory] enabled = true` in `~/.deepseek/config.toml` or `DEEPSEEK_MEMORY=on` in your environment, then restart the TUI.",
-        );
+        return CommandResult::error(app.tr(MessageId::CmdMemoryDisabled));
     }
 
     let path = app.memory_path.clone();
@@ -56,32 +43,38 @@ pub fn memory(app: &mut App, arg: Option<&str>) -> CommandResult {
     match sub {
         "" | "show" => {
             let body = match fs::read_to_string(&path) {
-                Ok(text) if text.trim().is_empty() => format!(
-                    "{}\n(empty — add via `# foo` from the composer or have the model use the `remember` tool)",
-                    path.display()
-                ),
+                Ok(text) if text.trim().is_empty() => app
+                    .tr(MessageId::CmdMemoryEmpty)
+                    .replace("{path}", &path.display().to_string()),
                 Ok(text) => format!("{}\n\n{}", path.display(), text.trim_end()),
-                Err(_) => format!(
-                    "{}\n(file does not exist yet — add via `# foo` from the composer to create it)",
-                    path.display()
-                ),
+                Err(_) => app
+                    .tr(MessageId::CmdMemoryMissing)
+                    .replace("{path}", &path.display().to_string()),
             };
             CommandResult::message(body)
         }
         "path" => CommandResult::message(path.display().to_string()),
         "clear" => match fs::write(&path, "") {
-            Ok(()) => CommandResult::message(format!("memory cleared: {}", path.display())),
-            Err(err) => CommandResult::error(format!("failed to clear {}: {err}", path.display())),
+            Ok(()) => CommandResult::message(
+                app.tr(MessageId::CmdMemoryCleared)
+                    .replace("{path}", &path.display().to_string()),
+            ),
+            Err(err) => CommandResult::error(
+                app.tr(MessageId::CmdMemoryClearFailed)
+                    .replace("{path}", &path.display().to_string())
+                    .replace("{err}", &err.to_string()),
+            ),
         },
-        "edit" => CommandResult::message(format!(
-            "to edit your memory file, run:\n\n  ${{VISUAL:-${{EDITOR:-vi}}}} {}",
-            path.display()
-        )),
+        "edit" => CommandResult::message(
+            app.tr(MessageId::CmdMemoryEditHint)
+                .replace("{path}", &path.display().to_string()),
+        ),
         "help" => CommandResult::message(memory_help(&path)),
-        _ => CommandResult::error(format!(
-            "unknown subcommand `{sub}`. Try `/memory help`.\n\n{}",
-            memory_help(&path)
-        )),
+        _ => CommandResult::error(
+            app.tr(MessageId::CmdMemoryUnknownSubcommand)
+                .replace("{sub}", sub)
+                .replace("{help}", &memory_help(&path)),
+        ),
     }
 }
 

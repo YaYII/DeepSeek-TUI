@@ -12,6 +12,7 @@ mod goal;
 mod hooks;
 mod init;
 mod jobs;
+mod localize;
 mod mcp;
 mod memory;
 mod note;
@@ -197,6 +198,12 @@ pub const COMMANDS: &[CommandInfo] = &[
         aliases: &["dashboard", "api"],
         usage: "/links",
         description_id: MessageId::CmdLinksDescription,
+    },
+    CommandInfo {
+        name: "localize",
+        aliases: &["locale-gen"],
+        usage: "/localize <locale>",
+        description_id: MessageId::CmdLocalizeDescription,
     },
     CommandInfo {
         name: "home",
@@ -486,6 +493,7 @@ pub fn execute(cmd: &str, app: &mut App) -> CommandResult {
         "hooks" | "hook" => hooks::hooks(app, arg),
         "subagents" | "agents" => core::subagents(app),
         "links" | "dashboard" | "api" => core::deepseek_links(app),
+        "localize" | "locale-gen" => localize::localize(app, arg),
         "home" | "stats" | "overview" => core::home_dashboard(app),
         "note" => note::note(app, arg),
         "memory" => memory::memory(app, arg),

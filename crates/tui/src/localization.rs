@@ -10,8 +10,8 @@ use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 pub enum Locale {
     En,
     Ja,
-    ZhHans,   // 简体中文
-    ZhHant,   // 繁体中文
+    ZhHans, // 简体中文
+    ZhHant, // 繁体中文
     PtBr,
 }
 
@@ -34,7 +34,9 @@ impl Locale {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, strum::EnumString, strum::IntoStaticStr, strum::Display)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, strum::EnumString, strum::IntoStaticStr, strum::Display,
+)]
 #[strum(serialize_all = "snake_case")]
 pub enum MessageId {
     ComposerPlaceholder,
@@ -86,6 +88,7 @@ pub enum MessageId {
     CmdJobsDescription,
     CmdLinksDescription,
     CmdLoadDescription,
+    CmdLocalizeDescription,
     CmdLogoutDescription,
     CmdMcpDescription,
     CmdMemoryDescription,
@@ -326,7 +329,7 @@ pub enum MessageId {
     DoctorSandboxAvailable,
     DoctorSandboxNotAvailable,
     DoctorAllChecksComplete,
-    
+
     // Sidebar - Plan
     SidebarPlanTitle,
     SidebarPlanNoActivePlan,
@@ -338,7 +341,7 @@ pub enum MessageId {
     SidebarPlanStepStatusInProgress,
     SidebarPlanStepStatusCompleted,
     SidebarPlanStepStatusCancelled,
-    
+
     // Sidebar - Todos
     SidebarTodosTitle,
     SidebarTodosNoActiveTodos,
@@ -346,7 +349,7 @@ pub enum MessageId {
     SidebarTodoStatusPending,
     SidebarTodoStatusInProgress,
     SidebarTodoStatusCompleted,
-    
+
     // Sidebar - Tasks
     SidebarTasksTitle,
     SidebarTasksNoActiveTasks,
@@ -354,7 +357,7 @@ pub enum MessageId {
     SidebarTasksRunning,
     SidebarTasksActive,
     SidebarTasksRunningCount,
-    
+
     // Sidebar - Agents
     SidebarAgentsTitle,
     SidebarAgentsNoActiveAgents,
@@ -363,12 +366,12 @@ pub enum MessageId {
     SidebarAgentStatusRunning,
     SidebarAgentStatusCompleted,
     SidebarAgentStatusFailed,
-    
+
     // Sidebar - Context
     SidebarContextTitle,
     SidebarContextNoAttachments,
     SidebarContextFilesCount,
-    
+
     // Popup Messages
     PopupActionRequired,
     PopupChooseAfterPlan,
@@ -392,7 +395,7 @@ pub enum MessageId {
     PopupMcpServerRemoved,
     PopupMcpValidationSuccess,
     PopupMcpReloadSuccess,
-    
+
     // Setup Command
     SetupTitle,
     SetupSeparator,
@@ -417,7 +420,7 @@ pub enum MessageId {
     SetupPluginsNextStep,
     SetupSandboxAvailable,
     SetupSandboxUnavailable,
-    
+
     // MCP Command
     McpConfigCreated,
     McpConfigOverwritten,
@@ -531,6 +534,148 @@ pub enum MessageId {
     CmdGoalTokensSuffix,
     CmdGoalCurrent,
     CmdGoalEmptyHelp,
+    CmdConfigWebUnavailable,
+    CmdConfigAutoModelValue,
+    CmdConfigUnknownSettingFallback,
+    CmdConfigUnknownSetting,
+    CmdConfigSettingsLoadFailed,
+    CmdConfigInvalidModel,
+    CmdConfigModelValue,
+    CmdConfigApprovalValue,
+    CmdConfigInvalidApprovalMode,
+    CmdConfigMcpPathEmpty,
+    CmdConfigMcpPathSaved,
+    CmdConfigMcpPathSession,
+    CmdConfigSettingsUnavailableSession,
+    CmdConfigSaveFailed,
+    CmdConfigValueSaved,
+    CmdConfigValueSession,
+    CmdSetUsage,
+    CmdSetUsageShort,
+    CmdYoloEnabled,
+    CmdNormalRemoved,
+    CmdAgentEnabled,
+    CmdPlanEnabled,
+    CmdTrustEnabled,
+    CmdTrustDisabled,
+    CmdTrustUnknownAction,
+    CmdTrustStatusMode,
+    CmdTrustModeEnabled,
+    CmdTrustModeDisabled,
+    CmdTrustNoExternalPathsList,
+    CmdTrustNoExternalPathsHint,
+    CmdTrustPathsHeader,
+    CmdTrustAddUsage,
+    CmdTrustPathNotFound,
+    CmdTrustAdded,
+    CmdTrustUpdateFailed,
+    CmdTrustRemoveUsage,
+    CmdTrustRemoved,
+    CmdTrustNotInList,
+    CmdLspStatus,
+    CmdLspEnabledStatus,
+    CmdLspDisabledStatus,
+    CmdLspEnabled,
+    CmdLspDisabled,
+    CmdLspUnknownArg,
+    CmdLogoutSuccess,
+    CmdLogoutFailed,
+    CmdSessionSerializeFailed,
+    CmdSessionSaved,
+    CmdSessionSaveFailed,
+    CmdSessionCreateDirFailed,
+    CmdSessionLoadUsage,
+    CmdSessionReadFailed,
+    CmdSessionParseFailed,
+    CmdSessionLoaded,
+    CmdSessionCompactTriggered,
+    CmdSessionExportTitle,
+    CmdSessionExportModel,
+    CmdSessionExportWorkspace,
+    CmdSessionExportDate,
+    CmdSessionExportRoleYou,
+    CmdSessionExportRoleAssistant,
+    CmdSessionExportRoleSystem,
+    CmdSessionExportRoleWarning,
+    CmdSessionExportRoleInfo,
+    CmdSessionExportRoleError,
+    CmdSessionExportRoleThinking,
+    CmdSessionExportRoleTool,
+    CmdSessionExportRoleSubagent,
+    CmdSessionExportRoleArchivedContext,
+    CmdSessionExported,
+    CmdSessionExportFailed,
+    CmdSessionsUnknownSubcommand,
+    CmdSessionsPruneUsage,
+    CmdSessionsPruneInvalidDays,
+    CmdSessionsOpenFailed,
+    CmdSessionsPruneNone,
+    CmdSessionsPruned,
+    CmdSessionsPruneFailed,
+    CmdMemoryDisabled,
+    CmdMemoryHelp,
+    CmdMemoryEmpty,
+    CmdMemoryMissing,
+    CmdMemoryCleared,
+    CmdMemoryClearFailed,
+    CmdMemoryEditHint,
+    CmdMemoryUnknownSubcommand,
+    CmdRestoreRepoUnavailable,
+    CmdRestoreListFailed,
+    CmdRestoreNoSnapshots,
+    CmdRestoreUsage,
+    CmdRestoreOnlyAvailable,
+    CmdRestoreRefusing,
+    CmdRestoreFailed,
+    CmdRestoreSuccess,
+    CmdRestoreListingHeader,
+    CmdShareHelp,
+    CmdShareUnknownArg,
+    CmdShareNothing,
+    CmdShareExporting,
+    CmdShareWriteTempFailed,
+    CmdShareUploadFailed,
+    CmdShareGhRunFailed,
+    CmdShareGhFailed,
+    CmdShareGhNoOutput,
+    CmdSkillsWarningsHeader,
+    CmdSkillsUsage,
+    CmdSkillsNoneFound,
+    CmdSkillsAvailableHeader,
+    CmdSkillsUseHint,
+    CmdSkillUsage,
+    CmdSkillSystemActivated,
+    CmdSkillActivated,
+    CmdSkillNotFoundNone,
+    CmdSkillNotFoundAvailable,
+    CmdSkillInstallUsage,
+    CmdSkillInvalidInstallSource,
+    CmdSkillInstalled,
+    CmdSkillInstallFailed,
+    CmdSkillUpdateUsage,
+    CmdSkillNoChange,
+    CmdSkillUpdated,
+    CmdSkillUpdateFailed,
+    CmdSkillUninstallUsage,
+    CmdSkillRemoved,
+    CmdSkillUninstallFailed,
+    CmdSkillTrustUsage,
+    CmdSkillTrusted,
+    CmdSkillTrustFailed,
+    CmdSkillsRegistryEmpty,
+    CmdSkillsRemoteHeader,
+    CmdSkillsRemoteInstallHint,
+    CmdSkillsFetchFailed,
+    CmdSkillsSyncComplete,
+    CmdSkillsSyncDownloaded,
+    CmdSkillsSyncFresh,
+    CmdSkillsSyncFailedItem,
+    CmdSkillsSyncDeniedItem,
+    CmdSkillsSyncNeedsApprovalItem,
+    CmdSkillsSyncSummary,
+    CmdSkillsSyncFailed,
+    CmdSkillsNetworkNeedsApproval,
+    CmdSkillsNetworkDenied,
 }
 
 pub fn tr(_locale: Locale, id: MessageId) -> &'static str {
@@ -540,8 +685,6 @@ pub fn tr(_locale: Locale, id: MessageId) -> &'static str {
     // Convert String to &'static str by leaking memory (acceptable for UI strings)
     Box::leak(result.into_boxed_str())
 }
-
-
 
 pub fn normalize_configured_locale(input: &str) -> Option<&'static str> {
     let normalized = normalize_locale_input(input);
@@ -631,9 +774,9 @@ fn parse_locale(value: &str) -> Option<Locale> {
             || value.contains("-hk")
             || value.contains("-mo")
         {
-            return Some(Locale::ZhHant);  // ✅ 支持繁体中文
+            return Some(Locale::ZhHant); // ✅ 支持繁体中文
         }
-        return Some(Locale::ZhHans);  // 简体中文
+        return Some(Locale::ZhHans); // 简体中文
     }
     if value.starts_with("pt") || value == "br" {
         return Some(Locale::PtBr);
@@ -679,7 +822,6 @@ mod tests {
         assert_eq!(resolve_locale_with_env("auto", |_| None), Locale::En);
     }
 
-
     // 注意：在 AI 驱动的新架构中，不再存在“不支持的语言”
     // 任何语言都可以通过 AI 生成翻译并保存为 JSON 文件
     // 因此不需要测试 unsupported locale fallback
@@ -695,10 +837,7 @@ mod tests {
 
         for (tag, sample) in samples {
             let truncated = truncate_to_width(sample, 12);
-            assert!(
-                truncated.width() <= 12,
-                "{tag} 样本溢出: {truncated:?}"
-            );
+            assert!(truncated.width() <= 12, "{tag} 样本溢出: {truncated:?}");
         }
     }
 
@@ -751,11 +890,13 @@ static TRANSLATION_CACHE: once_cell::sync::Lazy<Arc<RwLock<HashMap<String, Strin
 
 /// Initialize translations by loading from i18n.json or en.json
 pub fn init_translations() -> Result<(), Box<dyn std::error::Error>> {
-    let translations = crate::i18n_generator::load_translations()?;
-    
-    let mut cache = TRANSLATION_CACHE.write().map_err(|e| format!("Failed to lock cache: {}", e))?;
+    let translations = crate::i18n_files::load_translations()?;
+
+    let mut cache = TRANSLATION_CACHE
+        .write()
+        .map_err(|e| format!("Failed to lock cache: {}", e))?;
     *cache = translations;
-    
+
     Ok(())
 }
 
@@ -768,7 +909,20 @@ pub fn tr_json(key: &str) -> String {
             return value.clone();
         }
     }
-    
+
+    // Non-interactive CLI commands and tests can call `tr()` before the TUI
+    // has initialized the cache. Load lazily so user-visible output does not
+    // fall back to raw message keys.
+    if let Ok(translations) = crate::i18n_files::load_translations() {
+        let value = translations.get(key).cloned();
+        if let Ok(mut cache) = TRANSLATION_CACHE.write() {
+            *cache = translations;
+        }
+        if let Some(value) = value {
+            return value;
+        }
+    }
+
     // Last resort: return the key itself
     key.to_string()
 }
