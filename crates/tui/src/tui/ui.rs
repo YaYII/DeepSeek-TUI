@@ -182,7 +182,7 @@ pub async fn run_tui(config: &Config, options: TuiOptions) -> Result<()> {
     // Terminal probe with timeout to prevent hanging on unresponsive terminals
     let probe_timeout = terminal_probe_timeout(config);
     let enable_raw = tokio::task::spawn_blocking(move || {
-        enable_raw_mode().map_err(|e| anyhow::anyhow!("Failed to enable raw mode: {}", e))
+        enable_raw_mode().map_err(|e| anyhow::anyhow!("启用原始模式失败：{}", e))
     });
 
     match tokio::time::timeout(probe_timeout, enable_raw).await {
@@ -191,11 +191,11 @@ pub async fn run_tui(config: &Config, options: TuiOptions) -> Result<()> {
         }
         Err(_) => {
             tracing::warn!(
-                "Terminal probe timed out after {}ms - terminal may be unresponsive",
+                "终端探测在 {}ms 后超时 - 终端可能无响应",
                 probe_timeout.as_millis()
             );
             return Err(anyhow::anyhow!(
-                "Terminal probe timed out after {}ms",
+                "终端探测在 {}ms 后超时",
                 probe_timeout.as_millis()
             ));
         }
@@ -269,16 +269,16 @@ pub async fn run_tui(config: &Config, options: TuiOptions) -> Result<()> {
                 let recovered = apply_loaded_session(&mut app, &saved);
                 if !recovered {
                     app.status_message = Some(format!(
-                        "Resumed session: {}",
+                        "已恢复会话：{}",
                         crate::session_manager::truncate_id(&saved.metadata.id)
                     ));
                 }
             }
             Ok(None) => {
-                app.status_message = Some("No sessions found to resume".to_string());
+                app.status_message = Some("未找到可恢复的会话".to_string());
             }
             Err(e) => {
-                app.status_message = Some(format!("Failed to load session: {e}"));
+                app.status_message = Some(format!("加载会话失败：{e}"));
             }
         }
     }
@@ -305,7 +305,7 @@ pub async fn run_tui(config: &Config, options: TuiOptions) -> Result<()> {
                     }
                     if app.status_message.is_none() && app.queued_message_count() > 0 {
                         app.status_message = Some(format!(
-                            "Restored {} queued message(s) from previous session — ↑ to edit, Ctrl+X to discard",
+                            "从上一个会话恢复了 {} 条排队消息 — ↑ 编辑，Ctrl+X 丢弃",
                             app.queued_message_count()
                         ));
                     }
@@ -317,7 +317,7 @@ pub async fn run_tui(config: &Config, options: TuiOptions) -> Result<()> {
             Ok(None) => {}
             Err(err) => {
                 if app.status_message.is_none() {
-                    app.status_message = Some(format!("Failed to restore offline queue: {err}"));
+                    app.status_message = Some(format!("恢复离线队列失败：{err}"));
                 }
             }
         }
@@ -895,7 +895,7 @@ async fn run_event_loop(
                                     &app.model, &name, output,
                                 ),
                             ),
-                            Err(err) => sanitize_stream_chunk(&format!("Error: {err}")),
+                            Err(err) => sanitize_stream_chunk(&format!("错误：{err}")),
                         };
                         app.api_messages.push(Message {
                             role: "user".to_string(),
@@ -1034,7 +1034,7 @@ async fn run_event_loop(
                             recorded_at: Instant::now(),
                         });
                         if let Some(error) = error {
-                            app.status_message = Some(format!("Turn failed: {error}"));
+                            app.status_message = Some(format!("轮次失败：{error}"));
                         }
 
                         // Update session cost
@@ -1197,12 +1197,12 @@ async fn run_event_loop(
                         ..
                     } => {
                         app.status_message = Some(format!(
-                            "Capacity intervention: {action} (~{before_prompt_tokens} -> ~{after_prompt_tokens} tokens)"
+                            "容量干预：{action}（~{before_prompt_tokens} -> ~{after_prompt_tokens} 令牌）"
                         ));
                     }
                     EngineEvent::CapacityMemoryPersistFailed { action, error, .. } => {
                         app.status_message = Some(format!(
-                            "Capacity memory persist failed ({action}): {error}"
+                            "容量内存持久化失败（{action}）：{error}"
                         ));
                     }
                     EngineEvent::PauseEvents { ack } => {
@@ -1240,7 +1240,7 @@ async fn run_event_loop(
                             app.agent_activity_started_at = Some(Instant::now());
                         }
                         app.status_message =
-                            Some(format!("Sub-agent {id} starting: {prompt_summary}"));
+                            Some(format!("子代理 {id} 启动中：{prompt_summary}"));
                         let _ = engine_handle.send(Op::ListSubAgents).await;
                     }
                     EngineEvent::AgentProgress { id, status } => {
