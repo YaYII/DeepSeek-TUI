@@ -381,8 +381,8 @@ pub(super) fn missing_tool_error_message(tool_name: &str, catalog: &[Tool]) -> S
     }
 
     format!(
-        "Tool '{tool_name}' is not available in the current tool catalog. \
-         Did you mean: {}? You can also use {TOOL_SEARCH_BM25_NAME} to discover tools.",
+        "工具 '{tool_name}' 在当前工具目录中不可用。\
+         您是不是想找：{}？您也可以使用 {TOOL_SEARCH_BM25_NAME} 来发现工具。",
         suggestions.join(", ")
     )
 }

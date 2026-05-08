@@ -285,14 +285,14 @@ mod tests {
         let larger_backlog = ENTER_QUEUE_DEPTH_LINES + 80;
         let decision = policy.decide(snap(larger_backlog, 30), now + Duration::from_millis(10));
         assert_eq!(decision.mode, ChunkingMode::CatchUp);
-        assert!(!decision.entered_catch_up, "no second transition signal");
+        assert!(!decision.entered_catch_up, "没有第二次转换信号");
         assert_eq!(decision.drain_plan, DrainPlan::Available);
     }
 
     #[test]
     fn age_threshold_alone_triggers_catch_up() {
-        // Queue depth is small, but the oldest chunk has crossed the age threshold.
-        // Either condition is sufficient to enter catch-up.
+        // 队列深度很小，但最旧的块已超过年龄阈值。
+        // 任一条件都足以进入 catch-up。
         let mut policy = AdaptiveChunkingPolicy::new();
         let now = Instant::now();
 

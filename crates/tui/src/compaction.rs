@@ -739,12 +739,11 @@ struct ToolResultPruneCandidate {
     original_len: usize,
 }
 
-/// Mechanically prune old verbose tool results before paying for an LLM summary.
+/// 在支付 LLM 摘要费用之前，机械地修剪旧的详细工具结果。
 ///
-/// The most recent `protected_window` messages stay byte-for-byte intact. Older
-/// duplicate tool results keep the freshest full body and replace earlier
-/// copies with one-line summaries; non-duplicate old results are summarized only
-/// when they exceed the normal summary snippet size.
+/// 最近的 `protected_window` 条消息保持逐字节完整。较旧的重复工具结果
+/// 保留最新的完整内容，并将早期副本替换为一行摘要；
+/// 非重复的旧结果仅在超过正常摘要片段大小时才会被摘要化。
 pub fn prune_tool_results(messages: &mut [Message], protected_window: usize) -> usize {
     let cutoff = messages.len().saturating_sub(protected_window);
     if cutoff == 0 {
@@ -817,22 +816,21 @@ pub fn prune_tool_results(messages: &mut [Message], protected_window: usize) -> 
     bytes_saved
 }
 
-/// Result of a compaction operation with metadata.
+/// 压缩操作的结果及其元数据。
 #[derive(Debug)]
 pub struct CompactionResult {
-    /// Compacted messages
+    /// 压缩后的消息
     pub messages: Vec<Message>,
-    /// Summary system prompt
+    /// 摘要系统提示词
     pub summary_prompt: Option<SystemPrompt>,
-    /// Messages that were removed from the active window
+    /// 从活动窗口中移除的消息
     #[allow(dead_code)]
     pub removed_messages: Vec<Message>,
-    /// Number of retries used before success
+    /// 成功前使用的重试次数
     pub retries_used: u32,
 }
 
-/// Check if an error is transient and worth retrying. Categories that map to
-/// transient retry: Network, RateLimit, Timeout. Anything else (auth, parse,
+/// 检查错误是否为暂时的且值得重试。映射到暂时重试的类别：网络、速率限制、超时。任何其他问题（认证、解析、
 /// invalid request, etc.) is permanent and propagates.
 fn is_transient_error(e: &anyhow::Error) -> bool {
     let category = crate::error_taxonomy::classify_error_message(&e.to_string());

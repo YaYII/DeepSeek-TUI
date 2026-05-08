@@ -1499,7 +1499,7 @@ impl Engine {
         let mut ctx = ctx.with_elevated_sandbox_policy(policy);
         if matches!(mode, AppMode::Plan) {
             ctx = ctx.with_shell_network_denied_hint(
-                "Shell command blocked: Plan mode runs shell commands in a read-only sandbox — no writes, no network. Use Agent mode (`/agent`) for any command that creates or modifies files, or that needs network access.",
+                "Shell 命令已被阻止：Plan 模式在只读沙箱中运行 shell 命令 — 无写入，无网络。使用 Agent 模式（`/agent`）来执行任何创建或修改文件的命令，或需要网络访问的命令。",
             );
         }
         ctx

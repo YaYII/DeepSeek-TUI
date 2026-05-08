@@ -1073,13 +1073,12 @@ mod tests {
     }
 }
 
-/// Remove last message pair (user + assistant).
+/// 删除最后一对消息（用户 + 助手）。
 ///
-/// This is the old `/undo` behaviour — it removes the most recent
-/// user+assistant conversation pair from history and API messages.
-/// The new `/undo` first tries to revert workspace files via
-/// [`patch_undo`]; if no snapshots are available it falls back to
-/// this function.
+/// 这是旧的 `/undo` 行为 — 它从历史和 API 消息中删除最近的
+/// 用户+助手对话对。
+/// 新的 `/undo` 首先尝试通过 [`patch_undo`] 恢复工作区文件；
+/// 如果没有可用的快照，则回退到此函数。
 pub fn undo_conversation(app: &mut App) -> CommandResult {
     // Remove from display history (up to the last user message)
     let mut removed_count = 0;
