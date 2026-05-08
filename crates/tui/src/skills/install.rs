@@ -270,34 +270,32 @@ pub async fn install_with_registry(
         UrlResolution::Denied(host) => return Ok(InstallOutcome::NetworkDenied(host)),
     };
 
-    // Try each URL in order — GitHub returns 404 for `main` on master-only
-    // repos, and we don't want to fail the install on that.
+    // 按顺序尝试每个 URL——对于仅有 master 分支的仓库，GitHub 对 `main` 返回 404，
+    // 我们不希望因此导致安装失败。
     let (bytes, source_url) = match download_first_success(&urls, network, max_size).await? {
         DownloadOutcome::Bytes { bytes, url } => (bytes, url),
         DownloadOutcome::NeedsApproval(host) => return Ok(InstallOutcome::NeedsApproval(host)),
         DownloadOutcome::Denied(host) => return Ok(InstallOutcome::NetworkDenied(host)),
     };
 
-    // Compute a checksum before unpacking so [`update`] can detect upstream
-    // no-op changes without redoing the extract.
+    // 在解包前计算校验和，以便 [`update`] 无需重新提取即可检测上游无变化的情况。
     let mut hasher = Sha256::new();
     hasher.update(&bytes);
     let checksum = format!("{:x}", hasher.finalize());
 
     let staged = stage_tarball(&bytes, skills_dir, max_size)?;
 
-    // Move the staged dir into its final location. If `update` is set and the
-    // destination exists, replace it; otherwise reject.
+    // 将暂存目录移动到其最终位置。如果设置了 `update` 且目标存在，则替换；否则拒绝。
     let final_path = skills_dir.join(&staged.skill_name);
     if final_path.exists() {
         if !update {
-            // Clean up the staging dir before returning the error.
+            // 在返回错误之前清理暂存目录。
             let _ = fs::remove_dir_all(&staged.staged_path);
             return Err(InstallError::AlreadyInstalled(staged.skill_name).into());
         }
-        // Best-effort backup-then-replace; on failure we restore the original.
+        // 尽力而为的备份后替换；失败时我们还原原始内容。
         let backup = skills_dir.join(format!("{}.bak", staged.skill_name));
-        // If a previous failed update left a stale `.bak/`, drop it.
+        // 如果先前的失败更新留下了过时的 `.bak/`，则删除它。
         if backup.exists() {
             fs::remove_dir_all(&backup).ok();
         }
@@ -308,8 +306,7 @@ pub async fn install_with_registry(
             )
         })?;
         if let Err(err) = fs::rename(&staged.staged_path, &final_path) {
-            // Roll back: restore the backup so the user isn't left with an
-            // empty skill directory.
+            // 回滚：恢复备份，以免用户留下空的技能目录。
             fs::rename(&backup, &final_path).ok();
             return Err(err).context("failed to install staged skill");
         }
@@ -323,8 +320,7 @@ pub async fn install_with_registry(
         fs::rename(&staged.staged_path, &final_path).context("failed to install staged skill")?;
     }
 
-    // Write the marker last so a partial install never leaves a stale
-    // .installed-from on disk.
+    // 最后写入标记，以便部分安装不会在磁盘上留下过时的 .installed-from。
     let marker_body = serde_json::json!({
         "spec": source_spec_string(&source),
         "url": source_url,
@@ -380,9 +376,9 @@ pub async fn update_with_registry(
     let marker: InstalledFromMarker = serde_json::from_str(&marker_body)
         .with_context(|| format!("malformed {} for {name}", INSTALLED_FROM_MARKER))?;
 
-    // Re-resolve the URL, taking the existing checksum as a short-circuit hint:
-    // we still hit the network so the user gets a useful "no upstream change"
-    // signal, but we skip the unpack step if the bytes match.
+    // 重新解析 URL，使用现有校验和作为短路提示：
+    // 我们仍然访问网络，以便用户获得有用的"无上游变更"信号，
+    // 但如果字节匹配则跳过解包步骤。
     let source = InstallSource::parse(&marker.spec)?;
     let urls = match candidate_urls(&source, network, registry_url).await? {
         UrlResolution::Resolved(urls) => urls,
@@ -402,8 +398,8 @@ pub async fn update_with_registry(
         return Ok(UpdateResult::NoChange);
     }
 
-    // Bytes changed — fall back to the regular install path with `update = true`
-    // so we get the same atomic-replace semantics.
+    // 字节已变更——回退到使用 `update = true` 的常规安装路径，
+    // 以便获得相同的原子替换语义。
     let outcome =
         install_with_registry(source, skills_dir, max_size, network, true, registry_url).await?;
     match outcome {
@@ -420,7 +416,7 @@ pub async fn update_with_registry(
 pub fn uninstall(name: &str, skills_dir: &Path) -> Result<()> {
     let target = skills_dir.join(name);
     if !target.exists() {
-        bail!("skill '{name}' is not installed at {}", target.display());
+        bail!("技能 '{name}' 未安装在 {}", target.display());
     }
     if !target.join(INSTALLED_FROM_MARKER).exists() {
         return Err(InstallError::NotInstalledHere(name.to_string()).into());
@@ -439,7 +435,7 @@ pub fn uninstall(name: &str, skills_dir: &Path) -> Result<()> {
 pub fn trust(name: &str, skills_dir: &Path) -> Result<()> {
     let target = skills_dir.join(name);
     if !target.exists() {
-        bail!("skill '{name}' is not installed at {}", target.display());
+        bail!("技能 '{name}' 未安装在 {}", target.display());
     }
     if !target.join(INSTALLED_FROM_MARKER).exists() {
         return Err(InstallError::NotInstalledHere(name.to_string()).into());
@@ -448,7 +444,7 @@ pub fn trust(name: &str, skills_dir: &Path) -> Result<()> {
     if !marker.exists() {
         fs::write(
             &marker,
-            "Skill scripts/ are user-trusted. Delete this file to revoke.\n",
+            "技能 scripts/ 目录已被用户信任。删除此文件以撤销信任。\n",
         )
         .with_context(|| format!("failed to write {}", marker.display()))?;
     }
@@ -569,7 +565,7 @@ async fn sync_one_skill(
     cache_dir: &Path,
     max_size: u64,
 ) -> SkillSyncOutcome {
-    // Resolve the source to a concrete URL list.
+    // 将来源解析为具体的 URL 列表。
     let source = match InstallSource::parse(&entry.source) {
         Ok(s) => s,
         Err(err) => {
@@ -580,7 +576,7 @@ async fn sync_one_skill(
         }
     };
 
-    // Registry sources in index.json must not point back at another registry.
+    // index.json 中的注册表来源不得指向另一个注册表。
     if matches!(source, InstallSource::Registry(_)) {
         return SkillSyncOutcome::Failed {
             name: name.to_string(),
@@ -623,9 +619,8 @@ async fn sync_one_skill(
             }
         }
 
-        // Perform a HEAD request (or conditional GET) for freshness. We use a
-        // simple GET with If-None-Match when we have an ETag, falling back to
-        // an unconditional GET for servers that don't support ETags.
+        // 执行 HEAD 请求（或条件 GET）以检查新鲜度。当有 ETag 时我们使用
+        // 带 If-None-Match 的简单 GET，对于不支持 ETag 的服务器则回退到无条件 GET。
         let existing_meta: Option<CacheMeta> = meta_path
             .exists()
             .then(|| {
@@ -635,7 +630,7 @@ async fn sync_one_skill(
             })
             .flatten();
 
-        // Build the request — add If-None-Match if we have a cached ETag.
+        // 构建请求——如果有缓存的 ETag 则添加 If-None-Match。
         let client = reqwest::Client::new();
         let mut req = client.get(url);
         if let Some(ref meta) = existing_meta
@@ -647,7 +642,7 @@ async fn sync_one_skill(
         let resp = match req.send().await {
             Ok(r) => r,
             Err(err) => {
-                // Network error — try the next candidate URL.
+                // 网络错误——尝试下一个候选 URL。
                 let _ = err;
                 continue;
             }
@@ -663,7 +658,7 @@ async fn sync_one_skill(
         }
 
         if status == reqwest::StatusCode::NOT_FOUND {
-            // Try next URL (main → master fallback).
+            // 尝试下一个 URL（main → master 回退）。
             continue;
         }
 
@@ -674,7 +669,7 @@ async fn sync_one_skill(
             };
         }
 
-        // Capture ETag before consuming the response body.
+        // 在消费响应体之前捕获 ETag。
         let etag = resp
             .headers()
             .get(reqwest::header::ETAG)
@@ -701,13 +696,13 @@ async fn sync_one_skill(
             };
         }
 
-        // Compute SHA-256 of the downloaded bytes.
+        // 计算下载字节的 SHA-256 哈希。
         let mut hasher = Sha256::new();
         hasher.update(&bytes);
         let sha256 = format!("{:x}", hasher.finalize());
 
-        // Short-circuit: if the hash matches the cached one, we're fresh even
-        // without a 304 (some CDNs strip ETags on redirects).
+        // 短路：如果哈希与缓存匹配，即使没有 304 我们也认为是最新的
+        //（某些 CDN 在重定向时剥离 ETag）。
         if let Some(ref meta) = existing_meta
             && meta.sha256 == sha256
             && meta.url == *url
@@ -717,14 +712,13 @@ async fn sync_one_skill(
             };
         }
 
-        // Determine whether this is a tarball or a plain SKILL.md.
-        // Heuristic: the URL ends with `.tar.gz` or `.tgz`, or the content
-        // starts with the gzip magic bytes (0x1f 0x8b).
+        // 判断是 tarball 还是纯 SKILL.md。
+        // 启发式：URL 以 `.tar.gz` 或 `.tgz` 结尾，或内容以 gzip 魔数 (0x1f 0x8b) 开头。
         let is_tarball =
             url.ends_with(".tar.gz") || url.ends_with(".tgz") || bytes.starts_with(&[0x1f, 0x8b]);
 
         let final_path: PathBuf = if is_tarball {
-            // Extract into a temp staging dir, then rename atomically.
+            // 提取到临时暂存目录，然后原子地重命名。
             let staged = match stage_tarball(&bytes, cache_dir, max_size) {
                 Ok(s) => s,
                 Err(err) => {
@@ -734,7 +728,7 @@ async fn sync_one_skill(
                     };
                 }
             };
-            // Move staged dir into its final location, replacing any prior cache.
+            // 将暂存目录移动到其最终位置，替换任何先前的缓存。
             let dest = cache_dir.join(name);
             if dest.exists() {
                 let _ = fs::remove_dir_all(&dest);
@@ -1052,10 +1046,8 @@ fn scan_tarball(bytes: &[u8], max_size: u64) -> Result<TarballScan> {
             return Err(InstallError::PathTraversal(path_str).into());
         }
 
-        // Track total size against `max_size` (uncompressed). We honor `header
-        // .size` rather than streaming-read every file; tar archives are
-        // self-describing so this is reliable for non-malicious inputs and
-        // catches the gzip-bomb case.
+        // 按 `max_size`（未压缩）跟踪总大小。我们使用 `header.size` 而非流式读取每个文件；
+        // tar 存档是自描述的，因此这对非恶意输入是可靠的，并能捕获 gzip 炸弹情况。
         if let Ok(size) = header.size() {
             total_size = total_size.saturating_add(size);
             if total_size > max_size {
@@ -1063,17 +1055,14 @@ fn scan_tarball(bytes: &[u8], max_size: u64) -> Result<TarballScan> {
             }
         }
 
-        // Detect prefix from the first entry. GitHub archives wrap everything
-        // in `<repo>-<branch>/`; direct tarballs may have no prefix. We treat
-        // the first path component as the prefix iff the archive has more than
-        // one entry under it, but for SKILL.md detection we just strip the
-        // first component if every entry shares it.
+        // 从第一个条目检测前缀。GitHub 存档将所有内容包装在 `<repo>-<branch>/` 中；
+        // 直接 tarball 可能没有前缀。当存档有多个条目时，我们将第一个路径组件
+        // 视为前缀，但对于 SKILL.md 检测，如果每个条目都共享它，我们只需去除第一个组件。
         if prefix.is_none() {
             if let Some(Component::Normal(first)) = path.components().next() {
                 let candidate = first.to_string_lossy().into_owned();
-                // Only treat the first component as a prefix if it's a
-                // directory-like (no extension and the path has more
-                // components). Otherwise leave prefix empty.
+                // 仅当第一个组件类似于目录（无扩展名且路径有更多组件）时
+                // 才将其视为前缀。否则将前缀留空。
                 if path.components().count() > 1 {
                     prefix = Some(candidate);
                 } else {
@@ -1089,8 +1078,7 @@ fn scan_tarball(bytes: &[u8], max_size: u64) -> Result<TarballScan> {
             continue;
         }
 
-        // SKILL.md detection. Match the same workflow layouts that runtime
-        // discovery understands:
+        // SKILL.md 检测。匹配运行时发现理解的工作流布局：
         //   * `<prefix>/SKILL.md`
         //   * `<prefix>/*/skills/<name>/SKILL.md`
         //   * `<prefix>/<name>/SKILL.md`
@@ -1101,9 +1089,8 @@ fn scan_tarball(bytes: &[u8], max_size: u64) -> Result<TarballScan> {
                 entry
                     .read_to_end(&mut buf)
                     .context("failed to read SKILL.md from archive")?;
-                // Prefer the most explicit match: repo-root SKILL.md first,
-                // then known skill-directory layouts, then a single nested
-                // `<name>/SKILL.md` repository.
+                // 优先选择最明确的匹配：仓库根目录 SKILL.md 优先，
+                // 然后是已知的技能目录布局，然后是单个嵌套的 `<name>/SKILL.md` 仓库。
                 let replace = skill_md_relative
                     .as_ref()
                     .is_none_or(|(current, _)| candidate.rank < current.rank);
@@ -1125,9 +1112,8 @@ fn scan_tarball(bytes: &[u8], max_size: u64) -> Result<TarballScan> {
         }
     }
 
-    // Parse frontmatter to extract the skill name. We reuse the same parser
-    // shape as `SkillRegistry::parse_skill` but inline it here so we don't
-    // depend on the discovery module's private function.
+    // 解析前置元数据以提取技能名称。我们重用与 `SkillRegistry::parse_skill`
+    // 相同的解析器形状，但在此内联它，以便我们不依赖发现模块的私有函数。
     let name = parse_frontmatter_name(&skill_md_bytes)?;
 
     Ok(TarballScan {
@@ -1158,10 +1144,10 @@ fn skill_md_candidate(stripped_path: &str) -> Option<SkillMdCandidate> {
         return None;
     }
 
-    // Common workflow-pack layouts:
-    // `skills/<name>/SKILL.md`, `.agents/skills/<name>/SKILL.md`,
-    // `.claude/skills/<name>/SKILL.md`, and nested package layouts such as
-    // `packages/foo/skills/<name>/SKILL.md`.
+    // 常见的工作流打包布局：
+    // `skills/<name>/SKILL.md`、`.agents/skills/<name>/SKILL.md`、
+    // `.claude/skills/<name>/SKILL.md`，以及嵌套包布局如
+    // `packages/foo/skills/<name>/SKILL.md`。
     if parts.len() >= 3 {
         let container = parts[parts.len() - 3];
         let name = parts[parts.len() - 2];
@@ -1173,8 +1159,7 @@ fn skill_md_candidate(stripped_path: &str) -> Option<SkillMdCandidate> {
         }
     }
 
-    // Single-skill repos sometimes keep their root tidy with
-    // `<skill-name>/SKILL.md` plus sibling docs at repo root.
+    // 单技能仓库有时会在仓库根目录使用 `<skill-name>/SKILL.md` 加上同级文档来保持整洁。
     if parts.len() == 2 && !parts[0].is_empty() {
         return Some(SkillMdCandidate {
             rank: 2,
@@ -1215,19 +1200,18 @@ fn extract_into(scan: &TarballScan, bytes: &[u8], dest: &Path, max_size: u64) ->
             return Err(InstallError::PathTraversal(path_str).into());
         }
 
-        // Only extract entries that live under our skill root. For simple
-        // tarballs (`SKILL.md` at root) that's everything; for multi-skill
-        // repos it's the `skills/<name>/` slice.
+        // 仅提取位于技能根目录下的条目。对于简单 tarball（根目录下的 `SKILL.md`）
+        // 那就是全部内容；对于多技能仓库，那就是 `skills/<name>/` 部分。
         let stripped = strip_prefix(&path_str, &prefix_with_root).into_owned();
         if stripped.is_empty() && entry_type.is_dir() {
-            // The root directory itself — already created.
+            // 根目录本身——已创建。
             continue;
         }
         if stripped == path_str && !prefix_with_root.is_empty() {
-            // Nothing to strip => entry is outside our subtree, skip.
+            // 没有可去除的内容 => 条目在我们的子树外，跳过。
             continue;
         }
-        // Defense-in-depth: re-validate the stripped path.
+        // 纵深防御：重新验证去除前缀后的路径。
         let stripped_path = Path::new(&stripped);
         if !is_safe_path(stripped_path) {
             return Err(InstallError::PathTraversal(stripped).into());
@@ -1237,9 +1221,8 @@ fn extract_into(scan: &TarballScan, bytes: &[u8], dest: &Path, max_size: u64) ->
         }
 
         let target = dest.join(stripped_path);
-        // Final paranoia check: ensure the resolved target stays under dest.
-        // We can't canonicalize (target doesn't exist yet), so we walk
-        // components one more time after composing.
+        // 最终的偏执检查：确保解析后的目标仍在目标目录下。
+        // 我们无法规范化（目标尚不存在），因此在组合后再次遍历组件进行验证。
         let target_components: Vec<_> = target.components().collect();
         let dest_components: Vec<_> = dest.components().collect();
         if !target_components.starts_with(dest_components.as_slice()) {
@@ -1256,8 +1239,8 @@ fn extract_into(scan: &TarballScan, bytes: &[u8], dest: &Path, max_size: u64) ->
                 fs::create_dir_all(parent)
                     .with_context(|| format!("failed to create dir {}", parent.display()))?;
             }
-            // Read into a buffer so we can enforce `max_size`. Files inside
-            // a SKILL bundle are small; copying through a buffer is fine.
+            // 读入缓冲区以便我们可以强制执行 `max_size`。SKILL 包内的文件很小；
+            // 通过缓冲区复制是可以的。
             let mut buf = Vec::new();
             entry
                 .read_to_end(&mut buf)
@@ -1332,11 +1315,11 @@ fn parse_frontmatter_name(bytes: &[u8]) -> Result<String> {
     let content = std::str::from_utf8(bytes).context("SKILL.md is not valid UTF-8")?;
     let trimmed = content.trim_start();
     if !trimmed.starts_with("---") {
-        bail!("SKILL.md is missing the leading '---' frontmatter fence");
+        bail!("SKILL.md 缺少前导的 '---' 前置元数据围栏");
     }
     let after_open = &trimmed[3..];
     let close = after_open.find("---").ok_or_else(|| {
-        anyhow::anyhow!("SKILL.md is missing the closing '---' frontmatter fence")
+        anyhow::anyhow!("SKILL.md 缺少结尾的 '---' 前置元数据围栏")
     })?;
     let frontmatter = &after_open[..close];
 
@@ -1362,14 +1345,14 @@ fn parse_frontmatter_name(bytes: &[u8]) -> Result<String> {
     if !has_description {
         return Err(InstallError::MissingFrontmatterField("description").into());
     }
-    // Sanity check: name must be a single path-safe segment.
+    // 健全性检查：名称必须是单个路径安全段。
     if name.contains('/')
         || name.contains('\\')
         || name == "."
         || name == ".."
         || name.contains(' ')
     {
-        bail!("SKILL.md `name` must be a single path-safe segment (got '{name}')");
+        bail!("SKILL.md `name` 必须是单个路径安全段（得到 '{name}'）");
     }
     Ok(name)
 }

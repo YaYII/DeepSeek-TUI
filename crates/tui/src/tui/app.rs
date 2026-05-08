@@ -973,6 +973,9 @@ pub struct App {
     /// Whether LSP diagnostics are currently enabled. Mirrors the config file
     /// `[lsp].enabled` setting. Toggled at runtime via `/lsp on|off`.
     pub lsp_enabled: bool,
+    /// 是否启用输出翻译（英文→中文）。
+    pub translate_output: bool,
+    pub translator: Option<crate::tui::translator::Translator>,
 }
 
 /// Message queued while the engine is busy.
@@ -1429,6 +1432,8 @@ impl App {
             collapsed_cell_map: Vec::new(),
             edit_in_progress: false,
             lsp_enabled: config.lsp.as_ref().and_then(|l| l.enabled).unwrap_or(true),
+            translate_output: false,
+            translator: None,
         }
     }
 

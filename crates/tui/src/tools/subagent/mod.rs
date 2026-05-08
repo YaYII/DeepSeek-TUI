@@ -1581,11 +1581,11 @@ impl ToolSpec for AgentSpawnTool {
     }
 
     fn description(&self) -> &'static str {
-        "Spawn a background sub-agent for a focused task. Returns an agent_id immediately; \
-         follow with agent_result to retrieve the final result. Default cap of 10 concurrent \
-         sub-agents (configurable via `[subagents].max_concurrent`); each is a full sub-agent \
-         loop, so cancel or wait if you hit the cap. For parallel one-shot LLM queries, just \
-         emit multiple tool calls in one turn — the dispatcher runs them in parallel."
+        "生成一个后台子代理执行专注任务。立即返回 agent_id；\
+         随后使用 agent_result 获取最终结果。默认上限 10 个并发\
+         子代理（可通过 `[subagents].max_concurrent` 配置）；每个都是完整的子代理\
+         循环，所以达到上限时请取消或等待。对于并行单次 LLM 查询，只需\
+         在一轮中发出多个工具调用 — 调度器会并行运行它们。"
     }
 
     fn input_schema(&self) -> Value {
@@ -1854,8 +1854,8 @@ impl ToolSpec for AgentResultTool {
     }
 
     fn description(&self) -> &'static str {
-        "Get the latest status or final result for a sub-agent. Set `block: true` to wait until the \
-         agent reaches a terminal state (respects `timeout_ms`)."
+        "获取子代理的最新状态或最终结果。设置 `block: true` 可等待\
+         代理达到终止状态（受 `timeout_ms` 限制）。"
     }
 
     fn input_schema(&self) -> Value {
@@ -1943,7 +1943,7 @@ impl ToolSpec for AgentCancelTool {
     }
 
     fn description(&self) -> &'static str {
-        "Cancel a running sub-agent. Returns the final snapshot with the cancelled status."
+        "取消正在运行的子代理。返回带有已取消状态的最终快照。"
     }
 
     fn input_schema(&self) -> Value {
@@ -2006,7 +2006,7 @@ impl ToolSpec for AgentCloseTool {
     }
 
     fn description(&self) -> &'static str {
-        "Close a running sub-agent. Alias for agent_cancel."
+        "关闭正在运行的子代理。agent_cancel 的别名。"
     }
 
     fn input_schema(&self) -> Value {
@@ -2077,7 +2077,7 @@ impl ToolSpec for AgentResumeTool {
     }
 
     fn description(&self) -> &'static str {
-        "Resume a previously closed or completed sub-agent by restarting its assignment."
+        "通过重启分配来恢复先前关闭或已完成的子代理。"
     }
 
     fn input_schema(&self) -> Value {
@@ -2136,11 +2136,11 @@ impl ToolSpec for AgentListTool {
     }
 
     fn description(&self) -> &'static str {
-        "List sub-agents from the current session with their status, type, assignment, steps, \
-         and duration. Pass `include_archived=true` to also see agents that were spawned in a \
-         prior session (e.g. before the TUI restarted) and persisted on disk; those carry \
-         `from_prior_session: true` in the result. Default is the current-session view because \
-         prior-session agents almost never matter for the live turn."
+        "列出当前会话的子代理及其状态、类型、分配、步骤\
+         和持续时间。传入 `include_archived=true` 可查看在先前\
+         会话中生成（例如 TUI 重启前）并持久化到磁盘的代理；这些代理\
+         在结果中带有 `from_prior_session: true`。默认为当前会话视图，\
+         因为先前会话的代理对当前回合几乎无关紧要。"
     }
 
     fn input_schema(&self) -> Value {
@@ -2192,7 +2192,7 @@ impl ToolSpec for AgentSendInputTool {
     }
 
     fn description(&self) -> &'static str {
-        "Send input to a running sub-agent. Returns the agent's current snapshot after delivery."
+        "向正在运行的子代理发送输入。投递后返回代理的当前快照。"
     }
 
     fn input_schema(&self) -> Value {
@@ -2288,9 +2288,9 @@ impl ToolSpec for AgentAssignTool {
     }
 
     fn description(&self) -> &'static str {
-        "Update a sub-agent's assignment (objective, role) and optionally deliver an immediate \
-         coordinator note. The update is delivered as a high-priority message when `interrupt` is \
-         true (the default). Returns the agent's current snapshot."
+        "更新子代理的分配（目标、角色），并可选地投递即时\
+         协调者备注。当 `interrupt` 为 true（默认）时，更新作为高优先级消息投递。\
+         返回代理的当前快照。"
     }
 
     fn input_schema(&self) -> Value {
@@ -2382,9 +2382,9 @@ impl ToolSpec for AgentWaitTool {
     }
 
     fn description(&self) -> &'static str {
-        "Wait for one or more sub-agents to reach a terminal status. Use `wait_mode: \"all\"` to block \
-         until every listed agent finishes, or `wait_mode: \"any\"` (default) to return as soon as \
-         one finishes. When no ids are given, waits on all currently running sub-agents."
+        "等待一个或多个子代理达到终止状态。使用 `wait_mode: \"all\"` 阻塞\
+         直到每个列出的代理完成，或 `wait_mode: \"any\"`（默认）在任一\
+         完成时立即返回。未指定 id 时，等待所有当前运行的子代理。"
     }
 
     fn input_schema(&self) -> Value {
@@ -2528,9 +2528,9 @@ impl ToolSpec for DelegateToAgentTool {
     }
 
     fn description(&self) -> &'static str {
-        "Delegate a task to a specialized sub-agent. Compatibility wrapper around agent_spawn; \
-         defaults fork_context=true so the child inherits the parent transcript. Use `type` \
-         (or `agent_name`, `agent_type`) to pick the agent flavor."
+        "将任务委托给专门的子代理。agent_spawn 的兼容包装；\
+         默认 fork_context=true 以便子代理继承父代理转录。使用 `type`\
+         （或 `agent_name`、`agent_type`）选择代理类型。"
     }
 
     fn input_schema(&self) -> Value {

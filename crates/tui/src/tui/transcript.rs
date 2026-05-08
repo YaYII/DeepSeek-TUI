@@ -669,17 +669,15 @@ mod tests {
 
     #[test]
     fn streaming_assistant_only_rebuilds_one_cell_render_count() {
-        // Verify behavior 6: when one Assistant cell streams a delta, only
-        // that one cell is re-rendered. We use a counting wrapper hooked into
-        // a custom History setup. Since `lines_with_options` is on `HistoryCell`
-        // (concrete enum), we can't mock it directly. Instead we verify the
-        // cache's invariant: cells with unchanged revisions retain their
-        // previous CachedCell entries (clone-equal), proving no re-render
-        // happened for them.
+        // 验证行为 6：当一个 Assistant 单元格流式传输增量时，
+        // 只有该单元格被重新渲染。我们使用连接到自定义 History 设置的
+        // 计数包装器。由于 `lines_with_options` 在 `HistoryCell`（具体枚举）上，
+        // 我们无法直接模拟它。相反，我们验证缓存的不变条件：
+        // 具有未更改修订版本的单元格保留其先前的 CachedCell 条目（克隆相等），
+        // 证明它们没有发生重新渲染。
         //
-        // We do this by storing revisions as monotonic u64 and verifying that
-        // a `Vec<u64>` snapshot of `per_cell.revision` only differs at the
-        // index that was bumped.
+        // 我们通过将修订版本存储为单调递增的 u64 并验证
+        // `per_cell.revision` 的 `Vec<u64>` 快照仅在递增的索引处不同来实现。
 
         let mut cells: Vec<HistoryCell> =
             (0..50).map(|i| user_cell(&format!("cell {i}"))).collect();
@@ -689,7 +687,7 @@ mod tests {
         let mut cache = TranscriptViewCache::new();
         cache.ensure(&cells, &revisions, 80, TranscriptRenderOptions::default());
 
-        // Snapshot total bytes rendered for cells 0..50 (unchanged).
+        // 快照单元格 0..50 渲染的总字节数（不变）。
         let stable_snapshot: Vec<String> = cache.per_cell[..50]
             .iter()
             .map(|c| {
@@ -701,7 +699,7 @@ mod tests {
             })
             .collect();
 
-        // Stream 10 deltas to the assistant cell, bumping only its revision.
+        // 向助手单元格流式传输 10 个增量，仅增加其修订版本。
         for i in 0..10 {
             if let HistoryCell::Assistant { content, .. } = &mut cells[50] {
                 content.push_str(&format!(" delta-{i}"));
@@ -709,11 +707,10 @@ mod tests {
             revisions[50] += 1;
             cache.ensure(&cells, &revisions, 80, TranscriptRenderOptions::default());
 
-            // After every delta, cells 0..50 must be byte-identical to the
-            // initial render. If we re-rendered them we'd observe identical
-            // bytes anyway (deterministic), but the test ALSO checks the
-            // CachedCell.revision values stayed at 1 — meaning the cache
-            // never replaced them, only reused them.
+            // 在每个增量之后，单元格 0..50 必须与初始渲染字节相同。
+            // 如果我们重新渲染了它们，我们仍然会观察到相同的字节（确定性），
+            // 但测试还会检查 CachedCell.revision 值保持在 1 —
+            // 这意味着缓存从未替换它们，只是重用了它们。
             let stable_now: Vec<String> = cache.per_cell[..50]
                 .iter()
                 .map(|c| {
@@ -726,13 +723,13 @@ mod tests {
                 .collect();
             assert_eq!(
                 stable_now, stable_snapshot,
-                "stable cells diverged at delta {i}"
+                "稳定单元格在 delta {i} 处出现分歧"
             );
 
             for (idx, c) in cache.per_cell[..50].iter().enumerate() {
                 assert_eq!(
                     c.revision, 1,
-                    "cell {idx} revision changed during streaming delta"
+                    "单元格 {idx} 的修订版本在流式增量期间发生更改"
                 );
             }
         }
@@ -740,9 +737,9 @@ mod tests {
 
     #[test]
     fn missing_revisions_falls_back_to_full_render() {
-        // If callers pass a `cell_revisions` slice with the wrong length
-        // (shouldn't happen, but be defensive), the cache should still
-        // produce correct output rather than panic or skip cells.
+        // 如果调用方传递长度错误的 `cell_revisions` 切片
+        //（不应发生，但为防御性编程），缓存仍应
+        // 产生正确的输出，而不是 panic 或跳过单元格。
         let cells = vec![user_cell("a"), assistant_cell("b", false)];
         let bogus_revisions = vec![1u64]; // wrong length
 
@@ -754,7 +751,7 @@ mod tests {
             TranscriptRenderOptions::default(),
         );
 
-        // Both cells were rendered (no panic, output non-empty).
+        // 两个单元格都被渲染了（无 panic，输出非空）。
         assert_eq!(cache.per_cell.len(), 2);
         assert!(!cache.lines().is_empty());
     }
@@ -772,21 +769,21 @@ mod tests {
             lines
                 .first()
                 .is_some_and(|line| line.starts_with("\u{256D} ")),
-            "first tool line should open the shared rail: {lines:?}"
+            "第一个工具行应打开共享导轨：{lines:?}"
         );
         assert!(
             lines.iter().any(|line| line.starts_with("\u{2502} ")),
-            "middle tool lines should continue the shared rail: {lines:?}"
+            "中间工具行应继续共享导轨：{lines:?}"
         );
         assert!(
             lines
                 .last()
                 .is_some_and(|line| line.starts_with("\u{2570} ")),
-            "last tool line should close the shared rail: {lines:?}"
+            "最后一个工具行应关闭共享导轨：{lines:?}"
         );
         assert!(
             !lines.iter().any(String::is_empty),
-            "adjacent tool cells should not be separated by blank spacer rows: {lines:?}"
+            "相邻的工具单元格不应被空白分隔行隔开：{lines:?}"
         );
     }
 
@@ -803,7 +800,7 @@ mod tests {
         for line in plain_lines(&cache) {
             assert!(
                 unicode_width::UnicodeWidthStr::width(line.as_str()) <= 24,
-                "tool rail line exceeded narrow width: {line:?}"
+                "工具导轨行超出了窄宽度限制：{line:?}"
             );
         }
     }

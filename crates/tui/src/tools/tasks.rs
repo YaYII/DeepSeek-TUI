@@ -387,7 +387,7 @@ impl ToolSpec for TaskShellStartTool {
     }
 
     fn description(&self) -> &'static str {
-        "Start a long-running shell command in the background and return a shell task_id immediately. Use task_shell_wait to poll and optionally record gate evidence on the active durable task."
+        "在后台启动一个长时间运行的 shell 命令并立即返回 shell task_id。使用 task_shell_wait 轮询并可选地在活跃的持久任务上记录门控证据。"
     }
 
     fn input_schema(&self) -> Value {
@@ -449,7 +449,7 @@ impl ToolSpec for TaskShellWaitTool {
     }
 
     fn description(&self) -> &'static str {
-        "Poll a background shell task without blocking the agent indefinitely. If `gate` is supplied and the shell task has completed, records structured gate evidence on the active durable task."
+        "轮询后台 shell 任务而不无限期阻塞代理。如果提供了 `gate` 且 shell 任务已完成，则在活跃的持久任务上记录结构化门控证据。"
     }
 
     fn input_schema(&self) -> Value {
@@ -548,7 +548,7 @@ impl ToolSpec for PrAttemptRecordTool {
     }
 
     fn description(&self) -> &'static str {
-        "Capture current git diff as a durable PR work attempt with patch artifact, changed files, and verification notes."
+        "将当前 git diff 捕获为持久 PR 工作尝试，包含补丁工件、变更文件和验证备注。"
     }
 
     fn input_schema(&self) -> Value {
@@ -648,7 +648,7 @@ impl ToolSpec for PrAttemptListTool {
     }
 
     fn description(&self) -> &'static str {
-        "List PR attempts recorded on a durable task."
+        "列出持久任务上记录的 PR 尝试。"
     }
 
     fn input_schema(&self) -> Value {
@@ -673,7 +673,7 @@ impl ToolSpec for PrAttemptReadTool {
     }
 
     fn description(&self) -> &'static str {
-        "Read one recorded PR attempt and its patch artifact reference."
+        "读取一个已记录的 PR 尝试及其补丁工件引用。"
     }
 
     fn input_schema(&self) -> Value {
@@ -711,7 +711,7 @@ impl ToolSpec for PrAttemptPreflightTool {
     }
 
     fn description(&self) -> &'static str {
-        "Run `git apply --check` for a recorded attempt patch. This is a no-mutation preflight; actual apply remains explicit and approval-gated elsewhere."
+        "对已记录的尝试补丁运行 `git apply --check`。这是无变更的预检；实际应用仍需在其他地方显式执行并经审批门控。"
     }
 
     fn input_schema(&self) -> Value {

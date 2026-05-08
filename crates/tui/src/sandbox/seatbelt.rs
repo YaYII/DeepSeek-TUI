@@ -1,42 +1,40 @@
 //! macOS Seatbelt（sandbox-exec）配置文件生成。
 //!
-//! Seatbelt is Apple's mandatory access control framework that uses the
-//! Scheme-based policy language to define what system resources a process
-//! can access. This module generates sandbox profiles dynamically based
-//! on the configured `SandboxPolicy`.
+//! Seatbelt 是 Apple 的强制访问控制框架，使用基于 Scheme 的策略语言定义进程可以访问哪些系统资源。
+//! 此模块根据配置的 `SandboxPolicy` 动态生成沙箱配置文件。
 //!
-//! # How it works
+//! # 工作原理
 //!
-//! 1. We generate a Seatbelt policy string in the SBPL format
-//! 2. We invoke `/usr/bin/sandbox-exec -p <policy>` to run the command
-//! 3. The kernel enforces the policy, blocking unauthorized operations
+//! 1. 我们以 SBPL 格式生成 Seatbelt 策略字符串
+//! 2. 我们调用 `/usr/bin/sandbox-exec -p <policy>` 来运行命令
+//! 3. 内核强制执行策略，阻止未授权的操作
 //!
-//! # References
+//! # 参考
 //!
-//! - Apple's sandbox(7) man page
+//! - Apple 的 sandbox(7) 手册页
 //! - <https://reverse.put.as/wp-content/uploads/2011/09/Apple-Sandbox-Guide-v1.0.pdf>
 
-// Note: cfg(target_os = "macos") is already applied at the module level in mod.rs
+// 注意：cfg(target_os = "macos") 已在 mod.rs 的模块级别应用
 
 use super::policy::SandboxPolicy;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::OnceLock;
 
-/// Path to the sandbox-exec binary on macOS.
+/// macOS 上 sandbox-exec 二进制文件的路径。
 pub const SANDBOX_EXEC_PATH: &str = "/usr/bin/sandbox-exec";
 
-/// Base seatbelt policy that provides minimal process functionality.
+/// 基础 seatbelt 策略，提供最小的进程功能。
 ///
-/// This policy:
-/// - Denies everything by default
-/// - Allows process execution and forking
-/// - Allows signals within the same sandbox
-/// - Allows reading user preferences (needed by many tools)
-/// - Allows basic process introspection
-/// - Allows writing to /dev/null
-/// - Allows reading sysctl values
-/// - Allows POSIX semaphores and pseudo-TTY operations
+/// 此策略：
+/// - 默认拒绝所有操作
+/// - 允许进程执行和分支
+/// - 允许同一沙箱内的信号
+/// - 允许读取用户偏好设置（许多工具需要）
+/// - 允许基本进程内省
+/// - 允许写入 /dev/null
+/// - 允许读取 sysctl 值
+/// - 允许 POSIX 信号量和伪终端操作
 const SEATBELT_BASE_POLICY: &str = r#"
 (version 1)
 (deny default)
@@ -80,7 +78,7 @@ const SEATBELT_BASE_POLICY: &str = r#"
 (allow mach-lookup)
 "#;
 
-/// Network access policy additions.
+/// 网络访问策略附加内容。
 const SEATBELT_NETWORK_POLICY: &str = r"
 ; Network access
 (allow network-outbound)
@@ -89,7 +87,7 @@ const SEATBELT_NETWORK_POLICY: &str = r"
 (allow network-bind)
 ";
 
-/// Check if sandbox-exec is available and permitted on this system.
+/// 检查 sandbox-exec 在当前系统上是否可用且被允许。
 pub fn is_available() -> bool {
     static SEATBELT_AVAILABLE: OnceLock<bool> = OnceLock::new();
 
@@ -109,10 +107,10 @@ pub fn is_available() -> bool {
     })
 }
 
-/// Create the command-line arguments for sandbox-exec.
+/// 为 sandbox-exec 创建命令行参数。
 ///
-/// Returns a Vec of arguments that should be prepended to the command.
-/// The format is: `sandbox-exec -p <policy> -D KEY=VALUE ... -- <original command>`
+/// 返回应预置到命令前的参数 Vec。
+/// 格式为：`sandbox-exec -p <policy> -D KEY=VALUE ... -- <原始命令>`
 pub fn create_seatbelt_args(
     command: Vec<String>,
     policy: &SandboxPolicy,
@@ -135,19 +133,19 @@ pub fn create_seatbelt_args(
     args
 }
 
-/// Generate the complete Seatbelt policy string for the given policy.
+/// 为给定策略生成完整的 Seatbelt 策略字符串。
 fn generate_policy(policy: &SandboxPolicy, cwd: &Path) -> String {
     let mut full_policy = SEATBELT_BASE_POLICY.to_string();
 
     // Add read access policy
     if SandboxPolicy::has_full_disk_read_access() {
-        full_policy.push_str("\n; Full filesystem read access\n(allow file-read*)");
+        full_policy.push_str("\n; 完整文件系统读取访问\n(allow file-read*)");
     }
 
     // Add write access policy
     let file_write_policy = generate_write_policy(policy, cwd);
     if !file_write_policy.is_empty() {
-        full_policy.push_str("\n\n; Write access policy\n");
+        full_policy.push_str("\n\n; 写入访问策略\n");
         full_policy.push_str(&file_write_policy);
     }
 
@@ -158,12 +156,12 @@ fn generate_policy(policy: &SandboxPolicy, cwd: &Path) -> String {
     }
 
     // Add Darwin user cache directory access (needed by many macOS tools)
-    full_policy.push_str("\n\n; Darwin user cache directory\n");
+    full_policy.push_str("\n\n; Darwin 用户缓存目录\n");
     full_policy
         .push_str(r#"(allow file-read* file-write* (subpath (param "DARWIN_USER_CACHE_DIR")))"#);
 
     // Add common macOS directories that tools often need
-    full_policy.push_str("\n\n; Common macOS directories\n");
+    full_policy.push_str("\n\n; 常用 macOS 目录\n");
     full_policy.push_str(r#"(allow file-read* (subpath "/usr/lib"))"#);
     full_policy.push('\n');
     full_policy.push_str(r#"(allow file-read* (subpath "/usr/share"))"#);
@@ -174,17 +172,16 @@ fn generate_policy(policy: &SandboxPolicy, cwd: &Path) -> String {
     full_policy.push('\n');
     full_policy.push_str(r#"(allow file-read* (subpath "/private/var/db"))"#);
 
-    // Cargo home (#558): cargo build/test/publish reach into ~/.cargo/registry
-    // and ~/.cargo/git for crate metadata, downloaded tarballs, and unpacked
-    // sources. Sandboxed workspace-write was previously rejecting these,
-    // making `cargo publish` unrunnable from inside the TUI's shell tool.
-    // Read access is always allowed; write access is granted whenever the
-    // policy allows any write at all (the registry caches need to be
-    // mutable for `cargo build` to populate them on a cache miss). Skipped
-    // entirely when neither `CARGO_HOME` nor `HOME` is set — without one of
-    // those we have no path to plumb into the policy params.
+    // Cargo home（#558）：cargo build/test/publish 需要访问 ~/.cargo/registry
+    // 和 ~/.cargo/git 以获取 crate 元数据、下载的 tarball 和解压后的
+    // 源码。沙箱工作区写入之前拒绝了这些访问，使得 `cargo publish`
+    // 无法从 TUI 的 shell 工具内部运行。
+    // 读取访问始终允许；写入访问在策略允许任何写入时授予（registry 缓存
+    // 需要在缓存未命中时可写，以便 `cargo build` 填充它们）。当既没有
+    // 设置 `CARGO_HOME` 也没有设置 `HOME` 时完全跳过——没有这些变量，
+    // 我们就无法将路径插入策略参数。
     if resolve_cargo_home().is_some() {
-        full_policy.push_str("\n\n; Cargo home (~/.cargo) — registry/index/git caches\n");
+        full_policy.push_str("\n\n; Cargo home（~/.cargo）—— registry/index/git 缓存\n");
         full_policy.push_str(r#"(allow file-read* (subpath (param "CARGO_HOME")))"#);
         if !matches!(policy, SandboxPolicy::ReadOnly) {
             full_policy.push('\n');
@@ -197,10 +194,9 @@ fn generate_policy(policy: &SandboxPolicy, cwd: &Path) -> String {
     full_policy
 }
 
-/// Resolve the user's cargo home — `CARGO_HOME` if set, else `$HOME/.cargo`.
-/// Returns `None` only on hosts where neither env var is set (essentially
-/// never on a real macOS user account; can happen in CI containers without
-/// `HOME` exported).
+/// 解析用户的 cargo home 目录——如果设置了 `CARGO_HOME` 则使用它，否则使用 `$HOME/.cargo`。
+/// 仅当两个环境变量都未设置时返回 `None`（在实际的 macOS 用户账户上基本不会发生；
+/// 可能在未导出 `HOME` 的 CI 容器中发生）。
 fn resolve_cargo_home() -> Option<PathBuf> {
     if let Ok(explicit) = std::env::var("CARGO_HOME")
         && !explicit.trim().is_empty()
@@ -211,19 +207,19 @@ fn resolve_cargo_home() -> Option<PathBuf> {
     Some(PathBuf::from(home).join(".cargo"))
 }
 
-/// Generate the write access portion of the Seatbelt policy.
+/// 生成 Seatbelt 策略的写入访问部分。
 fn generate_write_policy(policy: &SandboxPolicy, cwd: &Path) -> String {
-    // Full disk write access
+    // 完整的磁盘写入访问
     if policy.has_full_disk_write_access() {
         return r#"(allow file-write* (regex #"^/"))"#.to_string();
     }
 
-    // Read-only - no write policy needed
+    // 只读——无需写入策略
     if matches!(policy, SandboxPolicy::ReadOnly) {
         return String::new();
     }
 
-    // Workspace write - enumerate allowed paths
+    // 工作区写入——枚举允许的路径
     let writable_roots = policy.get_writable_roots(cwd);
     if writable_roots.is_empty() {
         return String::new();
@@ -235,11 +231,11 @@ fn generate_write_policy(policy: &SandboxPolicy, cwd: &Path) -> String {
         let root_param = format!("WRITABLE_ROOT_{index}");
 
         if root.read_only_subpaths.is_empty() {
-            // Simple case: entire subtree is writable
+            // 简单情况：整个子树可写
             policies.push(format!("(subpath (param \"{root_param}\"))"));
         } else {
-            // Complex case: writable with read-only exceptions
-            // Use require-all to combine subpath with require-not for each exception
+            // 复杂情况：可写但有只读例外
+            // 使用 require-all 组合 subpath 和每个例外的 require-not
             let mut parts = vec![format!("(subpath (param \"{}\"))", root_param)];
 
             for (subpath_index, _) in root.read_only_subpaths.iter().enumerate() {
@@ -255,13 +251,13 @@ fn generate_write_policy(policy: &SandboxPolicy, cwd: &Path) -> String {
         return String::new();
     }
 
-    // Combine all write policies with allow
+    // 使用 allow 组合所有写入策略
     format!("(allow file-write*\n  {})", policies.join("\n  "))
 }
 
-/// Generate parameter definitions for variable substitution in the policy.
+/// 生成策略中变量替换的参数定义。
 ///
-/// sandbox-exec allows -DKEY=VALUE to substitute `(param "KEY")` in the policy.
+/// sandbox-exec 允许使用 -DKEY=VALUE 来替换策略中的 `(param "KEY")`。
 fn generate_params(policy: &SandboxPolicy, cwd: &Path) -> Vec<(String, PathBuf)> {
     let mut params = Vec::new();
 
@@ -275,7 +271,7 @@ fn generate_params(policy: &SandboxPolicy, cwd: &Path) -> Vec<(String, PathBuf)>
             .unwrap_or_else(|_| root.root.clone());
         params.push((format!("WRITABLE_ROOT_{index}"), canonical));
 
-        // Add parameters for read-only subpaths
+        // 为只读子路径添加参数
         for (subpath_index, subpath) in root.read_only_subpaths.iter().enumerate() {
             let canonical_subpath = subpath.canonicalize().unwrap_or_else(|_| subpath.clone());
             params.push((
@@ -289,7 +285,7 @@ fn generate_params(policy: &SandboxPolicy, cwd: &Path) -> Vec<(String, PathBuf)>
     if let Some(cache_dir) = get_darwin_user_cache_dir() {
         params.push(("DARWIN_USER_CACHE_DIR".to_string(), cache_dir));
     } else {
-        // Fallback to a reasonable default
+        // 回退到合理的默认值
         if let Ok(home) = std::env::var("HOME") {
             params.push((
                 "DARWIN_USER_CACHE_DIR".to_string(),
@@ -298,11 +294,10 @@ fn generate_params(policy: &SandboxPolicy, cwd: &Path) -> Vec<(String, PathBuf)>
         }
     }
 
-    // Cargo home (#558): paired with the policy lines emitted by
-    // `generate_policy` when `resolve_cargo_home()` succeeds. Both helpers
-    // use the same fallback chain so the policy text and the -DKEY=VALUE
-    // params stay in sync — emit one without the other and sandbox-exec
-    // refuses to load the profile.
+    // Cargo home（#558）：与 `generate_policy` 在 `resolve_cargo_home()` 成功时
+    // 发出的策略行配对。两个辅助函数使用相同的回退链，以便策略文本和
+    // -DKEY=VALUE 参数保持同步——只发出其中一个而不发出另一个会导致
+    // sandbox-exec 拒绝加载配置文件。
     if let Some(home) = resolve_cargo_home() {
         let canonical_home = home.canonicalize().unwrap_or_else(|_| home.clone());
         params.push((
@@ -316,15 +311,15 @@ fn generate_params(policy: &SandboxPolicy, cwd: &Path) -> Vec<(String, PathBuf)>
     params
 }
 
-/// Get the Darwin user cache directory using confstr.
+/// 使用 confstr 获取 Darwin 用户缓存目录。
 ///
-/// This returns the per-user cache directory that macOS assigns,
-/// typically something like /var/folders/xx/xxx.../C/
+/// 返回 macOS 分配的每用户缓存目录，
+/// 通常是类似 /var/folders/xx/xxx.../C/ 的路径
 fn get_darwin_user_cache_dir() -> Option<PathBuf> {
     // Use libc to call confstr for _CS_DARWIN_USER_CACHE_DIR
     let mut buf = vec![0i8; (libc::PATH_MAX as usize) + 1];
 
-    // Safety: `buf` is a writable buffer sized to PATH_MAX + 1 for confstr.
+    // Safety: `buf` 是一个为 confstr 设置了 PATH_MAX + 1 大小的可写缓冲区。
     let len =
         unsafe { libc::confstr(libc::_CS_DARWIN_USER_CACHE_DIR, buf.as_mut_ptr(), buf.len()) };
 
@@ -332,25 +327,25 @@ fn get_darwin_user_cache_dir() -> Option<PathBuf> {
         return None;
     }
 
-    // Convert the C string to a Rust PathBuf
-    // Safety: confstr guarantees a NUL-terminated string in `buf` when len > 0.
+    // 将 C 字符串转换为 Rust PathBuf
+    // Safety: confstr 保证当 len > 0 时 `buf` 中包含 NUL 结尾的字符串。
     let cstr = unsafe { std::ffi::CStr::from_ptr(buf.as_ptr()) };
     let path_str = cstr.to_str().ok()?;
     let path = PathBuf::from(path_str);
 
-    // Try to canonicalize, but return the raw path if that fails
+    // 尝试规范化，如果失败则返回原始路径
     path.canonicalize().ok().or(Some(path))
 }
 
-/// Detect sandbox denial from command output.
+/// 从命令输出检测沙箱拒绝。
 ///
-/// Returns true if the output suggests the sandbox blocked an operation.
+/// 如果输出表明沙箱阻止了操作，则返回 true。
 pub fn detect_denial(exit_code: i32, stderr: &str) -> bool {
     if exit_code == 0 {
         return false;
     }
 
-    // Common sandbox denial messages
+    // 常见的沙箱拒绝消息
     let denial_patterns = [
         "Operation not permitted",
         "sandbox-exec",
@@ -365,16 +360,15 @@ pub fn detect_denial(exit_code: i32, stderr: &str) -> bool {
 mod tests {
     use super::*;
 
-    /// Serializes tests that mutate process-global env vars (HOME, CARGO_HOME)
-    /// so they don't race with each other or with sibling tests in this
-    /// crate that read those vars. Mirrors the pattern in main.rs::tests
-    /// (commit d06eaed0).
+    /// 序列化修改进程级环境变量（HOME, CARGO_HOME）的测试，
+    /// 使它们不会与此 crate 中读取这些变量的其他测试发生竞争。
+    /// 镜像了 main.rs::tests 中的模式（commit d06eaed0）。
     static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
     #[test]
     fn test_is_available() {
-        // This test just checks the function doesn't panic
-        // On macOS it should return true, on other platforms false
+        // 此测试仅检查函数不会 panic
+        // 在 macOS 上应返回 true，在其他平台上返回 false
         let _ = is_available();
     }
 

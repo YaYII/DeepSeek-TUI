@@ -199,7 +199,7 @@ impl ModalView for ContextMenuView {
             .collect::<Vec<_>>();
 
         let block = Block::default()
-            .title(" Right click ")
+            .title(" 右键菜单 ")
             .borders(Borders::ALL)
             .border_style(Style::default().fg(palette::DEEPSEEK_SKY))
             .style(Style::default().bg(palette::SURFACE_ELEVATED))

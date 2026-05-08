@@ -120,7 +120,7 @@ impl McpManagedClient for InMemoryMcpClient {
         self.tools
             .get(tool_name)
             .cloned()
-            .with_context(|| format!("tool '{tool_name}' not found"))
+            .with_context(|| format!("未找到工具 '{tool_name}'"))
     }
 
     fn list_resources(&self) -> Result<Vec<McpResourceDescriptor>> {
@@ -139,7 +139,7 @@ impl McpManagedClient for InMemoryMcpClient {
         self.resources
             .get(uri)
             .cloned()
-            .with_context(|| format!("resource '{uri}' not found"))
+            .with_context(|| format!("未找到资源 '{uri}'"))
     }
 }
 
@@ -187,7 +187,7 @@ impl McpManager {
                 });
                 ready.push(server_name.clone());
             } else {
-                let error = "client not registered".to_string();
+                let error = "客户端未注册".to_string();
                 emit(McpStartupUpdateEvent {
                     server_name: server_name.clone(),
                     status: McpStartupStatus::Failed {
@@ -210,7 +210,7 @@ impl McpManager {
     pub fn stop_server(&mut self, server_name: &str) -> Result<()> {
         self.clients
             .remove(server_name)
-            .with_context(|| format!("server '{server_name}' is not running"))?;
+            .with_context(|| format!("服务器 '{server_name}' 未在运行"))?;
         Ok(())
     }
 
@@ -218,7 +218,7 @@ impl McpManager {
         let had_config = self.configs.remove(server_name).is_some();
         self.clients.remove(server_name);
         if !had_config {
-            bail!("server '{server_name}' is not registered");
+            bail!("服务器 '{server_name}' 未注册");
         }
         Ok(())
     }
@@ -250,7 +250,7 @@ impl McpManager {
         let client = self
             .clients
             .get(server_name)
-            .with_context(|| format!("MCP server '{server_name}' not available"))?;
+            .with_context(|| format!("MCP 服务器 '{server_name}' 不可用"))?;
         client.call_tool(tool_name, arguments)
     }
 
@@ -260,7 +260,7 @@ impl McpManager {
         arguments: Value,
     ) -> Result<Value> {
         let (server_name, tool_name) = parse_qualified_tool_name(qualified_tool_name)
-            .with_context(|| format!("invalid qualified MCP tool name: {qualified_tool_name}"))?;
+            .with_context(|| format!("无效的合格 MCP 工具名称: {qualified_tool_name}"))?;
         self.call_tool(&server_name, &tool_name, arguments)
     }
 
@@ -282,7 +282,7 @@ impl McpManager {
         let client = self
             .clients
             .get(server_name)
-            .with_context(|| format!("MCP server '{server_name}' not available"))?;
+            .with_context(|| format!("MCP 服务器 '{server_name}' 不可用"))?;
         client.read_resource(uri)
     }
 
@@ -348,19 +348,19 @@ fn qualify_tool_name(server: &str, tool: &str) -> String {
 
 fn parse_qualified_tool_name(value: &str) -> Result<(String, String)> {
     let Some(stripped) = value.strip_prefix("mcp__") else {
-        bail!("missing mcp__ prefix");
+        bail!("缺少 mcp__ 前缀");
     };
     let mut split = stripped.splitn(2, "__");
     let server = split
         .next()
         .filter(|s| !s.is_empty())
         .map(ToOwned::to_owned)
-        .context("missing server segment")?;
+        .context("缺少服务器段")?;
     let tool = split
         .next()
         .filter(|s| !s.is_empty())
         .map(ToOwned::to_owned)
-        .context("missing tool segment")?;
+        .context("缺少工具段")?;
     Ok((server, tool))
 }
 

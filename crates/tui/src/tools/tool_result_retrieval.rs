@@ -36,7 +36,7 @@ impl ToolSpec for RetrieveToolResultTool {
     }
 
     fn description(&self) -> &'static str {
-        "Retrieve a previously spilled large tool result from ~/.deepseek/tool_outputs by tool call id, filename, or spillover path. Supports summary, head, tail, lines, and query modes so you can fetch only the needed historical output."
+        "通过工具调用 id、文件名或溢出路径从 ~/.deepseek/tool_outputs 检索先前溢出的大型工具结果。支持摘要、头部、尾部、行号和查询模式，以便仅获取所需的历史输出。"
     }
 
     fn input_schema(&self) -> Value {

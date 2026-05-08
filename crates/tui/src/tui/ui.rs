@@ -684,31 +684,77 @@ async fn run_event_loop(
                             app.flush_active_cell();
                         }
                         current_streaming_text.push_str(&sanitized);
-                        let index = ensure_streaming_assistant_history_cell(app);
-                        app.streaming_state.push_content(0, &sanitized);
-                        let committed = app.streaming_state.commit_text(0);
-                        if !committed.is_empty() {
-                            append_streaming_text(app, index, &committed);
-                            transcript_batch_updated = true;
+                        if app.translate_output {
+                            // 翻译模式下：只累积到 current_streaming_text，不实时推入 UI
+                        } else {
+                            let index = ensure_streaming_assistant_history_cell(app);
+                            app.streaming_state.push_content(0, &sanitized);
+                            let committed = app.streaming_state.commit_text(0);
+                            if !committed.is_empty() {
+                                append_streaming_text(app, index, &committed);
+                                transcript_batch_updated = true;
+                            }
                         }
                     }
                     EngineEvent::MessageComplete { .. } => {
-                        if let Some(index) = app.streaming_message_index.take() {
-                            let remaining = app.streaming_state.finalize_block_text(0);
-                            if !remaining.is_empty() {
-                                append_streaming_text(app, index, &remaining);
-                            }
-                            if let Some(HistoryCell::Assistant { streaming, .. }) =
-                                app.history.get_mut(index)
+                        if app.translate_output {
+                            let text = std::mem::take(&mut current_streaming_text);
+                            if !text.is_empty()
+                                && crate::tui::translator::is_mostly_english(&text)
                             {
-                                *streaming = false;
+                                // 懒初始化翻译器
+                                if app.translator.is_none() {
+                                    app.translator =
+                                        crate::tui::translator::Translator::from_config(config);
+                                }
+                                let display_text = if let Some(translator) = &app.translator {
+                                    match translator.translate(&text).await {
+                                        Ok(t) => t,
+                                        Err(_) => text.clone(),
+                                    }
+                                } else {
+                                    text.clone()
+                                };
+                                // 创建 assistant cell 并写入翻译后的内容
+                                let index = ensure_streaming_assistant_history_cell(app);
+                                append_streaming_text(app, index, &display_text);
+                                if let Some(HistoryCell::Assistant { streaming, .. }) =
+                                    app.history.get_mut(index)
+                                {
+                                    *streaming = false;
+                                }
+                                app.bump_history_cell(index);
+                                transcript_batch_updated = true;
+                            } else if !text.is_empty() {
+                                // 非英文，直接显示
+                                let index = ensure_streaming_assistant_history_cell(app);
+                                append_streaming_text(app, index, &text);
+                                if let Some(HistoryCell::Assistant { streaming, .. }) =
+                                    app.history.get_mut(index)
+                                {
+                                    *streaming = false;
+                                }
+                                app.bump_history_cell(index);
+                                transcript_batch_updated = true;
                             }
-                            // Streaming flag flipped — the cell's compact /
-                            // transcript variants render slightly
-                            // differently, so bump its revision so the cache
-                            // refreshes this row only.
-                            app.bump_history_cell(index);
-                            transcript_batch_updated = true;
+                        } else {
+                            if let Some(index) = app.streaming_message_index.take() {
+                                let remaining = app.streaming_state.finalize_block_text(0);
+                                if !remaining.is_empty() {
+                                    append_streaming_text(app, index, &remaining);
+                                }
+                                if let Some(HistoryCell::Assistant { streaming, .. }) =
+                                    app.history.get_mut(index)
+                                {
+                                    *streaming = false;
+                                }
+                                // Streaming flag flipped — the cell's compact /
+                                // transcript variants render slightly
+                                // differently, so bump its revision so the cache
+                                // refreshes this row only.
+                                app.bump_history_cell(index);
+                                transcript_batch_updated = true;
+                            }
                         }
 
                         let mut blocks = Vec::new();
@@ -765,19 +811,62 @@ async fn run_event_loop(
                             app.reasoning_header = extract_reasoning_header(&app.reasoning_buffer);
                         }
 
-                        let entry_idx = ensure_streaming_thinking_active_entry(app);
-                        app.streaming_state.push_content(0, &sanitized);
-                        let committed = app.streaming_state.commit_text(0);
-                        if !committed.is_empty() {
-                            append_streaming_thinking(app, entry_idx, &committed);
-                            transcript_batch_updated = true;
+                        if app.translate_output {
+                            // 翻译模式下：只累积到 reasoning_buffer，不实时推入 UI
+                        } else {
+                            let entry_idx = ensure_streaming_thinking_active_entry(app);
+                            app.streaming_state.push_content(0, &sanitized);
+                            let committed = app.streaming_state.commit_text(0);
+                            if !committed.is_empty() {
+                                append_streaming_thinking(app, entry_idx, &committed);
+                                transcript_batch_updated = true;
+                            }
                         }
                     }
                     EngineEvent::ThinkingComplete { .. } => {
-                        if finalize_current_streaming_thinking(app) {
-                            transcript_batch_updated = true;
+                        if app.translate_output {
+                            let reasoning = std::mem::take(&mut app.reasoning_buffer);
+                            if !reasoning.is_empty()
+                                && crate::tui::translator::is_mostly_english(&reasoning)
+                            {
+                                // 懒初始化翻译器
+                                if app.translator.is_none() {
+                                    app.translator =
+                                        crate::tui::translator::Translator::from_config(config);
+                                }
+                                let display_text = if let Some(translator) = &app.translator {
+                                    match translator.translate(&reasoning).await {
+                                        Ok(t) => t,
+                                        Err(_) => reasoning.clone(),
+                                    }
+                                } else {
+                                    reasoning.clone()
+                                };
+                                // 创建 thinking entry 并写入翻译后的内容
+                                let entry_idx = ensure_streaming_thinking_active_entry(app);
+                                append_streaming_thinking(app, entry_idx, &display_text);
+                                if finalize_current_streaming_thinking(app) {
+                                    transcript_batch_updated = true;
+                                }
+                                // 存储翻译结果用于 api_messages
+                                app.last_reasoning = Some(display_text);
+                                app.reasoning_header = None;
+                            } else if !reasoning.is_empty() {
+                                // 非英文，直接显示
+                                let entry_idx = ensure_streaming_thinking_active_entry(app);
+                                append_streaming_thinking(app, entry_idx, &reasoning);
+                                if finalize_current_streaming_thinking(app) {
+                                    transcript_batch_updated = true;
+                                }
+                                app.last_reasoning = Some(reasoning);
+                                app.reasoning_header = None;
+                            }
+                        } else {
+                            if finalize_current_streaming_thinking(app) {
+                                transcript_batch_updated = true;
+                            }
+                            stash_reasoning_buffer_into_last_reasoning(app);
                         }
-                        stash_reasoning_buffer_into_last_reasoning(app);
                     }
                     EngineEvent::ToolCallStarted { id, name, input } => {
                         app.pending_tool_uses

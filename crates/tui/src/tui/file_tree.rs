@@ -1,8 +1,8 @@
-//! File-tree pane — Ctrl+Shift+E toggles a left-side workspace file navigator.
+//! 文件树面板 — Ctrl+Shift+E 切换左侧工作区文件导航器。
 //!
-//! Shows the workspace directory tree with expandable directories. Up/Down
-//! navigate, Enter expands/collapses directories or inserts `@path` for files,
-//! Esc closes the pane.
+//! 显示带有可展开目录的工作区目录树。Up/Down 导航，
+//! Enter 展开/折叠目录或为文件插入 `@path`，
+//! Esc 关闭面板。
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -24,7 +24,7 @@ use crate::tui::ui::truncate_line_to_width;
 // Public API
 // ---------------------------------------------------------------------------
 
-/// A single entry in the file tree.
+/// 文件树中的单个条目。
 #[derive(Debug, Clone)]
 pub struct FileTreeEntry {
     pub name: String,
@@ -34,28 +34,28 @@ pub struct FileTreeEntry {
     pub expanded: bool,
 }
 
-/// Mutable state for the file-tree pane.
+/// 文件树面板的可变状态。
 #[derive(Debug, Clone)]
 pub struct FileTreeState {
-    /// Flat list of visible entries (respects expanded/collapsed state).
+    /// 可见条目的扁平列表（考虑展开/折叠状态）。
     pub entries: Vec<FileTreeEntry>,
-    /// Index into `entries` for the cursor.
+    /// 光标在 `entries` 中的索引。
     pub cursor: usize,
-    /// Scroll offset into `entries`.
+    /// 在 `entries` 中的滚动偏移量。
     pub scroll_offset: usize,
-    /// Set of expanded directory paths (normalised).
+    /// 已展开目录路径的集合（规范化）。
     pub expanded_dirs: HashSet<PathBuf>,
-    /// Workspace root.
+    /// 工作区根目录。
     pub workspace: PathBuf,
-    /// Whether the tree is still building (async initial walk in progress).
+    /// 树是否仍在构建中（异步初始遍历进行中）。
     pub is_loading: bool,
-    /// Shared cell for async tree-building results (#399 S3).
+    /// 用于异步树构建结果的共享单元 (#399 S3)。
     loading_cell: Option<Arc<Mutex<Option<Vec<FileTreeEntry>>>>>,
 }
 
 impl FileTreeState {
-    /// Build a fresh tree state by walking `workspace`.
-    /// Spawns the initial walk on a background thread (#399 S3).
+    /// 通过遍历 `workspace` 构建新的树状态。
+    /// 在后台线程上启动初始遍历 (#399 S3)。
     pub fn new(workspace: &Path) -> Self {
         let expanded_dirs = HashSet::new();
         let loading_cell = Arc::new(Mutex::new(None));
@@ -78,7 +78,7 @@ impl FileTreeState {
         }
     }
 
-    /// Poll for async build results. Call from the render loop.
+    /// 轮询异步构建结果。从渲染循环中调用。
     pub fn poll_loading(&mut self) {
         if !self.is_loading {
             return;
@@ -103,18 +103,18 @@ impl FileTreeState {
         }
     }
 
-    /// Rebuild the flat entry list from the current `expanded_dirs` set.
-    /// When loading is in progress, the rebuild is deferred.
+    /// 从当前的 `expanded_dirs` 集合重建扁平条目列表。
+    /// 加载进行中时，重建会延迟。
     pub fn rebuild(&mut self) {
         if self.is_loading {
-            // Defer rebuild until async load completes
+            // 延迟重建直到异步加载完成
             return;
         }
         self.entries = build_file_tree_inner(&self.workspace, &self.expanded_dirs, None);
         self.clamp_cursor();
     }
 
-    /// Move the cursor up by one.
+    /// 将光标上移一行。
     pub fn cursor_up(&mut self) {
         if self.cursor > 0 {
             self.cursor -= 1;
@@ -122,7 +122,7 @@ impl FileTreeState {
         self.clamp_scroll();
     }
 
-    /// Move the cursor down by one.
+    /// 将光标下移一行。
     pub fn cursor_down(&mut self) {
         if self.cursor + 1 < self.entries.len() {
             self.cursor += 1;
@@ -130,11 +130,10 @@ impl FileTreeState {
         self.clamp_scroll();
     }
 
-    /// Activate the entry under the cursor.
+    /// 激活光标下的条目。
     ///
-    /// Returns `Some(path)` when the entry is a file that should be
-    /// mentioned (`@path` inserted into the composer). Returns `None`
-    /// after toggling a directory expand/collapse.
+    /// 当条目为应被提及的文件时返回 `Some(path)`（`@path` 插入到编辑器中）。
+    /// 切换目录展开/折叠后返回 `None`。
     pub fn activate(&mut self) -> Option<PathBuf> {
         let entry = self.entries.get(self.cursor)?;
         if entry.is_dir {
@@ -147,7 +146,7 @@ impl FileTreeState {
             self.rebuild();
             None
         } else {
-            // Return the path relative to workspace.
+            // 返回相对于工作区的路径。
             entry.path.strip_prefix(&self.workspace).ok().map(|rel| {
                 let mut p = PathBuf::new();
                 for comp in rel.components() {
@@ -158,14 +157,14 @@ impl FileTreeState {
         }
     }
 
-    /// Ensure the cursor is within bounds.
+    /// 确保光标在边界内。
     fn clamp_cursor(&mut self) {
         if !self.entries.is_empty() && self.cursor >= self.entries.len() {
             self.cursor = self.entries.len().saturating_sub(1);
         }
     }
 
-    /// Ensure the scroll offset keeps the cursor visible.
+    /// 确保滚动偏移使光标保持可见。
     fn clamp_scroll(&mut self) {
         let visible_height = 20usize; // will be overridden per render
         if self.cursor < self.scroll_offset {

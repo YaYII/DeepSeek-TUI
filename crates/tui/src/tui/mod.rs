@@ -44,6 +44,7 @@ pub mod streaming;
 mod subagent_routing;
 mod tool_routing;
 pub mod transcript;
+pub mod translator;
 pub mod transcript_cache;
 pub mod ui;
 mod ui_text;
