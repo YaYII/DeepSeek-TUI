@@ -979,16 +979,14 @@ fn stage_tarball(bytes: &[u8], skills_dir: &Path, max_size: u64) -> Result<Stage
     fs::create_dir_all(skills_dir)
         .with_context(|| format!("failed to create skills directory {}", skills_dir.display()))?;
 
-    // Two passes: first determine the skill name (and therefore the staged
-    // dir) by finding the SKILL.md, then extract under that staged dir.
-    // Both passes share the same archive bytes; we reset by wrapping fresh
-    // decoders.
+    // 两遍扫描：首先通过查找 SKILL.md 确定技能名称（以及暂存目录），
+    // 然后在该暂存目录下提取。两遍使用相同的存档字节；
+    // 我们通过包装新的解码器来重置。
 
     let scan = scan_tarball(bytes, max_size)?;
 
-    // Prepare staged directory. Use a `.tmp` suffix so a crashed install
-    // never collides with a real name; remove any leftover from a prior
-    // failed attempt.
+    // 准备暂存目录。使用 `.tmp` 后缀以便崩溃的安装不会与真实名称冲突；
+    // 移除先前失败尝试的残留。
     let staged_path = skills_dir.join(format!("{}.tmp", scan.skill_name));
     if staged_path.exists() {
         fs::remove_dir_all(&staged_path).with_context(|| {
@@ -1001,10 +999,10 @@ fn stage_tarball(bytes: &[u8], skills_dir: &Path, max_size: u64) -> Result<Stage
     fs::create_dir_all(&staged_path)
         .with_context(|| format!("failed to create staging dir {}", staged_path.display()))?;
 
-    // Second pass — extract.
+    // 第二遍——提取。
     let result = extract_into(&scan, bytes, &staged_path, max_size);
     if let Err(err) = result {
-        // Cleanup on failure so a half-staged directory doesn't survive.
+        // 失败时清理，以免半完成的暂存目录残留。
         let _ = fs::remove_dir_all(&staged_path);
         return Err(err);
     }

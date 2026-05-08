@@ -605,10 +605,10 @@ mod tests {
             .join(" ");
         assert!(
             cell1_after.contains("hi") && cell1_after.contains("world"),
-            "cell1 should re-render with new content; got: {cell1_after}"
+            "单元格 1 应使用新内容重新渲染；得到：{cell1_after}"
         );
 
-        // Revisions in cache reflect the bump.
+        // 缓存中的修订版本反映了增量。
         assert_eq!(cache.per_cell[0].revision, 1);
         assert_eq!(cache.per_cell[1].revision, 2);
         assert_eq!(cache.per_cell[2].revision, 1);
@@ -653,16 +653,16 @@ mod tests {
         cache.ensure(&cells, &revisions, 80, TranscriptRenderOptions::default());
         let wide_total = cache.total_lines();
 
-        // Narrow width should change layout — everything re-renders.
+        // 较窄的宽度应改变布局 — 所有内容重新渲染。
         cache.ensure(&cells, &revisions, 20, TranscriptRenderOptions::default());
         let narrow_total = cache.total_lines();
 
         assert_ne!(
             wide_total, narrow_total,
-            "narrow width should produce a different number of lines"
+            "较窄宽度应产生不同数量的行"
         );
 
-        // Restoring the original width re-renders again.
+        // 恢复原始宽度会再次重新渲染。
         cache.ensure(&cells, &revisions, 80, TranscriptRenderOptions::default());
         assert_eq!(cache.total_lines(), wide_total);
     }
