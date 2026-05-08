@@ -1,11 +1,11 @@
 //! `/restore` 命令 — 从检查点恢复会话。
 //!
-//! `/restore` (no arg) lists the most recent snapshots so the user can
-//! see what's available. `/restore <N>` restores the *N*th-most-recent
-//! snapshot, where `N=1` is the newest. In non-YOLO mode we refuse to
-//! mutate files unless the user has explicitly trusted the workspace
-//! (`/trust on` or YOLO) — the user can always view the list, just not
-//! one-shot revert without a safety net.
+//! `/restore`（无参数）列出最近的快照，让用户
+//! 查看可用项。`/restore <N>` 恢复第 N 个最近的
+//! 快照，其中 `N=1` 是最新的。在非 YOLO 模式下，我们拒绝
+//! 修改文件，除非用户已明确信任工作区
+//!（`/trust on` 或 YOLO）— 用户始终可以查看列表，只是
+//! 不能在无安全网的情况下一次性恢复。
 
 use super::CommandResult;
 use crate::snapshot::SnapshotRepo;

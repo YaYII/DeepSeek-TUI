@@ -1,12 +1,12 @@
 //! `/share` 命令 — 分享会话。
 //!
-//! Renders the current session transcript as a static HTML page, uploads it
-//! to a GitHub Gist via the `gh` CLI, and displays the resulting URL.
+//! 将当前会话记录渲染为静态 HTML 页面，通过 `gh` CLI 上传
+//! 到 GitHub Gist，并显示结果 URL。
 //!
-//! # Usage
+//! # 用法
 //!
-//! - `/share` — export the current session and print the Gist URL
-//! - `/share help` — show usage
+//! - `/share` — 导出当前会话并打印 Gist URL
+//! - `/share help` — 显示用法
 
 use std::io::Write;
 use std::path::Path;

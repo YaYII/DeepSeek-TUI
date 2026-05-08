@@ -14,13 +14,13 @@
 //!         return state[Final]
 //! ```
 //!
-//! Invariants:
-//! - `P` is held only as a REPL variable (`context` / `ctx`); never
-//!   appears in the root LLM's window.
-//! - The root LLM receives small metadata messages — length, preview,
-//!   helper list, prior-round summary.
-//! - Code rounds and sub-LLM calls travel over a single stdin/stdout
-//!   pipe to a long-lived `python3 -u` subprocess. No HTTP sidecar.
+//! 不变量：
+//! - `P` 仅作为 REPL 变量（`context` / `ctx`）持有；永远不会
+//!   出现在根 LLM 的窗口中。
+//! - 根 LLM 接收小型元数据消息 — 长度、预览、
+//!   辅助函数列表、前轮摘要。
+//! - 代码轮次和子 LLM 调用通过单个 stdin/stdout
+//!   管道传输到长期运行的 `python3 -u` 子进程。无 HTTP 边车。
 
 use crate::models::Usage;
 

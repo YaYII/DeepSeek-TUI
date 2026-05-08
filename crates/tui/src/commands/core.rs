@@ -9,7 +9,7 @@ use crate::tui::views::{HelpView, ModalKind, SubAgentsView, subagent_view_agents
 
 use super::CommandResult;
 
-/// Show help information
+/// 显示帮助信息
 pub fn help(app: &mut App, topic: Option<&str>) -> CommandResult {
     if let Some(topic) = topic {
         // Show help for specific command
@@ -43,7 +43,7 @@ pub fn help(app: &mut App, topic: Option<&str>) -> CommandResult {
     CommandResult::ok()
 }
 
-/// Clear conversation history
+/// 清除对话历史
 pub fn clear(app: &mut App) -> CommandResult {
     app.clear_history();
     app.mark_history_updated();
@@ -87,7 +87,7 @@ pub fn clear(app: &mut App) -> CommandResult {
     )
 }
 
-/// Exit the application
+/// 退出应用程序
 pub fn exit() -> CommandResult {
     CommandResult::action(AppAction::Quit)
 }

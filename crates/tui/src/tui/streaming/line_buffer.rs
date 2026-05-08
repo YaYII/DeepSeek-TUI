@@ -3,50 +3,46 @@
 //! `LineBuffer` 是分块器上游的安全层，它会保留最后一个 `\n` 之后的
 //! 所有文本，直到下一个换行符到达。这可以防止部分多字符 markdown —
 //! 最重要的是防止部分代码围栏
-//! (` ``` `) whose meaning flips depending on what follows on the same line —
+//!（` ``` `）其含义取决于同一行后续内容——
 //! from ever becoming visible state in the renderer.
 //!
 //! Mental model:
-//! - `push(delta)`  appends raw stream text to an internal pending buffer.
-//! - `take_committable()` returns only the prefix up to and including the
-//!   LAST `\n` and clears that prefix. Whatever follows the last `\n` stays
-//!   in the buffer for the next push.
-//! - `flush()` returns whatever is left, used at end-of-stream when the model
-//!   signals the turn is done. (The contract upstream of the chunker is that
-//!   only complete-line text is committed; `flush()` is the explicit escape
-//!   hatch when we know no more text will arrive.)
+//! - `push(delta)` 将原始流文本追加到内部待处理缓冲区。
+//! - `take_committable()` 仅返回到（并包含）最后一个 `\n` 的前缀，
+//!   并清除此前缀。最后一个 `\n` 之后的内容会留在缓冲区中等待下一次 push。
+//! - `flush()` 返回剩余所有内容，在模型表示轮次结束时使用。
+//!   （分块器上游的约定是：只有完整行文本才会被提交；`flush()` 是
+//!   当我们知道不会再有文本到达时的显式逃生口。）
 //!
 //! See `cx5_chx5_newline_gate.md` in the task brief for full rationale.
 
-/// Holds streaming text until a newline boundary is reached.
+/// 持有流式文本，直到到达换行符边界。
 ///
-/// This is upstream of [`StreamChunker`](super::commit_tick::StreamChunker)
-/// in the streaming pipeline:
+/// 在流式管道中位于 [`StreamChunker`](super::commit_tick::StreamChunker) 上游：
 ///
 /// ```text
 /// raw delta -> LineBuffer.push -> take_committable -> StreamChunker.push_delta -> commit tick
 /// ```
 ///
-/// The chunker also enforces a "drain-up-to-last-newline" rule on its pending
-/// buffer, but `LineBuffer` exists as a *separate* layer so that:
-/// 1. The contract is explicit and locally testable.
-/// 2. Future downstream consumers (e.g. live preview that renders queued lines
-///    optimistically) cannot accidentally see a partial fence.
-/// 3. End-of-turn flush semantics are owned by the gate, not the policy.
+/// 分块器也在其待处理缓冲区上强制实施"排空至最后一个换行符"规则，
+/// 但 `LineBuffer` 作为一个*独立*层存在，目的是：
+/// 1. 约定清晰且可在本地测试。
+/// 2. 未来的下游消费者（例如乐观地渲染排队行的实时预览）
+///    不会意外看到部分代码围栏。
+/// 3. 轮次结束时的刷新语义由门控层拥有，而非策略层。
 #[derive(Debug, Default, Clone)]
 pub struct LineBuffer {
-    /// Pending text not yet released because no terminating `\n` has been seen
-    /// since the last commit.
+    /// 自上次提交以来尚未释放的待处理文本，因为尚未看到终止的 `\n`。
     pending: String,
 }
 
 impl LineBuffer {
-    /// Create an empty buffer.
+    /// 创建一个空缓冲区。
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Append a raw delta.
+    /// 追加原始数据块。
     pub fn push(&mut self, delta: &str) {
         if delta.is_empty() {
             return;
@@ -54,12 +50,11 @@ impl LineBuffer {
         self.pending.push_str(delta);
     }
 
-    /// Return the prefix of the pending buffer up to and including the LAST
-    /// `\n`. Whatever follows that newline (if anything) stays buffered.
+    /// 返回待处理缓冲区中直到（并包含）最后一个 `\n` 的前缀。
+    /// 该换行符之后的内容（如果有）仍保留在缓冲区中。
     ///
-    /// Returns an empty string when the buffer is empty or contains no
-    /// newline yet — callers can treat the empty-string case as "nothing
-    /// committable on this push".
+    /// 当缓冲区为空或尚未包含换行符时返回空字符串——
+    /// 调用方可以将空字符串情况视为"本次 push 没有可提交内容"。
     pub fn take_committable(&mut self) -> String {
         let Some(last_nl) = self.pending.rfind('\n') else {
             return String::new();

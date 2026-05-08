@@ -1,12 +1,10 @@
 //! 并行工具执行 — 并行运行多个工具。
 //!
-//! NOTE: this meta-tool is intentionally no longer registered with the
-//! agent (see `ToolRegistryBuilder::with_parallel_tool`). DeepSeek-V4
-//! supports native parallel `tool_calls` in a single assistant turn, and
-//! advertising the OpenAI-internal name `multi_tool_use.parallel` made
-//! the model hallucinate ChatGPT-style XML wrappers. The struct stays
-//! around so the engine compatibility dispatcher and historical sessions
-//! still resolve it cleanly.
+//! 注意：这个元工具有意不再向代理注册（请参见 `ToolRegistryBuilder::with_parallel_tool`）。
+//! DeepSeek-V4 支持单次助手轮次中原生的并行 `tool_calls`，并且
+//! 公开 OpenAI 内部名称 `multi_tool_use.parallel` 会导致
+//! 模型幻觉生成 ChatGPT 风格的 XML 包装器。该结构体保留
+//! 下来，以便引擎兼容性分发器和历史会话仍能正常解析它。
 
 use super::spec::{
     ApprovalRequirement, ToolCapability, ToolContext, ToolError, ToolResult, ToolSpec,
@@ -24,7 +22,7 @@ impl ToolSpec for MultiToolUseParallelTool {
     }
 
     fn description(&self) -> &'static str {
-        "Execute multiple tool calls in parallel and return their results."
+        "并行执行多个工具调用并返回其结果。"
     }
 
     fn input_schema(&self) -> Value {
@@ -61,7 +59,7 @@ impl ToolSpec for MultiToolUseParallelTool {
         _context: &ToolContext,
     ) -> Result<ToolResult, ToolError> {
         Err(ToolError::execution_failed(
-            "multi_tool_use.parallel must be handled by the engine",
+            "multi_tool_use.parallel 必须由引擎处理",
         ))
     }
 }

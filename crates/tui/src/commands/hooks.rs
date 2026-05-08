@@ -9,16 +9,14 @@ use crate::tui::app::App;
 
 use super::CommandResult;
 
-/// Top-level dispatch for `/hooks`. Subcommands:
+/// `/hooks` 的顶级调度。子命令：
 ///
-/// * `/hooks`         — same as `/hooks list`.
-/// * `/hooks list`    — show every configured hook grouped by event,
-///   noting whether the global `[hooks].enabled` flag suppresses
-///   them.
-/// * `/hooks events`  — list every supported `HookEvent` value the
-///   user can target in `[[hooks.hooks]]` entries. Useful for
-///   discovery — without this, the only way to learn the event
-///   names is to read source.
+/// * `/hooks`         — 等同于 `/hooks list`。
+/// * `/hooks list`    — 显示每个按事件分组的已配置钩子，
+///   并注明全局 `[hooks].enabled` 标志是否抑制它们。
+/// * `/hooks events`  — 列出用户可以在 `[[hooks.hooks]]` 条目中
+///   定位的所有受支持 `HookEvent` 值。有助于发现 —
+///   没有这个，了解事件名称的唯一方法是阅读源代码。
 pub fn hooks(app: &App, arg: Option<&str>) -> CommandResult {
     let sub = arg.map(str::trim).unwrap_or("list").to_ascii_lowercase();
     match sub.as_str() {

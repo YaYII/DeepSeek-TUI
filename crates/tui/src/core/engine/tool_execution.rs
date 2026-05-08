@@ -37,8 +37,8 @@ pub(super) struct InteractiveTerminalGuard {
 }
 
 impl InteractiveTerminalGuard {
-    /// Send `PauseEvents` and arm the guard. If `interactive` is false the
-    /// guard is a no-op — `Drop` will skip the resume.
+    /// 发送 `PauseEvents` 并装备守卫。如果 `interactive` 为 false，
+    /// 则守卫为空操作 — `Drop` 将跳过恢复。
     pub(super) async fn engage(tx: mpsc::Sender<Event>, interactive: bool) -> Self {
         if !interactive {
             return Self { tx: None };

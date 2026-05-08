@@ -24,18 +24,18 @@ use crate::models::{ContentBlock, Message, MessageRequest, MessageResponse, Syst
 use crate::repl::runtime::{BatchResp, RpcDispatcher, RpcRequest, RpcResponse, SingleResp};
 use crate::utils::spawn_supervised;
 
-/// Per-child completion timeout — same as the previous sidecar default.
+/// 每个子调用的完成超时 — 与之前的边车默认值相同。
 const CHILD_TIMEOUT_SECS: u64 = 120;
-/// Default `max_tokens` for one-shot child completions.
+/// 单次子调用的默认 `max_tokens`。
 const DEFAULT_CHILD_MAX_TOKENS: u32 = 4096;
-/// Hard cap on prompts per batch RPC.
+/// 每次批量 RPC 的提示词硬上限。
 pub const MAX_BATCH: usize = 16;
 
-/// Object-safe slice of the LLM client interface that the RLM bridge needs.
+/// RLM 桥接所需的 LLM 客户端接口的对象安全切片。
 ///
-/// `LlmClient` itself uses native async trait methods, which are not dyn-safe.
-/// The bridge only needs non-streaming completions, so this boxed-future shim
-/// gives tests a clean mock seam without changing the wider provider trait.
+/// `LlmClient` 本身使用原生 async trait 方法，不是 dyn 安全的。
+/// 桥接只需要非流式补全，因此这个装箱 future 的 shim
+/// 为测试提供了干净的 mock 接缝，而无需更改更广泛的 provider trait。
 pub(crate) trait RlmLlmClient: Send + Sync {
     fn create_message_boxed(
         &self,

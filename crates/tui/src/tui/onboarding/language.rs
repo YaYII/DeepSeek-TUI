@@ -36,7 +36,7 @@ pub fn lines(app: &App) -> Vec<Line<'static>> {
         )),
         Line::from(""),
         Line::from(Span::styled(
-            "Pick the UI language. You can change it any time with `/settings set locale <tag>`.",
+            "选择界面语言。你随时可以通过 `/settings set locale <tag>` 更改。",
             Style::default().fg(palette::TEXT_MUTED),
         )),
         Line::from(""),
@@ -74,14 +74,14 @@ pub fn lines(app: &App) -> Vec<Line<'static>> {
 
     out.push(Line::from(""));
     out.push(Line::from(vec![
-        Span::styled("Press ", Style::default().fg(palette::TEXT_MUTED)),
+        Span::styled("按 ", Style::default().fg(palette::TEXT_MUTED)),
         Span::styled(
             "1-5",
             Style::default()
                 .fg(palette::TEXT_PRIMARY)
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" to choose, or ", Style::default().fg(palette::TEXT_MUTED)),
+        Span::styled(" 选择，或按 ", Style::default().fg(palette::TEXT_MUTED)),
         Span::styled(
             "Enter",
             Style::default()
@@ -89,7 +89,7 @@ pub fn lines(app: &App) -> Vec<Line<'static>> {
                 .add_modifier(Modifier::BOLD),
         ),
         Span::styled(
-            " to keep the current setting",
+            " 保留当前设置",
             Style::default().fg(palette::TEXT_MUTED),
         ),
     ]));

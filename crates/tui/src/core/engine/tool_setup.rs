@@ -1,24 +1,23 @@
-//! Per-turn tool registry setup.
+//! 每轮工具注册表设置。
 //!
-//! This keeps mode/feature-specific registry construction out of the send path.
+//! 这将模式/功能特定的注册表构建从发送路径中分离出来。
 
 use std::path::Path;
 
 use super::*;
 use crate::sandbox::SandboxPolicy;
 
-/// Pick the sandbox policy that gates shell commands for a given UI mode.
+/// 选择针对给定 UI 模式限制 shell 命令的沙箱策略。
 ///
-/// - **Plan** (#1077): `ReadOnly` — no writes, no network. The previous
-///   `WorkspaceWrite` policy let `python -c "open('f','w').write('x')"` mutate
-///   files inside the workspace because it whitelisted the workspace as
-///   writable. Plan mode is investigation only; if the user wants to change
-///   files they should switch to Agent.
-/// - **Agent**: `WorkspaceWrite` with workspace as writable root and network
-///   on. Approval flow gates risky individual commands; the sandbox handles
-///   the rest. Network is allowed because cargo / npm / curl-style commands
-///   are normal during agent work and DNS-deny breaks them silently.
-/// - **YOLO**: `DangerFullAccess` — explicit no-guardrails contract.
+/// - **Plan** (#1077)：`ReadOnly` — 无写入，无网络。之前的
+///   `WorkspaceWrite` 策略允许 `python -c "open('f','w').write('x')"` 修改
+///   工作区内的文件，因为它将工作区列入可写白名单。Plan 模式仅为调查；
+///   如果用户想要更改文件，应切换到 Agent。
+/// - **Agent**：`WorkspaceWrite`，工作区为可写根目录，网络开启。
+///   审批流程限制有风险的单个命令；沙箱处理其余部分。
+///   网络允许，因为 cargo / npm / curl 类命令在代理工作中是正常的，
+///   而 DNS 拒绝会静默破坏它们。
+/// - **YOLO**：`DangerFullAccess` — 明确的无护栏契约。
 pub(crate) fn sandbox_policy_for_mode(mode: AppMode, workspace: &Path) -> SandboxPolicy {
     match mode {
         AppMode::Plan => SandboxPolicy::ReadOnly,

@@ -108,10 +108,9 @@ pub fn compose_block(enabled: bool, path: &Path) -> Option<String> {
     as_system_block(&content, path)
 }
 
-/// Append `entry` to the memory file at `path`, creating it (and its
-/// parent directory) if needed. The entry is timestamped so the user can
-/// later see when each note was added. The leading `#` from a `# foo`
-/// quick-add is stripped so the file stays as readable Markdown.
+/// 将 `entry` 追加到 `path` 处的记忆文件，必要时创建该文件（及其父目录）。
+/// 条目会带有时间戳，以便用户日后查看每条笔记的添加时间。
+/// `# foo` 快速添加中的前导 `#` 会被去除，使文件保持可读的 Markdown 格式。
 pub fn append_entry(path: &Path, entry: &str) -> io::Result<()> {
     let trimmed = entry.trim_start_matches('#').trim();
     if trimmed.is_empty() {

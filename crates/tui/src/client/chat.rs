@@ -142,7 +142,7 @@ impl DeepSeekClient {
         &self,
         request: MessageRequest,
     ) -> Result<StreamEventBox> {
-        // Try true SSE streaming via chat completions (widely supported)
+        // 尝试通过聊天补全实现真正的 SSE 流式传输（广泛支持）
         let messages = build_chat_messages_for_request(&request);
         let mut body = json!({
             "model": request.model,
@@ -179,14 +179,12 @@ impl DeepSeekClient {
             self.api_provider,
         );
 
-        // Bulletproof final sanitizer: walk the wire payload and force
-        // `reasoning_content` onto any assistant message that has tool_calls
-        // but no reasoning_content. DeepSeek's thinking-mode API rejects
-        // such messages with a 400. This is the last line of defense after
-        // engine-side and build-side substitution; if either upstream path
-        // misses a case (e.g. a session restored from disk, a sub-agent
-        // adding messages directly, or a cached prefix mismatch), this pass
-        // still produces a valid request.
+        // 最终防弹清理器：遍历线路负载，为任何有 tool_calls
+        // 但没有 reasoning_content 的助手消息强制添加 `reasoning_content`。
+        // DeepSeek 的思考模式 API 会拒绝此类消息并返回 400。
+        // 这是在引擎端和构建端替换之后的最后一道防线；
+        // 如果任一上游路径遗漏了某种情况（例如从磁盘恢复的会话、
+        // 子代理直接添加消息，或缓存前缀不匹配），此遍仍能产生有效请求。
         let replay_input_tokens = sanitize_thinking_mode_messages(
             &mut body,
             &request.model,
@@ -201,9 +199,8 @@ impl DeepSeekClient {
         let status = response.status();
         if !status.is_success() {
             let error_text = bounded_error_text(response, ERROR_BODY_MAX_BYTES).await;
-            // If DeepSeek rejected for missing reasoning_content despite the
-            // sanitizer, dump the offending indices so we can diagnose where
-            // they came from on the next failure.
+            // 如果 DeepSeek 尽管经过清理器仍因缺少 reasoning_content 而拒绝，
+            // 则转储违规索引，以便在下一次失败时诊断其来源。
             if error_text.contains("reasoning_content") {
                 log_thinking_mode_violations(&body);
             }
@@ -212,17 +209,16 @@ impl DeepSeekClient {
 
         let model = request.model.clone();
 
-        // Capture transport-shape headers before we consume `response` into
-        // `bytes_stream()`. They are surfaced in the decode-error log path so
-        // we can tell HTTP/2 RST_STREAM from chunked-encoding corruption from
-        // gzip-compressor failure when investigating #103.
+        // 在将 `response` 消费为 `bytes_stream()` 之前捕获传输层头部。
+        // 它们会在解码错误日志路径中暴露，以便我们在调查 #103 时
+        // 区分 HTTP/2 RST_STREAM、分块编码损坏和 gzip 压缩器故障。
         let response_headers = format_stream_headers(response.headers());
         let byte_stream = response.bytes_stream();
 
         let stream = async_stream::stream! {
             use futures_util::StreamExt;
 
-            // Emit a synthetic MessageStart
+            // 发送一个合成的 MessageStart
             yield Ok(StreamEvent::MessageStart {
                 message: MessageResponse {
                     id: String::new(),
@@ -252,11 +248,10 @@ impl DeepSeekClient {
             let mut byte_stream = std::pin::pin!(byte_stream);
             let idle = stream_idle_timeout();
 
-            // Telemetry for #103 stream-decode diagnostics: bytes received
-            // since the start of this stream and last successful event time.
-            // Surfaces in the error log when reqwest yields a chunk error so
-            // we can tell HTTP/2 RST_STREAM from chunk-decode-failure from
-            // gzip-corruption when investigating a flaky session.
+            // #103 流解码诊断的遥测数据：自流开始以来的接收字节数和
+            // 上次成功事件的时间。在 reqwest 产生块错误时出现在错误日志中，
+            // 以便在调查不稳定会话时区分 HTTP/2 RST_STREAM、
+            // 块解码失败和 gzip 损坏。
             let stream_start = std::time::Instant::now();
             let mut last_event_at = std::time::Instant::now();
             let mut bytes_received: usize = 0;
@@ -264,7 +259,7 @@ impl DeepSeekClient {
             loop {
                 let chunk_result = match tokio_timeout(idle, byte_stream.next()).await {
                     Ok(Some(result)) => result,
-                    Ok(None) => break, // Stream ended normally
+                    Ok(None) => break, // 流正常结束
                     Err(_elapsed) => {
                         yield Err(anyhow::anyhow!(
                             "SSE stream idle timeout after {}s — no data received",
@@ -276,10 +271,9 @@ impl DeepSeekClient {
                 let chunk = match chunk_result {
                     Ok(bytes) => bytes,
                     Err(e) => {
-                        // Walk the error source chain so reqwest's underlying
-                        // hyper / h2 / io error is visible — without this the
-                        // outer "error decoding response body" message tells
-                        // us nothing about WHY the stream died.
+                        // 遍历错误源链，使 reqwest 底层的 hyper/h2/io 错误可见
+                        // — 没有这个，外层的"解码响应体错误"消息
+                        // 无法告诉我们流为何死亡。
                         let mut error_chain = format!("{e}");
                         let mut current: Option<&(dyn std::error::Error + 'static)> =
                             std::error::Error::source(&e);
@@ -304,7 +298,7 @@ impl DeepSeekClient {
                 last_event_at = std::time::Instant::now();
                 byte_buf.extend_from_slice(&chunk);
 
-                // Guard against unbounded buffer growth (e.g., malformed stream without newlines)
+                // 防止缓冲区无限增长（例如，没有换行符的畸形流）
                 const MAX_SSE_BUF: usize = 10 * 1024 * 1024; // 10 MB
                 if byte_buf.len() > MAX_SSE_BUF {
                     yield Err(anyhow::anyhow!("SSE buffer exceeded {MAX_SSE_BUF} bytes — aborting stream"));
@@ -315,7 +309,7 @@ impl DeepSeekClient {
                     tokio::time::sleep(Duration::from_millis(SSE_BACKPRESSURE_SLEEP_MS)).await;
                 }
 
-                // Process complete SSE lines from the buffer
+                // 处理缓冲区中完整的 SSE 行
                 let mut lines_processed = 0usize;
                 while let Some(newline_pos) = byte_buf.iter().position(|&b| b == b'\n') {
                     let mut end = newline_pos;
@@ -326,7 +320,7 @@ impl DeepSeekClient {
                     byte_buf.drain(..newline_pos + 1);
 
                     if line.is_empty() {
-                        // Empty line = event boundary, process accumulated data
+                        // 空行 = 事件边界，处理累积的数据
                         if !line_buf.is_empty() {
                             let data = std::mem::take(&mut line_buf);
                             if data.trim() == "[DONE]" {

@@ -45,13 +45,13 @@ impl FimEditTool {
 
 #[derive(Debug, Error)]
 enum FimError {
-    #[error("Prefix anchor not found in file: '{0}'")]
+    #[error("文件中未找到前缀锚点: '{0}'")]
     PrefixNotFound(String),
-    #[error("Suffix anchor not found after prefix anchor: '{0}'")]
+    #[error("在前缀锚点后未找到后缀锚点: '{0}'")]
     SuffixNotFound(String),
-    #[error("Prefix and suffix anchors overlap (suffix starts at {0}, prefix ends at {1})")]
+    #[error("前缀和后缀锚点重叠（后缀开始于 {0}，前缀结束于 {1}）")]
     AnchorsOverlap(usize, usize),
-    #[error("FIM API call failed: {0}")]
+    #[error("FIM API 调用失败: {0}")]
     ApiFailed(String),
 }
 
@@ -62,10 +62,10 @@ impl ToolSpec for FimEditTool {
     }
 
     fn description(&self) -> &'static str {
-        "Edit a file using Fill-in-the-Middle (FIM) completion. Provide a file path, \
-         prefix_anchor (text that appears before the section to replace), and \
-         suffix_anchor (text that appears after the section to replace). The tool \
-         calls DeepSeek's FIM endpoint to generate replacement content."
+        "使用填充中间（FIM）补全来编辑文件。提供文件路径、\
+         prefix_anchor（出现在要替换部分之前的文本）和 \
+         suffix_anchor（出现在要替换部分之后的文本）。该工具 \
+         调用 DeepSeek 的 FIM 端点来生成替换内容。"
     }
 
     fn input_schema(&self) -> Value {
@@ -74,19 +74,19 @@ impl ToolSpec for FimEditTool {
             "properties": {
                 "path": {
                     "type": "string",
-                    "description": "Path to the file to edit (relative to workspace)"
+                    "description": "要编辑的文件路径（相对于工作区）"
                 },
                 "prefix_anchor": {
                     "type": "string",
-                    "description": "Text anchor marking the end of the prefix. Everything up to and including this anchor is kept as-is before the generated middle."
+                    "description": "标记前缀结束的文本锚点。直到并包括此锚点的所有内容保持原样，位于生成内容之前。"
                 },
                 "suffix_anchor": {
                     "type": "string",
-                    "description": "Text anchor marking the start of the suffix. Everything from this anchor onward is kept as-is after the generated middle."
+                    "description": "标记后缀开始的文本锚点。从此锚点往后的所有内容保持原样，位于生成内容之后。"
                 },
                 "max_tokens": {
                     "type": "integer",
-                    "description": "Maximum tokens to generate (default: 1024)"
+                    "description": "最大生成的令牌数（默认：1024）"
                 }
             },
             "required": ["path", "prefix_anchor", "suffix_anchor"]
@@ -154,7 +154,7 @@ impl ToolSpec for FimEditTool {
                 })?,
             None => {
                 return Err(ToolError::execution_failed(
-                    "FIM API client not available".to_string(),
+                    "FIM API 客户端不可用".to_string(),
                 ));
             }
         };
@@ -173,7 +173,7 @@ impl ToolSpec for FimEditTool {
             prefix_end,
             suffix_start,
             message: format!(
-                "FIM edit applied to `{}`. Generated {} chars between prefix_anchor end (byte {}) and suffix_anchor start (byte {}).",
+                "FIM 编辑已应用于 `{}`。在前缀锚点结束（字节 {}）和后缀锚点开始（字节 {}）之间生成了 {} 个字符。",
                 path, generated_len, prefix_end, suffix_start,
             ),
         };

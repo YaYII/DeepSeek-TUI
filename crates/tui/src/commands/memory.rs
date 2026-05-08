@@ -1,21 +1,20 @@
 //! `/memory` 命令 — 管理用户记忆。
 //!
-//! When the user-memory feature is opted-in (`[memory] enabled = true` in
-//! config or `DEEPSEEK_MEMORY=on` in the environment), `/memory` shows
-//! the current memory file path and contents inline. Subcommands let the
-//! user clear or open the file:
+//! 当用户记忆功能启用时（配置中的 `[memory] enabled = true`
+//! 或环境中的 `DEEPSEEK_MEMORY=on`），`/memory` 显示
+//! 当前记忆文件路径和内联内容。子命令允许用户
+//! 清除或打开文件：
 //!
-//! - `/memory` — show path + content
-//! - `/memory show` — alias for the no-arg form
-//! - `/memory clear` — replace the file contents with an empty marker
-//! - `/memory path` — show only the resolved path
-//! - `/memory help` — show command-specific help and the resolved path
+//! - `/memory` — 显示路径 + 内容
+//! - `/memory show` — 无参数形式的别名
+//! - `/memory clear` — 将文件内容替换为空标记
+//! - `/memory path` — 仅显示已解析的路径
+//! - `/memory help` — 显示命令特定帮助和已解析路径
 //!
-//! Editor integration (`/memory edit`) is intentionally minimal: the
-//! command prints a copy-pasteable shell line to open the file in the
-//! user's `$VISUAL` / `$EDITOR`, since the in-process external editor
-//! plumbing requires terminal teardown that the slash-command handler
-//! doesn't have access to.
+//! 编辑器集成（`/memory edit`）故意保持最小化：
+//! 该命令打印一个可复制粘贴的 shell 行，用用户的
+//! `$VISUAL` / `$EDITOR` 打开文件，因为进程内外部编辑器
+//! 需要终端拆卸，而斜杠命令处理程序无法访问。
 
 use std::fs;
 use std::path::Path;
@@ -46,7 +45,7 @@ fn memory_help(path: &Path) -> String {
 pub fn memory(app: &mut App, arg: Option<&str>) -> CommandResult {
     if !app.use_memory {
         return CommandResult::error(
-            "user memory is disabled. Enable with `[memory] enabled = true` in `~/.deepseek/config.toml` or `DEEPSEEK_MEMORY=on` in your environment, then restart the TUI.",
+            "用户记忆已禁用。在 `~/.deepseek/config.toml` 中设置 `[memory] enabled = true` 或在环境中设置 `DEEPSEEK_MEMORY=on`，然后重启 TUI。",
         );
     }
 
@@ -57,12 +56,12 @@ pub fn memory(app: &mut App, arg: Option<&str>) -> CommandResult {
         "" | "show" => {
             let body = match fs::read_to_string(&path) {
                 Ok(text) if text.trim().is_empty() => format!(
-                    "{}\n(empty — add via `# foo` from the composer or have the model use the `remember` tool)",
+                    "{}\n(空 — 通过编辑器中的 `# foo` 添加或让模型使用 `remember` 工具)",
                     path.display()
                 ),
                 Ok(text) => format!("{}\n\n{}", path.display(), text.trim_end()),
                 Err(_) => format!(
-                    "{}\n(file does not exist yet — add via `# foo` from the composer to create it)",
+                    "{}\n(文件尚不存在 — 通过编辑器中的 `# foo` 添加以创建它)",
                     path.display()
                 ),
             };

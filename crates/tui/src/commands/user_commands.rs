@@ -1,8 +1,8 @@
 //! 用户自定义命令 — 加载和执行用户定义的命令。
 //!
-//! Users drop `.md` files into `~/.deepseek/commands/` and the filename
-//! (without `.md` extension) becomes a slash command. When invoked via
-//! `/name`, the file contents are sent as a user message.
+//! 用户将 `.md` 文件放入 `~/.deepseek/commands/`，文件名
+//!（不含 `.md` 扩展名）即成为斜杠命令。通过 `/name` 调用时，
+//! 文件内容将作为用户消息发送。
 
 use std::path::PathBuf;
 

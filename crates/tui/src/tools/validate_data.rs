@@ -30,7 +30,7 @@ impl DataFormat {
             "json" => Ok(Self::Json),
             "toml" => Ok(Self::Toml),
             _ => Err(ToolError::invalid_input(format!(
-                "Unsupported format '{format}'. Expected one of: auto, json, toml"
+                "不支持的格式 '{format}'。期望的格式之一: auto, json, toml"
             ))),
         }
     }
@@ -51,7 +51,7 @@ impl ToolSpec for ValidateDataTool {
     }
 
     fn description(&self) -> &'static str {
-        "Validate JSON or TOML content from inline input or a workspace file."
+        "验证 JSON 或 TOML 内容，支持内联输入或工作区文件。"
     }
 
     fn input_schema(&self) -> Value {
@@ -60,17 +60,17 @@ impl ToolSpec for ValidateDataTool {
             "properties": {
                 "path": {
                     "type": "string",
-                    "description": "Optional path to a file within the workspace."
+                    "description": "可选的工作区文件路径。"
                 },
                 "content": {
                     "type": "string",
-                    "description": "Optional inline content to validate."
+                    "description": "可选的内联验证内容。"
                 },
                 "format": {
                     "type": "string",
                     "enum": ["auto", "json", "toml"],
                     "default": "auto",
-                    "description": "Validation format. 'auto' infers from extension then falls back to trying both."
+                    "description": "验证格式。'auto' 从扩展名推断，然后回退到尝试两者。"
                 }
             },
             "additionalProperties": false
@@ -110,7 +110,7 @@ fn load_input_source(
 ) -> Result<(String, String, Option<String>), ToolError> {
     match (path, content) {
         (Some(_), Some(_)) => Err(ToolError::invalid_input(
-            "Provide either 'path' or 'content', but not both.",
+            "请提供 'path' 或 'content' 之一，但不能同时提供两者。",
         )),
         (None, None) => Err(ToolError::missing_field("path or content")),
         (Some(path), None) => {
@@ -162,7 +162,7 @@ fn validate_auto(
 
     Ok(
         ToolResult::error(
-            "Validation failed in auto mode: content is neither valid JSON nor TOML.",
+            "自动模式验证失败：内容既不是有效的 JSON 也不是 TOML。",
         )
         .with_metadata(json!({
             "valid": false,
@@ -178,7 +178,7 @@ fn validate_json(raw_content: &str, source_name: &str) -> Result<ToolResult, Too
     match serde_json::from_str::<serde_json::Value>(raw_content) {
         Ok(parsed) => build_success_result(DataFormat::Json, source_name, summarize_json(&parsed)),
         Err(err) => Ok(
-            ToolResult::error(format!("Invalid JSON: {err}")).with_metadata(json!({
+            ToolResult::error(format!("无效的 JSON: {err}")).with_metadata(json!({
                 "valid": false,
                 "format": DataFormat::Json.as_str(),
                 "source": source_name,
@@ -192,7 +192,7 @@ fn validate_toml(raw_content: &str, source_name: &str) -> Result<ToolResult, Too
     match toml::from_str::<toml::Value>(raw_content) {
         Ok(parsed) => build_success_result(DataFormat::Toml, source_name, summarize_toml(&parsed)),
         Err(err) => Ok(
-            ToolResult::error(format!("Invalid TOML: {err}")).with_metadata(json!({
+            ToolResult::error(format!("无效的 TOML: {err}")).with_metadata(json!({
                 "valid": false,
                 "format": DataFormat::Toml.as_str(),
                 "source": source_name,

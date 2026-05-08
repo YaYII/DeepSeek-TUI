@@ -1,20 +1,20 @@
 //! `/provider` 命令 — 切换 API 提供者。
-//! OpenAI-compatible DeepSeek V4 servers at runtime.
+//! 在运行时连接到 OpenAI 兼容的 DeepSeek V4 服务器。
 //!
-//! `/provider` with no args opens the picker modal (#52). `/provider <name>`
-//! keeps the v0.6.6 CLI form for muscle-memory + scripted use.
+//! `/provider` 无参数时打开选择器模态框 (#52)。`/provider <name>`
+//! 保持 v0.6.6 CLI 形式，适合肌肉记忆 + 脚本使用。
 
 use crate::config::{ApiProvider, normalize_model_name};
 use crate::tui::app::{App, AppAction};
 
 use super::CommandResult;
 
-/// Switch or view the current LLM backend.
+/// 切换或查看当前 LLM 后端。
 ///
-/// With no args, opens the picker modal. With `<provider> [model]`, performs
-/// the switch directly (e.g. `/provider nim flash` lands on
-/// `deepseek-ai/deepseek-v4-flash`). The optional model accepts shorthand
-/// (`flash`, `pro`, `v4-flash`, `v4-pro`) or any normal DeepSeek model ID.
+/// 无参数时，打开选择器模态框。使用 `<provider> [model]`，直接执行
+/// 切换（例如 `/provider nim flash` 切换到
+/// `deepseek-ai/deepseek-v4-flash`）。可选模型接受简写
+///（`flash`, `pro`, `v4-flash`, `v4-pro`）或任何正常的 DeepSeek 模型 ID。
 pub fn provider(app: &mut App, args: Option<&str>) -> CommandResult {
     let trimmed = args.map(str::trim).filter(|s| !s.is_empty());
     let Some(args) = trimmed else {

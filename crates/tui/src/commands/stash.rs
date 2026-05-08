@@ -1,9 +1,7 @@
 //! `/stash` 命令 — 暂存会话状态。
 //!
-//! See `crates/tui/src/composer_stash.rs` for the on-disk format
-//! and persistence rules. The slash command is the user-facing
-//! surface; Ctrl+S in the composer is the corresponding push entry
-//! point.
+//! 有关磁盘格式和持久化规则，请参见 `crates/tui/src/composer_stash.rs`。
+//! 斜杠命令是面向用户的界面；编辑器中的 Ctrl+S 是相应的推送入口点。
 
 use crate::composer_stash;
 use crate::tui::app::App;

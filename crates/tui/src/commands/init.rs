@@ -1,4 +1,4 @@
-//! /init command - Generate AGENTS.md for project
+//! /init 命令 — 为项目生成 AGENTS.md
 
 use std::fmt::Write;
 use std::path::Path;
@@ -7,7 +7,7 @@ use crate::tui::app::App;
 
 use super::CommandResult;
 
-/// Generate an AGENTS.md file for the current project
+/// 为当前项目生成 AGENTS.md 文件
 pub fn init(app: &mut App) -> CommandResult {
     let workspace = &app.workspace;
 

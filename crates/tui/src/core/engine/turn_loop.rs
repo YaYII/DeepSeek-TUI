@@ -40,7 +40,7 @@ impl Engine {
 
         loop {
             if self.cancel_token.is_cancelled() {
-                let _ = self.tx_event.send(Event::status("Request cancelled")).await;
+                let _ = self.tx_event.send(Event::status("请求已取消")).await;
                 return (TurnOutcomeStatus::Interrupted, None);
             }
 
@@ -69,7 +69,7 @@ impl Engine {
             if turn.at_max_steps() {
                 let _ = self
                     .tx_event
-                    .send(Event::status("Reached maximum steps"))
+                    .send(Event::status("已达到最大步数"))
                     .await;
                 break;
             }
@@ -98,7 +98,7 @@ impl Engine {
                 .await;
                 let _ = self
                     .tx_event
-                    .send(Event::status("Auto-compacting context...".to_string()))
+                    .send(Event::status("正在自动压缩上下文...".to_string()))
                     .await;
                 let auto_messages_before = self.session.messages.len();
                 match compact_messages_safe(
@@ -121,12 +121,12 @@ impl Engine {
                             let removed = auto_messages_before.saturating_sub(auto_messages_after);
                             let status = if result.retries_used > 0 {
                                 format!(
-                                    "Auto-compaction complete: {auto_messages_before} → {auto_messages_after} messages ({removed} removed, {} retries)",
+                                    "自动压缩完成：{auto_messages_before} → {auto_messages_after} 条消息（已移除 {removed} 条，重试 {} 次）",
                                     result.retries_used
                                 )
                             } else {
                                 format!(
-                                    "Auto-compaction complete: {auto_messages_before} → {auto_messages_after} messages ({removed} removed)"
+                                    "自动压缩完成：{auto_messages_before} → {auto_messages_after} 条消息（已移除 {removed} 条）"
                                 )
                             };
                             self.emit_compaction_completed(
@@ -139,7 +139,7 @@ impl Engine {
                             .await;
                             let _ = self.tx_event.send(Event::status(status)).await;
                         } else {
-                            let message = "Auto-compaction skipped: empty result".to_string();
+                            let message = "自动压缩已跳过：结果为空".to_string();
                             self.emit_compaction_failed(
                                 compaction_id.clone(),
                                 true,
@@ -173,8 +173,8 @@ impl Engine {
                 if estimated_input > input_budget {
                     if context_recovery_attempts >= MAX_CONTEXT_RECOVERY_ATTEMPTS {
                         let message = format!(
-                            "Context remains above model limit after {} recovery attempts \
-                             (~{} token estimate, ~{} budget). Please run /compact or /clear.",
+                            "经过 {} 次恢复尝试后，上下文仍超出模型限制（\
+                             估计约 {} 令牌，预算约 {}）。请运行 /compact 或 /clear。",
                             MAX_CONTEXT_RECOVERY_ATTEMPTS, estimated_input, input_budget
                         );
                         turn_error = Some(message.clone());
@@ -1816,11 +1816,11 @@ XML unless the user explicitly asks to debug sub-agent internals.\n\n\
     }
 }
 
-/// Resolve an `"auto"` reasoning-effort tier to a concrete value.
+/// 将 `"auto"` 推理力度层级解析为具体的值。
 ///
-/// When the configured effort is `"auto"`, inspects the last user message
-/// and calls [`crate::auto_reasoning::select`] to pick the actual tier.
-/// Non-`"auto"` values pass through unchanged.
+/// 当配置的力度为 `"auto"` 时，检查最后一条用户消息
+/// 并调用 [`crate::auto_reasoning::select`] 来选择实际的层级。
+/// 非 `"auto"` 的值原样通过。
 fn resolve_auto_effort(reasoning_effort: Option<&str>, messages: &[Message]) -> Option<String> {
     match reasoning_effort {
         Some("auto") => {
