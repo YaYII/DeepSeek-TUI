@@ -312,15 +312,15 @@ mod tests {
         let _ = policy.decide(snap(ENTER_QUEUE_DEPTH_LINES, 20), t0);
         assert_eq!(policy.mode(), ChunkingMode::CatchUp);
 
-        // Pressure drops to the exit thresholds.
-        // Hold begins; not yet 250ms.
+        // 压力降至退出阈值。
+        // 保持开始；尚未达到 250 毫秒。
         let pre_hold = policy.decide(
             snap(EXIT_QUEUE_DEPTH_LINES, EXIT_OLDEST_AGE.as_millis() as u64),
             t0 + Duration::from_millis(50),
         );
         assert_eq!(pre_hold.mode, ChunkingMode::CatchUp);
 
-        // Still under hold.
+        // 仍在保持中。
         let mid_hold = policy.decide(
             snap(EXIT_QUEUE_DEPTH_LINES, EXIT_OLDEST_AGE.as_millis() as u64),
             t0 + Duration::from_millis(200),

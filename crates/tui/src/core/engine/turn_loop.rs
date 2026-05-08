@@ -1141,12 +1141,12 @@ impl Engine {
                 } else if tool_name == CODE_EXECUTION_TOOL_NAME {
                     approval_required = true;
                     approval_description =
-                        "Run model-provided Python code in local execution sandbox".to_string();
+                        "在本地执行沙箱中运行模型提供的 Python 代码".to_string();
                     supports_parallel = false;
                     read_only = false;
                 } else if is_tool_search_tool(&tool_name) {
                     approval_required = false;
-                    approval_description = "Search tool catalog".to_string();
+                    approval_description = "搜索工具目录".to_string();
                     supports_parallel = false;
                     read_only = true;
                 }

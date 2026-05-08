@@ -1303,12 +1303,11 @@ pub fn patch_undo(app: &mut App) -> CommandResult {
     )
 }
 
-/// Load the last user message back into the composer for editing.
+/// 将最后一条用户消息加载回编辑器中进行编辑。
 ///
-/// Searches `app.history` for the most recent `HistoryCell::User`, copies its
-/// content into `app.input`, and positions the cursor at the end so the user
-/// can edit and press Enter to resubmit. The original exchange stays visible
-/// in the transcript.
+/// 在 `app.history` 中搜索最近的 `HistoryCell::User`，将其
+/// 内容复制到 `app.input` 中，并将光标定位在末尾，以便用户
+/// 编辑并按下 Enter 重新提交。原始对话仍保留在转录中可见。
 pub fn edit(app: &mut App) -> CommandResult {
     let last_user = app.history.iter().rev().find_map(|cell| match cell {
         HistoryCell::User { content } => Some(content.clone()),
