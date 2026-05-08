@@ -54,32 +54,32 @@ impl Locale {
         match self {
             Self::En => LocaleSpec {
                 tag: "en",
-                display_name: "English",
-                script: "Latin",
+                display_name: "英语",
+                script: "拉丁文",
                 direction: TextDirection::Ltr,
                 fallback: "en",
                 coverage: LocaleCoverage::English,
             },
             Self::Ja => LocaleSpec {
                 tag: "ja",
-                display_name: "Japanese",
-                script: "Jpan",
+                display_name: "日语",
+                script: "日文",
                 direction: TextDirection::Ltr,
                 fallback: "en",
                 coverage: LocaleCoverage::V076Core,
             },
             Self::ZhHans => LocaleSpec {
                 tag: "zh-Hans",
-                display_name: "Chinese Simplified",
-                script: "Hans",
+                display_name: "简体中文",
+                script: "汉字简体",
                 direction: TextDirection::Ltr,
                 fallback: "en",
                 coverage: LocaleCoverage::V076Core,
             },
             Self::PtBr => LocaleSpec {
                 tag: "pt-BR",
-                display_name: "Portuguese (Brazil)",
-                script: "Latin",
+                display_name: "葡萄牙语（巴西）",
+                script: "拉丁文",
                 direction: TextDirection::Ltr,
                 fallback: "en",
                 coverage: LocaleCoverage::V076Core,
@@ -266,6 +266,7 @@ pub enum MessageId {
     CmdSystemDescription,
     CmdTaskDescription,
     CmdTokensDescription,
+    CmdTranslateDescription,
     CmdTrustDescription,
     CmdLspDescription,
     CmdShareDescription,
@@ -456,6 +457,7 @@ pub const ALL_MESSAGE_IDS: &[MessageId] = &[
     MessageId::CmdSystemDescription,
     MessageId::CmdTaskDescription,
     MessageId::CmdTokensDescription,
+    MessageId::CmdTranslateDescription,
     MessageId::CmdTrustDescription,
     MessageId::CmdLspDescription,
     MessageId::CmdShareDescription,
@@ -796,6 +798,9 @@ fn english(id: MessageId) -> &'static str {
         MessageId::CmdSystemDescription => "Show current system prompt",
         MessageId::CmdTaskDescription => "Manage background tasks",
         MessageId::CmdTokensDescription => "Show token usage for session",
+        MessageId::CmdTranslateDescription => {
+            "Toggle auto-translation of English output to Chinese"
+        }
         MessageId::CmdTrustDescription => {
             "Manage workspace trust and per-path allowlist (`/trust add <path>`, `/trust list`, `/trust on|off`)"
         }
@@ -1082,6 +1087,9 @@ fn japanese(id: MessageId) -> Option<&'static str> {
         MessageId::CmdSystemDescription => "現在のシステムプロンプトを表示",
         MessageId::CmdTaskDescription => "バックグラウンドタスクを管理",
         MessageId::CmdTokensDescription => "セッションのトークン使用量を表示",
+        MessageId::CmdTranslateDescription => {
+            "英語の出力を自動的に中国語に翻訳する機能を切り替え"
+        }
         MessageId::CmdTrustDescription => {
             "ワークスペースの信頼設定とパス別許可リストを管理（`/trust add <path>`、`/trust list`、`/trust on|off`）"
         }
@@ -1340,6 +1348,9 @@ fn chinese_simplified(id: MessageId) -> Option<&'static str> {
         MessageId::CmdSystemDescription => "显示当前系统提示词",
         MessageId::CmdTaskDescription => "管理后台任务",
         MessageId::CmdTokensDescription => "显示本次会话的 token 用量",
+        MessageId::CmdTranslateDescription => {
+            "切换英文输出自动翻译为中文"
+        }
         MessageId::CmdTrustDescription => {
             "管理工作区信任与按路径的白名单（`/trust add <path>`、`/trust list`、`/trust on|off`）"
         }
@@ -1614,6 +1625,9 @@ fn portuguese_brazil(id: MessageId) -> Option<&'static str> {
         MessageId::CmdSystemDescription => "Exibir o prompt de sistema atual",
         MessageId::CmdTaskDescription => "Gerenciar tarefas em segundo plano",
         MessageId::CmdTokensDescription => "Exibir o uso de tokens da sessão",
+        MessageId::CmdTranslateDescription => {
+            "Alternar tradução automática de saída em inglês para chinês"
+        }
         MessageId::CmdTrustDescription => {
             "Gerenciar a confiança do workspace e a allowlist por caminho (`/trust add <path>`, `/trust list`, `/trust on|off`)"
         }

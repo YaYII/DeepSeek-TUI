@@ -538,6 +538,29 @@ pub fn plan_mode(app: &mut App) -> CommandResult {
     )
 }
 
+/// 切换英文→中文翻译功能。
+pub fn translate(app: &mut App, arg: Option<&str>) -> CommandResult {
+    let new_state = match arg.and_then(|s| {
+        let trimmed = s.trim().to_ascii_lowercase();
+        match trimmed.as_str() {
+            "on" | "enable" | "1" | "true" => Some(true),
+            "off" | "disable" | "0" | "false" => Some(false),
+            _ => None,
+        }
+    }) {
+        Some(on) => on,
+        None => !app.translate_output,
+    };
+
+    app.translate_output = new_state;
+
+    if new_state {
+        CommandResult::message("翻译模式已开启：英文输出将自动翻译为中文。")
+    } else {
+        CommandResult::message("翻译模式已关闭。")
+    }
+}
+
 /// 在深色和浅色主题之间切换。
 pub fn theme(app: &mut App) -> CommandResult {
     let new_theme = match app.ui_theme.mode {

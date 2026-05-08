@@ -484,6 +484,13 @@ pub const COMMANDS: &[CommandInfo] = &[
         usage: "/cache [count]",
         description_id: MessageId::CmdCacheDescription,
     },
+    // Translation toggle
+    CommandInfo {
+        name: "translate",
+        aliases: &[],
+        usage: "/translate [on|off]",
+        description_id: MessageId::CmdTranslateDescription,
+    },
 ];
 
 /// 执行斜杠命令
@@ -541,6 +548,7 @@ pub fn execute(cmd: &str, app: &mut App) -> CommandResult {
         "agent" => config::agent_mode(app),
         "plan" => config::plan_mode(app),
         "theme" => config::theme(app),
+        "translate" => config::translate(app, arg),
         "trust" => config::trust(app, arg),
         "logout" => config::logout(app),
 
