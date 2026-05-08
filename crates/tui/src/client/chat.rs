@@ -324,9 +324,9 @@ impl DeepSeekClient {
                         if !line_buf.is_empty() {
                             let data = std::mem::take(&mut line_buf);
                             if data.trim() == "[DONE]" {
-                                // Stream complete
+                                // 流已完成
                             } else if let Ok(chunk_json) = serde_json::from_str::<Value>(&data) {
-                                // Parse the SSE chunk into stream events
+                                // 将 SSE 块解析为流事件
                                 for mut event in parse_sse_chunk(
                                     &chunk_json,
                                     &mut content_index,
@@ -335,11 +335,10 @@ impl DeepSeekClient {
                                     &mut tool_indices,
                                     is_reasoning_model,
                                 ) {
-                                    // Stamp the client-side replay-token estimate
-                                    // onto the final usage so the UI can surface
-                                    // it (#30). We compute it pre-request and
-                                    // overlay it on the server-reported usage at
-                                    // stream completion.
+                                    // 在最终 usage 上盖戳客户端侧的重放令牌估计值，
+                                    // 以便 UI 可以显示它（#30）。
+                                    // 我们在请求前计算它，
+                                    // 并在流完成时覆盖服务器报告的 usage。
                                     if let Some(tokens) = replay_input_tokens
                                         && let StreamEvent::MessageDelta {
                                             usage: Some(usage),
@@ -358,11 +357,11 @@ impl DeepSeekClient {
                     if let Some(data) = line.strip_prefix("data: ") {
                         line_buf.push_str(data);
                     }
-                    // Ignore other SSE fields (event:, id:, retry:)
+                    // 忽略其他 SSE 字段（event:, id:, retry:）
 
                     lines_processed = lines_processed.saturating_add(1);
                     if lines_processed >= SSE_MAX_LINES_PER_CHUNK {
-                        // Yield backpressure relief to avoid starving downstream consumers.
+                        // 通过让步提供背压缓解，避免饿死下游消费者。
                         break;
                     }
                 }

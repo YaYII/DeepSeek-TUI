@@ -92,9 +92,9 @@ pub fn exit() -> CommandResult {
     CommandResult::action(AppAction::Quit)
 }
 
-/// Switch or view current model. With no argument, open the two-pane
-/// picker (Pro/Flash + thinking effort) per #39 — gives users a discoverable
-/// way to flip both knobs without memorising the docs.
+/// 切换或查看当前模型。无参数时，打开双窗格
+/// 选择器（Pro/Flash + 思考力度），符合 #39 — 为用户提供可发现的
+/// 方式来切换两个设置，无需记忆文档。
 pub fn model(app: &mut App, model_name: Option<&str>) -> CommandResult {
     if let Some(name) = model_name {
         if name.trim().eq_ignore_ascii_case("auto") {
@@ -148,12 +148,12 @@ pub fn model(app: &mut App, model_name: Option<&str>) -> CommandResult {
     }
 }
 
-/// Fetch and list available models from the configured API endpoint.
+/// 从配置的 API 端点获取并列出可用模型。
 pub fn models(_app: &mut App) -> CommandResult {
     CommandResult::action(AppAction::FetchModels)
 }
 
-/// List sub-agent status from the engine
+/// 从引擎列出子代理状态
 pub fn subagents(app: &mut App) -> CommandResult {
     if app.view_stack.top_kind() != Some(ModalKind::SubAgents) {
         let agents = subagent_view_agents(app, &app.subagent_cache);

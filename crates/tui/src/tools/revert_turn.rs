@@ -1,12 +1,10 @@
 //! 回退轮次 — 撤销最近的轮次。
-//! prior pre-turn snapshot.
 //!
-//! The model invokes this when the user says something like "undo the
-//! last edit" or "roll back". It mirrors `/restore` but speaks JSON and
-//! takes a turn-offset (default 1 = previous turn) instead of a list
-//! index, so the model doesn't have to count entries.
+//! 模型在用户说"撤销上次编辑"或"回滚"时调用此工具。
+//! 它类似于 `/restore` 但使用 JSON 接口，接受轮次偏移量
+//!（默认为 1 = 前一轮次）而不是列表索引，这样模型无需计数条目。
 //!
-//! Approval is `Required` because this mutates the workspace.
+//! 审批为 `Required`，因为这会修改工作区。
 
 use async_trait::async_trait;
 use serde_json::{Value, json};
@@ -31,11 +29,11 @@ impl ToolSpec for RevertTurnTool {
     }
 
     fn description(&self) -> &str {
-        "Roll back the workspace files to the snapshot taken before a recent turn. \
-         Use when the user explicitly asks to undo, revert, or roll back the most recent edits. \
-         `turn_offset` is 1-based: 1 reverts the most recent turn, 2 reverts the previous one, \
-         and so on (max 50). Conversation history is NOT modified — only working-tree files are \
-         restored from the side-git snapshot repo."
+        "将工作区文件回滚到最近轮次之前拍摄的快照。\
+         当用户明确要求撤销、还原或回滚最近的编辑时使用。\
+         `turn_offset`是基于1的：1回滚最近的一轮，2回滚前一轮，\
+         依此类推（最多50）。对话历史不会修改——仅工作树文件从\
+         辅助git快照仓库恢复。"
     }
 
     fn input_schema(&self) -> Value {

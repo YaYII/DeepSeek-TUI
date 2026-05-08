@@ -55,12 +55,12 @@ where
     }
 }
 
-/// State shared with the bridge across all RPC calls in one turn.
+/// 桥接在单次回合的所有 RPC 调用间共享的状态。
 pub struct RlmBridge {
     client: Arc<dyn RlmLlmClient>,
     child_model: String,
-    /// Recursion budget remaining for `Rlm` / `RlmBatch` requests. When
-    /// zero, those requests fall back to plain `Llm` completions.
+    /// `Rlm` / `RlmBatch` 请求的剩余递归预算。当
+    /// 为零时，这些请求回退到普通 `Llm` 补全。
     depth_remaining: u32,
     usage: Arc<Mutex<Usage>>,
 }

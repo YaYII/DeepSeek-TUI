@@ -65,24 +65,23 @@ impl LineBuffer {
         self.pending.drain(..=last_nl).collect()
     }
 
-    /// Return whatever is left in the buffer, even if it is not newline
-    /// terminated. Used when the stream ends so we don't strand the final
-    /// partial line.
+    /// 返回缓冲区中剩余的所有内容，即使没有换行符终止。
+    /// 在流结束时使用，这样我们就不会遗漏最后的不完整行。
     pub fn flush(&mut self) -> String {
         std::mem::take(&mut self.pending)
     }
 
-    /// Whether the buffer holds any uncommitted text.
+    /// 缓冲区是否持有任何未提交的文本。
     pub fn is_empty(&self) -> bool {
         self.pending.is_empty()
     }
 
-    /// Length of the pending tail in bytes (testing/observability).
+    /// 待处理尾部的字节长度（测试/可观测性）。
     pub fn pending_len(&self) -> usize {
         self.pending.len()
     }
 
-    /// Reset the buffer (e.g. on stream restart).
+    /// 重置缓冲区（例如在流重新启动时）。
     pub fn reset(&mut self) {
         self.pending.clear();
     }
