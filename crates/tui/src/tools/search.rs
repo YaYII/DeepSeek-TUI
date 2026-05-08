@@ -40,7 +40,7 @@ impl ToolSpec for GrepFilesTool {
     }
 
     fn description(&self) -> &'static str {
-        "Search for a regex pattern in files within the workspace. Returns matching lines with context."
+        "在工作区内的文件中搜索正则表达式模式。返回带有上下文的匹配行。"
     }
 
     fn input_schema(&self) -> Value {
@@ -49,33 +49,33 @@ impl ToolSpec for GrepFilesTool {
             "properties": {
                 "pattern": {
                     "type": "string",
-                    "description": "Regular expression pattern to search for"
+                    "description": "要搜索的正则表达式模式"
                 },
                 "path": {
                     "type": "string",
-                    "description": "Directory or file to search (relative to workspace, default: .)"
+                    "description": "要搜索的目录或文件（相对于工作区，默认：.）"
                 },
                 "include": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Glob patterns for files to include (e.g., ['*.rs', '*.ts'])"
+                    "description": "要包含的文件的 Glob 模式（例如 ['*.rs', '*.ts']）"
                 },
                 "exclude": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Glob patterns for files to exclude (e.g., ['*.min.js', 'node_modules/*'])"
+                    "description": "要排除的文件的 Glob 模式（例如 ['*.min.js', 'node_modules/*']）"
                 },
                 "context_lines": {
                     "type": "integer",
-                    "description": "Number of context lines before and after each match (default: 2)"
+                    "description": "每个匹配前后显示的上下文行数（默认：2）"
                 },
                 "case_insensitive": {
                     "type": "boolean",
-                    "description": "Whether to perform case-insensitive matching (default: false)"
+                    "description": "是否执行不区分大小写的匹配（默认：false）"
                 },
                 "max_results": {
                     "type": "integer",
-                    "description": "Maximum number of results to return (default: 100)"
+                    "description": "返回的最大结果数（默认：100）"
                 }
             },
             "required": ["pattern"]

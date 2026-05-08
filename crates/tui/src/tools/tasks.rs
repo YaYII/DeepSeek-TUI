@@ -43,7 +43,7 @@ impl ToolSpec for TaskCreateTool {
     }
 
     fn description(&self) -> &'static str {
-        "Create/enqueue a durable background task through TaskManager. Durable tasks are restart-aware executable work, distinct from sub-agents."
+        "通过 TaskManager 创建/排队一个持久化后台任务。持久化任务是可重启的可执行工作，与子代理不同。"
     }
 
     fn input_schema(&self) -> Value {

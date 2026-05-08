@@ -306,7 +306,7 @@ impl ToolSpec for UpdatePlanTool {
     }
 
     fn description(&self) -> &'static str {
-        "Update the implementation plan with steps and their status. Use this to track progress on implementation tasks. Each step has a description and status (pending, in_progress, completed). Optionally include an explanation of the overall approach."
+        "更新实施计划及其步骤和状态。用于跟踪实施任务的进度。每个步骤都有描述和状态（pending、in_progress、completed）。可选地包含整体方法的说明。"
     }
 
     fn input_schema(&self) -> serde_json::Value {
@@ -315,22 +315,22 @@ impl ToolSpec for UpdatePlanTool {
             "properties": {
                 "explanation": {
                     "type": "string",
-                    "description": "Optional high-level explanation of the plan or approach"
+                    "description": "计划或方法的可选高级说明"
                 },
                 "plan": {
                     "type": "array",
-                    "description": "List of plan steps",
+                    "description": "计划步骤列表",
                     "items": {
                         "type": "object",
                         "properties": {
                             "step": {
                                 "type": "string",
-                                "description": "Description of the step"
+                                "description": "步骤描述"
                             },
                             "status": {
                                 "type": "string",
                                 "enum": ["pending", "in_progress", "completed"],
-                                "description": "Step status"
+                                "description": "步骤状态"
                             }
                         },
                         "required": ["step", "status"]

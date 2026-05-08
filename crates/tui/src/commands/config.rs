@@ -167,7 +167,7 @@ fn show_single_setting(app: &App, key: &str) -> CommandResult {
     }
 }
 
-/// Show persistent settings
+/// 显示持久化设置
 pub fn show_settings(app: &mut App) -> CommandResult {
     match Settings::load() {
         Ok(settings) => CommandResult::message(settings.display(app.ui_locale)),

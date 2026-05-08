@@ -199,14 +199,14 @@ impl Engine {
                 }
             }
 
-            // #136: drain any LSP diagnostics collected since the last
-            // request and inject them as a synthetic user message so the
-            // model sees compile errors before its next reasoning step.
+            // #136：排空自上次请求以来收集的任何 LSP 诊断，
+            // 并将其作为合成用户消息注入，以便模型
+            // 在下一次推理步骤之前看到编译错误。
             self.flush_pending_lsp_diagnostics().await;
 
-            // #159: layered context seam checkpoint. This is opt-in for
-            // v0.7.5 while #200 audits cache-hit behavior; when enabled it
-            // appends <archived_context> blocks rather than replacing history.
+            // #159：分层上下文接缝检查点。在 v0.7.5 中为选择启用，
+            // 同时 #200 审计缓存命中行为；启用时，
+            // 它会附加 <archived_context> 块，而不是替换历史记录。
             self.layered_context_checkpoint().await;
 
             // Build the request
@@ -697,13 +697,13 @@ impl Engine {
                 if stream_retry_attempts < MAX_STREAM_RETRIES {
                     stream_retry_attempts = stream_retry_attempts.saturating_add(1);
                     crate::logging::warn(format!(
-                        "Stream died with no content (attempt {}/{}); retrying request",
+                        "流无内容终止（尝试第 {}/{} 次）；正在重试请求",
                         stream_retry_attempts, MAX_STREAM_RETRIES
                     ));
                     let _ = self
                         .tx_event
                         .send(Event::status(format!(
-                            "Connection interrupted; retrying ({}/{})",
+                            "连接中断；正在重试（{}/{}）",
                             stream_retry_attempts, MAX_STREAM_RETRIES
                         )))
                         .await;
@@ -714,7 +714,7 @@ impl Engine {
                     continue;
                 }
                 crate::logging::warn(format!(
-                    "Stream retry budget exhausted ({} attempts); failing turn",
+                    "流重试预算已耗尽（{} 次尝试）；轮次失败",
                     stream_retry_attempts
                 ));
             } else if stream_errors == 0 {
@@ -846,7 +846,7 @@ impl Engine {
                         let _ = self
                             .tx_event
                             .send(Event::status(format!(
-                                "Waiting on {running} sub-agent(s) to complete..."
+                                "正在等待 {running} 个子代理完成..."
                             )))
                             .await;
                         tokio::select! {
@@ -855,7 +855,7 @@ impl Engine {
                                 let _ = self
                                     .tx_event
                                     .send(Event::status(
-                                        "Request cancelled while waiting for sub-agents",
+                                        "等待子代理时请求已取消",
                                     ))
                                     .await;
                                 return (TurnOutcomeStatus::Interrupted, None);
@@ -899,7 +899,7 @@ impl Engine {
                     let _ = self
                         .tx_event
                         .send(Event::status(format!(
-                            "Resuming turn with {count} sub-agent completion(s)"
+                            "恢复包含 {count} 个子代理完成的轮次"
                         )))
                         .await;
                     turn.next_step();
@@ -917,7 +917,7 @@ impl Engine {
                         Err(e) => {
                             let _ = self
                                 .tx_event
-                                .send(Event::status(format!("REPL init failed: {e}")))
+                                .send(Event::status(format!("REPL 初始化失败：{e}")))
                                 .await;
                             break;
                         }
@@ -929,7 +929,7 @@ impl Engine {
                         let _ = self
                             .tx_event
                             .send(Event::status(format!(
-                                "REPL round {round_num}: executing..."
+                                "REPL 第 {round_num} 轮：正在执行..."
                             )))
                             .await;
 
@@ -939,7 +939,7 @@ impl Engine {
                                     let _ = self
                                         .tx_event
                                         .send(Event::status(format!(
-                                            "REPL round {round_num}: FINAL result obtained"
+                                            "REPL 第 {round_num} 轮：已获得 FINAL 结果"
                                         )))
                                         .await;
                                     final_result = Some(val.clone());
@@ -949,11 +949,11 @@ impl Engine {
                                 // No FINAL — feed truncated stdout back as user metadata.
                                 let feedback = if round.has_error {
                                     format!(
-                                        "[REPL round {round_num} error]\nstdout:\n{}\nstderr:\n{}",
+                                        "[REPL 第 {round_num} 轮错误]\n标准输出：\n{}\n标准错误：\n{}",
                                         round.stdout, round.stderr
                                     )
                                 } else {
-                                    format!("[REPL round {round_num} output]\n{}", round.stdout)
+                                    format!("[REPL 第 {round_num} 轮输出]\n{}", round.stdout)
                                 };
                                 self.add_session_message(
                                     self.user_text_message_with_turn_metadata(feedback),
@@ -964,12 +964,12 @@ impl Engine {
                                 let _ = self
                                     .tx_event
                                     .send(Event::status(format!(
-                                        "REPL round {round_num} failed: {e}"
+                                        "REPL 第 {round_num} 轮失败：{e}"
                                     )))
                                     .await;
                                 self.add_session_message(
                                     self.user_text_message_with_turn_metadata(format!(
-                                        "[REPL round {round_num} execution failed]\n{e}"
+                                        "[REPL 第 {round_num} 轮执行失败]\n{e}"
                                     )),
                                 )
                                 .await;
@@ -1037,7 +1037,7 @@ impl Engine {
                     || tool_name == REQUEST_USER_INPUT_NAME;
 
                 let mut approval_required = false;
-                let mut approval_description = "Tool execution requires approval".to_string();
+                let mut approval_description = "工具执行需要审批".to_string();
                 let mut supports_parallel = false;
                 let mut read_only = false;
                 let mut blocked_error: Option<ToolError> = None;
@@ -1055,7 +1055,7 @@ impl Engine {
                     )
                 {
                     blocked_error = Some(ToolError::permission_denied(format!(
-                        "Tool '{tool_name}' is unavailable in Plan mode"
+                        "工具 '{tool_name}' 在 Plan 模式下不可用"
                     )));
                 }
 
@@ -1067,7 +1067,7 @@ impl Engine {
                     let _ = self
                         .tx_event
                         .send(Event::status(format!(
-                            "Auto-loaded deferred tool '{tool_name}' after model request."
+                            "在模型请求后自动加载了延迟工具 '{tool_name}'。"
                         )))
                         .await;
                 }
@@ -1099,7 +1099,7 @@ impl Engine {
                             let _ = self
                                 .tx_event
                                 .send(Event::status(format!(
-                                    "Auto-loaded deferred tool '{}' after resolving '{}'.",
+                                    "在解析 '{}' 后自动加载了延迟工具 '{}'。",
                                     tool_name, tool_name
                                 )))
                                 .await;
@@ -1183,7 +1183,7 @@ impl Engine {
                 let _ = self
                     .tx_event
                     .send(Event::status(format!(
-                        "Executing {} read-only tools in parallel",
+                        "正在并行执行 {} 个只读工具",
                         plans.len()
                     )))
                     .await;
@@ -1191,7 +1191,7 @@ impl Engine {
                 let _ = self
                     .tx_event
                     .send(Event::status(
-                        "Executing tools sequentially (writes, approvals, or non-parallel tools detected)",
+                        "正在顺序执行工具（检测到写入、审批或非并行工具）",
                     ))
                     .await;
             }
@@ -1503,7 +1503,7 @@ impl Engine {
                                 }));
                                 (
                                     Some(Err(ToolError::permission_denied(format!(
-                                        "Tool '{tool_name}' denied by user"
+                                        "用户已拒绝工具 '{tool_name}'"
                                     )))),
                                     None,
                                 )
@@ -1804,10 +1804,9 @@ fn subagent_completion_runtime_message(payload: &str) -> Message {
         content: vec![ContentBlock::Text {
             text: format!(
                 "<deepseek:runtime_event kind=\"subagent_completion\" visibility=\"internal\">\n\
-This is an internal runtime event, not user input. Use the sub-agent completion \
-data below to continue coordinating the current task. Do not tell the user they \
-pasted sentinels, do not explain the sentinel protocol, and do not quote the raw \
-XML unless the user explicitly asks to debug sub-agent internals.\n\n\
+这是一个内部运行时事件，不是用户输入。使用下面的子代理完成数据 \
+继续协调当前任务。不要告诉用户他们粘贴了哨兵，不要解释哨兵协议，也不要引用原始 \
+XML，除非用户明确要求调试子代理内部机制。\n\n\
 {payload}\n\
 </deepseek:runtime_event>"
             ),
@@ -1824,7 +1823,7 @@ XML unless the user explicitly asks to debug sub-agent internals.\n\n\
 fn resolve_auto_effort(reasoning_effort: Option<&str>, messages: &[Message]) -> Option<String> {
     match reasoning_effort {
         Some("auto") => {
-            // Find the last user message in the conversation.
+            // 查找对话中的最后一条用户消息。
             let last_msg = messages
                 .iter()
                 .rev()

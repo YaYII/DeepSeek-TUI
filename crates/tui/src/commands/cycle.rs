@@ -6,11 +6,11 @@ use crate::tui::app::App;
 
 use super::CommandResult;
 
-/// `/cycles` — list past cycle handoffs in compact form.
+/// `/cycles` — 以紧凑形式列出过去的周期交接。
 pub fn list_cycles(app: &App) -> CommandResult {
     if app.cycle_briefings.is_empty() {
         let msg = format!(
-            "No cycle boundaries have fired yet (current cycle: 1, threshold: {} tokens for {}).",
+            "尚未触发任何周期边界（当前周期: 1, 阈值: {} tokens 针对 {}）。",
             app.cycle.threshold_for(&app.model),
             app.model
         );
@@ -37,11 +37,11 @@ pub fn list_cycles(app: &App) -> CommandResult {
         );
     }
     out.push('\n');
-    out.push_str("Use `/cycle <n>` to show the full briefing for a specific cycle.\n");
+    out.push_str("使用 `/cycle <n>` 显示特定周期的完整简报。\n");
     CommandResult::message(out)
 }
 
-/// `/cycle <n>` — print the full briefing for cycle `n`.
+/// `/cycle <n>` — 打印周期 `n` 的完整简报。
 pub fn show_cycle(app: &App, arg: Option<&str>) -> CommandResult {
     let Some(raw) = arg.map(str::trim) else {
         return CommandResult::error(
@@ -87,12 +87,12 @@ pub fn show_cycle(app: &App, arg: Option<&str>) -> CommandResult {
     CommandResult::message(out)
 }
 
-/// `/recall <query>` — user-initiated BM25 search of cycle archives.
+/// `/recall <query>` — 用户发起的周期归档 BM25 搜索。
 ///
-/// Synchronous wrapper around `tools::recall_archive::RecallArchiveTool` so
-/// users can probe the archive without invoking the model. Output is the
-/// same JSON payload the agent would see; the assistant pretty-prints
-/// short results and dumps long ones inline.
+/// 围绕 `tools::recall_archive::RecallArchiveTool` 的同步包装，让
+/// 用户无需调用模型即可探查归档。输出是
+/// 代理将看到的相同 JSON 负载；助手对短结果进行美化打印，
+/// 并将长结果内联转储。
 pub fn recall_archive(app: &App, arg: Option<&str>) -> CommandResult {
     use crate::tools::recall_archive::RecallArchiveTool;
     use crate::tools::spec::{ToolContext, ToolSpec};
@@ -123,7 +123,7 @@ pub fn recall_archive(app: &App, arg: Option<&str>) -> CommandResult {
     }
 }
 
-/// Truncate `text` to its first non-empty line, capped at `max_chars`.
+/// 截断 `text` 到第一个非空行，限制在 `max_chars` 字符内。
 fn first_line(text: &str, max_chars: usize) -> String {
     let line = text
         .lines()

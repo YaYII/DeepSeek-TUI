@@ -37,7 +37,7 @@ impl LoopGuard {
         *count = count.saturating_add(1);
         if *count >= IDENTICAL_CALL_BLOCK_THRESHOLD {
             return AttemptDecision::Block(format!(
-                "Blocked: this exact call (`{tool}` with these arguments) has already run {count} times this turn. Stop retrying it unchanged. Either change the arguments or pick a different tool."
+                "已阻止：此确切调用（`{tool}` 使用这些参数）本轮已运行 {count} 次。停止不变地重试。请更改参数或选择不同的工具。"
             ));
         }
         AttemptDecision::Proceed
@@ -53,12 +53,12 @@ impl LoopGuard {
         *failures = failures.saturating_add(1);
         if *failures >= FAILURE_HALT_THRESHOLD {
             return OutcomeDecision::Halt(format!(
-                "Stop retrying `{tool}` - it has failed {failures} consecutive times. Choose a different approach."
+                "停止重试 `{tool}` - 它已连续失败 {failures} 次。请选择不同的方法。"
             ));
         }
         if *failures == FAILURE_WARN_THRESHOLD {
             return OutcomeDecision::Warn(format!(
-                "Tool `{tool}` has failed {failures} consecutive times this turn."
+                "工具 `{tool}` 本轮已连续失败 {failures} 次。"
             ));
         }
         OutcomeDecision::Continue

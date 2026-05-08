@@ -1,14 +1,13 @@
-//! Commit-tick scheduler that drains a stream chunker according to policy.
+//! 提交节拍调度器 — 根据策略排空流式分块器。
 //!
-//! Bridges [`AdaptiveChunkingPolicy`] with a concrete [`StreamChunker`] queue.
-//! Callers feed raw text deltas via [`StreamChunker::push_delta`], then call
-//! [`run_commit_tick`] on every commit beat to obtain text to flush to the
-//! transcript on this beat. Normal motion drains all text received since the
-//! prior tick so the display follows the upstream delta cadence. Low-motion
-//! mode keeps the old one-grapheme drip to reduce visual churn.
+//! 桥接 [`AdaptiveChunkingPolicy`] 和具体的 [`StreamChunker`] 队列。
+//! 调用方通过 [`StreamChunker::push_delta`] 提供原始文本数据块，
+//! 然后在每个提交节拍调用 [`run_commit_tick`] 获取要刷新到
+//! 转录本中的文本。正常模式下会排空自上次节拍以来接收的所有文本，
+//! 使显示跟随上游数据块节奏。低动态模式保持旧的单字素滴流以减少视觉变化。
 //!
-//! The chunker is the unit of streaming — one per active block (assistant /
-//! thinking). Tool output is unbuffered and bypasses this path.
+//! 分块器是流式传输的单位 — 每个活动块一个（助手/思考）。
+//! 工具输出无缓冲，绕过此路径。
 
 use std::collections::VecDeque;
 use std::time::Duration;
@@ -22,14 +21,14 @@ use super::chunking::DrainPlan;
 use super::chunking::QueueSnapshot;
 
 const GRAPHEMES_PER_MICRO_CHUNK: usize = 1;
-/// Buffers raw stream deltas and emits committed text in small display chunks.
+/// 缓冲原始流数据块，并以小显示块的形式发出已提交文本。
 #[derive(Debug, Default)]
 pub struct StreamChunker {
-    /// Bytes received but not yet split into display chunks. Normally empty;
-    /// retained so `drain_remaining` has a lossless place to pull from if we
-    /// ever decide to hold a tail for a future markdown-sensitive mode.
+    /// 已接收但尚未拆分为显示块的字节。通常为空；
+    /// 保留以便 `drain_remaining` 在需要时有无损来源可用，
+    /// 如果我们决定为未来的 markdown 敏感模式保留尾部的话。
     pending: String,
-    /// Small grapheme-aligned chunks waiting to be flushed to the transcript.
+    /// 等待刷新到转录本的小型字素对齐块。
     queue: VecDeque<QueuedChunk>,
 }
 
@@ -44,7 +43,7 @@ impl StreamChunker {
         Self::default()
     }
 
-    /// Append a raw model delta. Returns whether at least one new display chunk was queued.
+    /// 追加原始模型数据块。返回是否至少有一个新的显示块已入队。
     pub fn push_delta(&mut self, delta: &str) -> bool {
         if delta.is_empty() {
             return false;
@@ -67,24 +66,24 @@ impl StreamChunker {
         produced
     }
 
-    /// Number of display chunks currently queued for commit.
+    /// 当前排队等待提交的显示块数量。
     pub fn queued_lines(&self) -> usize {
         self.queue.len()
     }
 
-    /// Age of the oldest queued chunk, if any.
+    /// 最旧的排队块的年龄（如果有）。
     pub fn oldest_queued_age(&self, now: Instant) -> Option<Duration> {
         self.queue
             .front()
             .map(|q| now.saturating_duration_since(q.enqueued_at))
     }
 
-    /// Whether the queue is empty AND no buffered partial line remains.
+    /// 队列是否为空且没有缓冲的部分行残留。
     pub fn is_idle(&self) -> bool {
         self.queue.is_empty() && self.pending.is_empty()
     }
 
-    /// Snapshot for policy decisions.
+    /// 策略决策的快照。
     pub fn snapshot(&self, now: Instant) -> QueueSnapshot {
         QueueSnapshot {
             queued_lines: self.queue.len(),
@@ -92,7 +91,7 @@ impl StreamChunker {
         }
     }
 
-    /// Drain `max_lines` queued chunks and return them as concatenated text.
+    /// 排空 `max_lines` 个排队块并将它们作为拼接文本返回。
     pub fn drain_lines(&mut self, max_lines: usize) -> String {
         let n = max_lines.min(self.queue.len());
         let mut out = String::new();
@@ -102,8 +101,8 @@ impl StreamChunker {
         out
     }
 
-    /// Drain any remaining pending bytes (called at stream finalize).
-    /// This includes both queued complete lines AND the tail partial line.
+    /// 排空任何剩余的待处理字节（在流结束时调用）。
+    /// 这包括排队的完整行和尾部的不完整行。
     pub fn drain_remaining(&mut self) -> String {
         let mut out = String::new();
         while let Some(q) = self.queue.pop_front() {
@@ -116,21 +115,21 @@ impl StreamChunker {
         out
     }
 
-    /// Reset internal state.
+    /// 重置内部状态。
     pub fn reset(&mut self) {
         self.pending.clear();
         self.queue.clear();
     }
 }
 
-/// One commit-tick decision plus the text that should be flushed on this tick.
+/// 一个提交节拍决策加上此节拍应刷新的文本。
 pub struct CommitTickOutput {
     pub committed_text: String,
     pub decision: ChunkingDecision,
     pub is_idle: bool,
 }
 
-/// Run a single commit tick: ask the policy, drain the chunker accordingly.
+/// 运行单个提交节拍：询问策略，相应地排空分块器。
 pub fn run_commit_tick(
     policy: &mut AdaptiveChunkingPolicy,
     chunker: &mut StreamChunker,
@@ -156,7 +155,7 @@ pub fn run_commit_tick(
         DrainPlan::Single => 1,
     };
 
-    // Drain through the chunker; an empty queue under Smooth produces "".
+    // 通过分块器排空；Smooth 模式下的空队列产生 ""。
     let committed_text = chunker.drain_lines(max);
 
     CommitTickOutput {
@@ -166,9 +165,8 @@ pub fn run_commit_tick(
     }
 }
 
-/// Split text into grapheme-aligned chunks. Newlines force a boundary so
-/// markdown layout still settles quickly, but prose no longer waits for a full
-/// line before becoming visible.
+/// 将文本拆分为字素对齐的块。换行符强制形成边界，
+/// 以便 markdown 布局仍能快速确定，但散文不再需要等待整行才可见。
 fn split_into_micro_chunks(text: &str) -> Vec<String> {
     let mut out = Vec::new();
     let mut current = String::new();
@@ -207,7 +205,7 @@ mod tests {
         assert_eq!(out.committed_text, "hello world");
         assert!(
             chunker.is_idle(),
-            "normal motion should preserve upstream pacing"
+            "正常模式应保持上游节奏"
         );
 
         let out = run_commit_tick(&mut policy, &mut chunker, now + Duration::from_millis(5));
@@ -224,7 +222,7 @@ mod tests {
         chunker.push_delta("hello world");
         let out = run_commit_tick(&mut policy, &mut chunker, now);
         assert_eq!(out.committed_text, "h");
-        assert!(!chunker.is_idle(), "low motion should keep dripping");
+        assert!(!chunker.is_idle(), "低动态模式应保持滴流");
 
         let out = run_commit_tick(&mut policy, &mut chunker, now + Duration::from_millis(20));
         assert_eq!(out.committed_text, "e");
@@ -262,9 +260,8 @@ mod tests {
 
     #[test]
     fn large_burst_preserves_upstream_burst_in_normal_motion() {
-        // A large text burst arriving "at once" should be displayed at the
-        // same cadence instead of being synthetically dripped and then flushed
-        // at the end of the turn.
+        // "一次性"到达的大文本突发应以相同节奏显示，
+        // 而不是被合成滴流后又在轮次结束时刷新。
         let mut chunker = StreamChunker::new();
         let mut policy = AdaptiveChunkingPolicy::new();
         let now = Instant::now();
@@ -279,7 +276,7 @@ mod tests {
 
     #[test]
     fn finalize_drains_partial_tail() {
-        // The final, possibly-incomplete line must be flushed by drain_remaining.
+        // 最后可能不完整的行必须由 drain_remaining 刷新。
         let mut chunker = StreamChunker::new();
         chunker.push_delta("done\nno-newline-here");
         let drained = chunker.drain_remaining();

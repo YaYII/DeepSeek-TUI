@@ -3,18 +3,18 @@
 //! 安全命令执行的沙箱模块。
 //!
 //! 本模块为代理执行的 shell 命令提供沙箱能力。
-//! DeepSeek TUI. Sandboxing restricts what system resources a command can access,
-//! preventing accidental or malicious damage to the system.
+//! DeepSeek TUI 的沙箱限制命令可以访问的系统资源，
+//! 防止意外或恶意的系统损坏。
 //!
-//! # Platform Support
+//! # 平台支持
 //!
-//! - **macOS**: Uses Seatbelt (sandbox-exec) for mandatory access control
-//! - **Linux**: Uses Landlock (kernel 5.13+) for filesystem access control
-//! - **Windows**: No OS sandbox is advertised yet. The planned first helper
-//!   contract is process-tree containment only via a Windows Job Object; it
-//!   must not claim filesystem, network, registry, or AppContainer isolation.
+//! - **macOS**: 使用 Seatbelt (sandbox-exec) 进行强制访问控制
+//! - **Linux**: 使用 Landlock (内核 5.13+) 进行文件系统访问控制
+//! - **Windows**: 尚未提供操作系统级沙箱。首个计划中的辅助
+//!   合约仅限于通过 Windows 作业对象的进程树包含；它
+//!   不得声称提供文件系统、网络、注册表或 AppContainer 隔离。
 //!
-//! # Usage
+//! # 用法
 //!
 //! ```rust,ignore
 //! use sandbox::{SandboxManager, CommandSpec, SandboxPolicy};
@@ -24,7 +24,7 @@
 //!     .with_policy(SandboxPolicy::default());
 //!
 //! let exec_env = manager.prepare(&spec);
-//! // exec_env.command now contains the sandboxed command
+//! // exec_env.command 现在包含沙箱化的命令
 //! ```
 
 pub mod backend;
@@ -46,23 +46,22 @@ use std::time::Duration;
 
 pub use policy::SandboxPolicy;
 
-/// Specification for a command to be executed, potentially within a sandbox.
+/// 待执行命令的规格说明，可能在沙箱内执行。
 ///
-/// This struct captures all the information needed to execute a command:
-/// the program and arguments, working directory, environment variables,
-/// timeout, and sandbox policy.
+/// 此结构体捕获执行命令所需的所有信息：
+/// 程序和参数、工作目录、环境变量、超时时间和沙箱策略。
 #[derive(Debug, Clone)]
 pub struct CommandSpec {
-    /// The program to execute (e.g., "sh", "python", "cargo").
+    /// 要执行的程序（例如 "sh", "python", "cargo"）。
     pub program: String,
 
-    /// Arguments to pass to the program.
+    /// 传递给程序的参数。
     pub args: Vec<String>,
 
-    /// Working directory for the command.
+    /// 命令的工作目录。
     pub cwd: PathBuf,
 
-    /// Additional environment variables to set.
+    /// 要设置的额外环境变量。
     pub env: HashMap<String, String>,
 
     /// Maximum execution time before the command is killed.

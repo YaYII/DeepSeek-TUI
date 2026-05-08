@@ -53,7 +53,7 @@ fn cache_summary(app: &App, locale: Locale) -> String {
     }
 }
 
-/// Show token usage for session
+/// 显示会话的 token 使用量
 pub fn tokens(app: &mut App) -> CommandResult {
     let locale = app.ui_locale;
     let message_count = app.api_messages.len();
@@ -81,7 +81,7 @@ pub fn tokens(app: &mut App) -> CommandResult {
     CommandResult::message(report)
 }
 
-/// Show session cost breakdown
+/// 显示会话成本明细
 pub fn cost(app: &mut App) -> CommandResult {
     let report = tr(app.ui_locale, MessageId::CmdCostReport).replace(
         "{cost}",
@@ -90,7 +90,7 @@ pub fn cost(app: &mut App) -> CommandResult {
     CommandResult::message(report)
 }
 
-/// Show current system prompt
+/// 显示当前系统提示
 pub fn system_prompt(app: &mut App) -> CommandResult {
     let prompt_text = match &app.system_prompt {
         Some(SystemPrompt::Text(text)) => text.clone(),
@@ -102,7 +102,7 @@ pub fn system_prompt(app: &mut App) -> CommandResult {
         None => "(no system prompt)".to_string(),
     };
 
-    // Truncate if too long
+    // 如果太长则截断
     let display = if prompt_text.len() > 500 {
         // Find a valid UTF-8 char boundary at or before byte 500
         let truncate_at = prompt_text
@@ -126,15 +126,15 @@ pub fn system_prompt(app: &mut App) -> CommandResult {
     ))
 }
 
-/// Show context window usage
+/// 显示上下文窗口使用情况
 pub fn context(_app: &mut App) -> CommandResult {
     CommandResult::action(AppAction::OpenContextInspector)
 }
 
-/// Show per-turn DeepSeek prefix-cache telemetry for the last N turns (#263).
+/// 显示最近 N 轮的每轮 DeepSeek 前缀缓存遥测数据 (#263)。
 ///
-/// `arg` is parsed as a count override (default 10, capped at the ring size).
-/// Renders a fixed-width table the user can paste into a bug report.
+/// `arg` 被解析为数量覆盖值（默认为 10，上限为环形缓冲区大小）。
+/// 渲染一个固定宽度的表格，用户可以粘贴到错误报告中。
 pub fn cache(app: &mut App, arg: Option<&str>) -> CommandResult {
     let want = arg
         .and_then(|s| s.trim().parse::<usize>().ok())

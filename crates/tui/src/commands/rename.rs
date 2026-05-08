@@ -7,12 +7,12 @@ use super::CommandResult;
 
 const MAX_TITLE_LEN: usize = 100;
 
-/// Rename the current session to the given title.
+/// 将当前会话重命名为指定标题。
 ///
-/// Usage: `/rename <new title>`
+/// 用法: `/rename <新标题>`
 ///
-/// The new title is persisted immediately to `~/.deepseek/sessions/<id>.json`
-/// so the updated name is visible the next time the session picker is opened.
+/// 新标题会立即持久化到 `~/.deepseek/sessions/<id>.json`
+/// 以便下次打开会话选择器时可以看到更新后的名称。
 pub fn rename(app: &mut App, arg: Option<&str>) -> CommandResult {
     let new_title = match arg.map(str::trim).filter(|s| !s.is_empty()) {
         Some(t) => t,

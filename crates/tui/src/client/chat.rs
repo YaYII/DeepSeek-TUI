@@ -367,7 +367,7 @@ impl DeepSeekClient {
                 }
             }
 
-            // Close any open blocks
+            // 关闭任何打开的块
             if thinking_started {
                 yield Ok(StreamEvent::ContentBlockStop { index: content_index.saturating_sub(1) });
             }
@@ -386,7 +386,7 @@ impl DeepSeekClient {
     }
 }
 
-// === Chat Completions Helpers ===
+// === 聊天补全辅助函数 ===
 
 #[cfg(test)]
 pub(super) fn build_chat_messages(
@@ -494,9 +494,8 @@ fn build_chat_messages_with_reasoning(
             let mut reasoning_content = thinking_parts.join("\n");
             let has_text = !content.trim().is_empty();
             let has_tool_calls = !tool_calls.is_empty();
-            // DeepSeek thinking-mode tool calls must replay `reasoning_content`
-            // on subsequent requests. Non-tool assistant reasoning can be
-            // omitted once a later real user text message starts a new turn.
+            // DeepSeek 思考模式的工具调用必须在后续请求中重放 `reasoning_content`。
+            // 非工具的助手推理在后续真实用户文本消息开始新轮次后可以省略。
             let include_reasoning_for_turn =
                 include_reasoning && (has_tool_calls || !later_user_turn);
             let mut has_reasoning =
@@ -509,10 +508,9 @@ fn build_chat_messages_with_reasoning(
                 has_reasoning = true;
             }
 
-            // DeepSeek rejects assistant messages where both `content` and
-            // `tool_calls` are missing/null. Skip such entries even if they
-            // carry reasoning-only metadata unless we can send a non-null
-            // placeholder content field.
+            // DeepSeek 拒绝 `content` 和 `tool_calls` 都缺失/为 null 的助手消息。
+            // 跳过此类条目，即使它们携带仅包含推理的元数据，
+            // 除非我们可以发送一个非 null 的占位内容字段。
             if !has_text && !has_tool_calls && !has_reasoning {
                 pending_tool_calls.clear();
                 continue;
@@ -575,10 +573,9 @@ fn build_chat_messages_with_reasoning(
         }
     }
 
-    // Safety net: after compaction, an assistant message may have tool_calls
-    // whose results were summarized away. The API rejects these, so strip
-    // the tool_calls (downgrading to a plain assistant message) and remove
-    // the now-orphaned tool result messages.
+    // 安全网：压缩后，助手消息可能包含其结果已被摘要化的 tool_calls。
+    // API 会拒绝这些，因此剥离 tool_calls（降级为普通助手消息）
+    // 并移除现在已孤立的工具结果消息。
     let mut i = 0;
     while i < out.len() {
         let is_assistant_with_tools = out[i].get("role").and_then(Value::as_str)
@@ -597,7 +594,7 @@ fn build_chat_messages_with_reasoning(
                 })
                 .unwrap_or_default();
 
-            // Collect tool result IDs immediately following this assistant message.
+            // 收集紧接在此助手消息之后的工具结果 ID。
             let mut found_ids: HashSet<String> = HashSet::new();
             let mut tool_result_end = i + 1;
             while tool_result_end < out.len() {
@@ -614,8 +611,8 @@ fn build_chat_messages_with_reasoning(
                 }
             }
 
-            // Also scan non-contiguous tool results up to the next assistant message
-            // in case compaction left gaps.
+            // 也扫描到下一个助手消息为止的非连续工具结果，
+            // 以防压缩留下了间隙。
             let mut scan = tool_result_end;
             while scan < out.len() {
                 if out[scan].get("role").and_then(Value::as_str) == Some("assistant") {
@@ -641,13 +638,13 @@ fn build_chat_messages_with_reasoning(
                 if let Some(obj) = out[i].as_object_mut() {
                     obj.remove("tool_calls");
                 }
-                // If tool_calls were the only assistant content, remove the now-invalid
-                // assistant message entirely (DeepSeek requires content or tool_calls).
+                // 如果 tool_calls 是唯一的助手内容，则完全移除现在无效的
+                // 助手消息（DeepSeek 要求必须有 content 或 tool_calls）。
                 let assistant_content_empty = out[i]
                     .get("content")
                     .is_none_or(|v| v.is_null() || v.as_str().is_some_and(str::is_empty));
                 if assistant_content_empty {
-                    // Remove orphaned tool results tied to this stripped assistant call set.
+                    // 移除与此被剥离的助手调用集相关的孤立工具结果。
                     let mut j = out.len();
                     while j > i + 1 {
                         j -= 1;
@@ -662,12 +659,12 @@ fn build_chat_messages_with_reasoning(
                     i = i.saturating_sub(1);
                     continue;
                 }
-                // Remove contiguous tool results first
+                // 先移除连续的工具结果
                 if tool_result_end > i + 1 {
                     out.drain((i + 1)..tool_result_end);
                 }
-                // Remove any remaining non-contiguous tool results referencing expected_ids
-                // (scan backward to avoid index shifting issues)
+                // 移除任何引用 expected_ids 的剩余非连续工具结果
+                //（反向扫描以避免索引移位问题）
                 let mut j = out.len();
                 while j > i + 1 {
                     j -= 1;
@@ -763,16 +760,15 @@ fn map_tool_choice_for_chat(choice: &Value) -> Option<Value> {
     }
 }
 
-/// Final-pass sanitizer over the outgoing chat-completions JSON payload.
-/// Forces a non-empty `reasoning_content` onto assistant messages that carry
-/// `tool_calls`, when the model + effort combination requires it. DeepSeek's
-/// thinking-mode API rejects such messages with a 400 error; substituting a
-/// placeholder keeps the conversation chain intact. Non-tool assistant
-/// reasoning can stay omitted once a later user text turn begins.
+/// 对即将发出的聊天补全 JSON 负载执行最终清理。
+/// 当模型 + 推理努力度组合需要时，为携带 `tool_calls` 的助手消息
+/// 强制添加非空的 `reasoning_content`。DeepSeek 的思考模式 API
+/// 会拒绝此类消息并返回 400 错误；替换占位符可保持对话链完整。
+/// 非工具的助手推理在后续用户文本轮次开始后可以保持省略。
 ///
-/// Also tallies the size of all replayed `reasoning_content` and logs it, so
-/// users on `RUST_LOG=deepseek_tui=debug` can see how much of their input
-/// budget is being spent re-sending prior thinking traces.
+/// 同时统计所有重放的 `reasoning_content` 大小并记录日志，
+/// 方便使用 `RUST_LOG=deepseek_tui=debug` 的用户查看
+/// 输入预算中有多少被用于重新发送先前的思考轨迹。
 pub(super) fn sanitize_thinking_mode_messages(
     body: &mut Value,
     model: &str,
@@ -817,8 +813,7 @@ pub(super) fn sanitize_thinking_mode_messages(
     if replay_messages == 0 {
         return None;
     }
-    // ~4 chars/token is the standard rough estimate; DeepSeek tokens skew
-    // a touch shorter on Chinese/code but this is order-of-magnitude info.
+    // ~4 字符/令牌是标准的粗略估计；DeepSeek 令牌在中文/代码上略短，但这是数量级信息。
     let approx_tokens = (replay_chars / 4).min(u64::from(u32::MAX)) as u32;
     logging::info(format!(
         "Reasoning-content replay: {replay_messages} assistant message(s), ~{approx_tokens} input tokens ({replay_chars} chars) being re-sent in this request",
@@ -826,9 +821,8 @@ pub(super) fn sanitize_thinking_mode_messages(
     Some(approx_tokens)
 }
 
-/// Sums the byte length of `reasoning_content` across all assistant messages in
-/// an outgoing chat-completions body. Used by tests; the production sanitizer
-/// computes the same number inline and logs it.
+/// 对传出聊天补全体中所有助手消息的 `reasoning_content` 进行字节长度求和。
+/// 由测试使用；生产环境中的清理器内联计算相同数值并记录日志。
 #[cfg(test)]
 pub(super) fn count_reasoning_replay_chars(body: &Value) -> u64 {
     let Some(messages) = body.get("messages").and_then(Value::as_array) else {
@@ -842,9 +836,8 @@ pub(super) fn count_reasoning_replay_chars(body: &Value) -> u64 {
         .sum()
 }
 
-/// Render the transport-shape headers we care about for #103 diagnostics.
-/// Always returns SOMETHING printable so the decode-error log line is parseable
-/// even when the server stripped a header we expected.
+/// 渲染我们关心的 #103 诊断的传输层头部。
+/// 始终返回可打印的内容，以便解码错误日志行可解析，即使服务器去掉了我们期望的头部。
 fn format_stream_headers(headers: &reqwest::header::HeaderMap) -> String {
     const FIELDS: &[&str] = &[
         "content-encoding",
@@ -863,10 +856,9 @@ fn format_stream_headers(headers: &reqwest::header::HeaderMap) -> String {
     parts.join(", ")
 }
 
-/// Diagnostic logger fired when DeepSeek rejects the request despite the
-/// sanitizer. Walks the body and logs which assistant messages have tool_calls
-/// but no `reasoning_content` — useful to track down a code path that bypasses
-/// the sanitizer entirely.
+/// 当 DeepSeek 尽管经过清理仍拒绝请求时触发的诊断日志器。
+/// 遍历请求体，记录哪些助手消息有 tool_calls 但没有 `reasoning_content`
+/// — 有助于追踪完全绕过清理器的代码路径。
 fn log_thinking_mode_violations(body: &Value) {
     let Some(messages) = body.get("messages").and_then(Value::as_array) else {
         logging::warn("400-after-sanitizer: body has no `messages` array");
@@ -1041,9 +1033,9 @@ pub(super) fn parse_chat_message(payload: &Value) -> Result<MessageResponse> {
     })
 }
 
-// === Streaming Helpers ===
+// === 流式处理辅助函数 ===
 
-/// Build synthetic stream events from a non-streaming response (used as fallback).
+/// 从非流式响应构建合成的流事件（用作回退）。
 #[allow(dead_code)]
 fn build_stream_events(response: &MessageResponse) -> Vec<StreamEvent> {
     let mut events = Vec::new();
@@ -1131,10 +1123,9 @@ fn build_stream_events(response: &MessageResponse) -> Vec<StreamEvent> {
     events
 }
 
-// === SSE Chunk Parser ===
+// === SSE 块解析器 ===
 
-/// Parse a single SSE chunk from the Chat Completions streaming API into
-/// our internal `StreamEvent` representation.
+/// 将来自聊天补全流式 API 的单个 SSE 块解析为我们的内部 `StreamEvent` 表示。
 pub(super) fn parse_sse_chunk(
     chunk: &Value,
     content_index: &mut u32,
@@ -1146,7 +1137,7 @@ pub(super) fn parse_sse_chunk(
     let mut events = Vec::new();
 
     let Some(choices) = chunk.get("choices").and_then(Value::as_array) else {
-        // Usage-only chunk (sent at end with stream_options)
+        // 仅包含用量信息的块（在末尾随 stream_options 发送）
         if let Some(usage_val) = chunk.get("usage") {
             let usage = parse_usage(Some(usage_val));
             events.push(StreamEvent::MessageDelta {
@@ -1182,7 +1173,7 @@ pub(super) fn parse_sse_chunk(
             .map(str::to_string);
 
         if let Some(delta) = delta {
-            // Handle reasoning_content / reasoning thinking deltas.
+            // 处理 reasoning_content / reasoning 思考增量。
             if is_reasoning_model
                 && let Some(reasoning) = reasoning_field(delta)
                 && !reasoning.is_empty()
@@ -1204,11 +1195,11 @@ pub(super) fn parse_sse_chunk(
                 });
             }
 
-            // Handle regular content
+            // 处理常规内容
             if let Some(content) = delta.get("content").and_then(Value::as_str)
                 && !content.is_empty()
             {
-                // Close thinking block if transitioning to text
+                // 如果在过渡到文本时关闭思考块
                 if *thinking_started {
                     events.push(StreamEvent::ContentBlockStop {
                         index: *content_index,
@@ -1233,7 +1224,7 @@ pub(super) fn parse_sse_chunk(
                 });
             }
 
-            // Handle tool calls
+            // 处理工具调用
             if let Some(tool_calls) = delta.get("tool_calls").and_then(Value::as_array) {
                 for tc in tool_calls {
                     let tc_index = tc.get("index").and_then(Value::as_u64).unwrap_or(0) as u32;
@@ -1261,15 +1252,12 @@ pub(super) fn parse_sse_chunk(
                                 .get("id")
                                 .and_then(Value::as_str)
                                 .map(str::to_string)
-                                // Some upstream gateways (and the responses-API
-                                // bridge) elide the `id` on the first chunk of a
-                                // tool call. Falling back to a constant string
-                                // collides when the model emits parallel tool
-                                // calls in the same delta — every call ended up
-                                // with the same id and downstream tool-result
-                                // routing matched the first one twice. Index by
-                                // the content-block position to keep the
-                                // fallback unique within the response.
+                                // 某些上游网关（以及 responses-API 桥接器）
+                                // 会在工具调用的第一个块上省略 `id`。
+                                // 如果回退到常量字符串，当模型在同一 delta 中发出
+                                // 并行工具调用时会发生冲突——每个调用最终具有相同的 id，
+                                // 下游工具结果路由会两次匹配第一个调用。
+                                // 通过内容块位置索引以保持回退在响应内唯一。
                                 .unwrap_or_else(|| format!("call_{block_index}"));
                             let name = tc
                                 .get("function")
@@ -1304,7 +1292,7 @@ pub(super) fn parse_sse_chunk(
                         }
                     };
 
-                    // Stream tool call arguments
+                    // 流式传输工具调用参数
                     if let Some(args) = tc
                         .get("function")
                         .and_then(|f| f.get("arguments"))
@@ -1322,7 +1310,7 @@ pub(super) fn parse_sse_chunk(
             }
         }
 
-        // Handle finish reason
+        // 处理结束原因
         if let Some(reason) = finish_reason {
             // Close any open blocks
             if *text_started {
@@ -1337,7 +1325,7 @@ pub(super) fn parse_sse_chunk(
                 });
                 *thinking_started = false;
             }
-            // Close tool blocks
+            // 关闭工具块
             let mut open_tool_indices: Vec<u32> =
                 tool_indices.drain().map(|(_, idx)| idx).collect();
             open_tool_indices.sort_unstable();
@@ -1347,7 +1335,7 @@ pub(super) fn parse_sse_chunk(
                 });
             }
 
-            // Emit usage from the chunk if available
+            // 如果可用，从块中发出用量信息
             let chunk_usage = chunk.get("usage").map(|u| parse_usage(Some(u)));
             events.push(StreamEvent::MessageDelta {
                 delta: MessageDelta {
@@ -1362,7 +1350,7 @@ pub(super) fn parse_sse_chunk(
     events
 }
 
-// === #103 Phase 1: stream-decode diagnostics ===================================
+// === #103 阶段 1：流解码诊断 ===================================
 
 #[cfg(test)]
 mod stream_diagnostics_tests {
@@ -1399,7 +1387,7 @@ mod stream_diagnostics_tests {
         headers.insert("server", HeaderValue::from_static("openresty/1.25.3.1"));
 
         let rendered = format_stream_headers(&headers);
-        // Order is fixed by FIELDS in the helper; assert each field appears.
+        // 顺序由辅助函数中的 FIELDS 固定；断言每个字段都出现。
         assert!(
             rendered.contains("content-encoding=gzip"),
             "got: {rendered}"
@@ -1420,9 +1408,8 @@ mod stream_diagnostics_tests {
 
     #[test]
     fn format_stream_headers_marks_missing_fields_as_absent() {
-        // DeepSeek frequently omits content-encoding when not compressing.
-        // The diagnostic must still produce a parseable line so log scrapers
-        // don't lose the slot.
+        // DeepSeek 在不压缩时经常省略 content-encoding。
+        // 诊断仍必须产生可解析的行，以便日志抓取器不会丢失该槽位。
         let headers = HeaderMap::new();
         let rendered = format_stream_headers(&headers);
         assert!(
@@ -1437,10 +1424,10 @@ mod stream_diagnostics_tests {
 
     #[test]
     fn format_stream_headers_handles_non_ascii_value_gracefully() {
-        // If a header value isn't UTF-8, `.to_str()` fails — we must not panic
-        // and should still produce a parseable line.
+        // 如果头部值不是 UTF-8，`.to_str()` 会失败 — 我们不能 panic，
+        // 并且仍应产生可解析的行。
         let mut headers = HeaderMap::new();
-        // 0xFF is a valid byte but invalid UTF-8 start byte.
+        // 0xFF 是有效字节，但属于无效的 UTF-8 起始字节。
         headers.insert(
             "server",
             HeaderValue::from_bytes(b"\xff\xfemystery").expect("header value"),
@@ -1453,20 +1440,18 @@ mod stream_diagnostics_tests {
     }
 }
 
-// === #103 Phase 4: SSE decoder behavior on canned chunk sequences ============
+// === #103 阶段 4：SSE 解码器在预设块序列上的行为 ============
 
 #[cfg(test)]
 mod stream_decoder_tests {
-    //! Drive `parse_sse_chunk` (the in-place SSE event extractor) over canned
-    //! chunk sequences. The full `handle_chat_completion_stream` path needs a
-    //! live `reqwest::Response` so it isn't unit-testable without a mock HTTP
-    //! harness (issue #69 tracks that). For #103 we exercise the chunk decoder
-    //! directly to verify each "class of stream failure" the engine relies on.
+    //! 在预设的块序列上驱动 `parse_sse_chunk`（就地 SSE 事件提取器）。
+    //! 完整的 `handle_chat_completion_stream` 路径需要实时的 `reqwest::Response`，
+    //! 因此没有模拟 HTTP 框架就无法进行单元测试（问题 #69 跟踪此问题）。
+    //! 对于 #103，我们直接测试块解码器，以验证引擎依赖的每种"流失败类别"。
     use super::*;
     use crate::models::{ContentBlockStart, Delta, StreamEvent};
 
-    /// Decode a raw SSE-data JSON chunk into our internal events, mirroring
-    /// the per-event call shape used by `handle_chat_completion_stream`.
+    /// 将原始 SSE 数据 JSON 块解码为内部事件，镜像 `handle_chat_completion_stream` 使用的每个事件调用形状。
     fn decode_chunk(json_text: &str) -> Vec<StreamEvent> {
         let chunk: Value = serde_json::from_str(json_text).expect("valid SSE JSON");
         let mut content_index = 0u32;
@@ -1485,9 +1470,8 @@ mod stream_decoder_tests {
 
     #[test]
     fn decoder_emits_text_delta_for_content_chunk() {
-        // The "happy" first chunk: a normal content delta. The engine treats
-        // this as `any_content_received = true` and would NOT transparently
-        // retry on a subsequent error.
+        // "快乐"的第一个块：一个普通的内容增量。引擎将其视为
+        // `any_content_received = true`，并且在后续错误时不会透明重试。
         let events = decode_chunk(r#"{"choices":[{"delta":{"content":"hello"}}]}"#);
         assert!(
             matches!(
@@ -1512,9 +1496,8 @@ mod stream_decoder_tests {
 
     #[test]
     fn decoder_emits_thinking_delta_for_reasoning_chunk() {
-        // V4 thinking models surface reasoning_content first — the engine
-        // also counts these as content received (so a subsequent stream error
-        // surfaces rather than retrying transparently).
+        // V4 思考模型首先展示 reasoning_content — 引擎也将其计为已接收内容
+        // （因此后续流错误会直接暴露，而不是透明重试）。
         let events = decode_chunk(r#"{"choices":[{"delta":{"reasoning_content":"plan..."}}]}"#);
         assert!(
             matches!(
@@ -1539,10 +1522,9 @@ mod stream_decoder_tests {
 
     #[test]
     fn decoder_yields_no_events_for_keepalive_chunk() {
-        // DeepSeek often sends `{"choices":[]}` keepalive chunks before
-        // emitting real content. The engine MUST treat a stream error after
-        // these as "no content received" and be eligible for transparent
-        // retry — assert here that the decoder yields no payload events.
+        // DeepSeek 在发出真实内容之前经常发送 `{"choices":[]}` 保活块。
+        // 引擎必须将这些视为"未收到内容"，并有资格进行透明重试
+        // — 在此断言解码器不产生任何负载事件。
         let events = decode_chunk(r#"{"choices":[]}"#);
         assert!(
             events.is_empty(),

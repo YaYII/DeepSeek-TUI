@@ -10,7 +10,7 @@ use crate::tui::session_picker::SessionPickerView;
 
 use super::CommandResult;
 
-/// Save session to file
+/// 将会话保存到文件
 pub fn save(app: &mut App, path: Option<&str>) -> CommandResult {
     let save_path = if let Some(p) = path {
         PathBuf::from(p)
@@ -56,7 +56,7 @@ pub fn save(app: &mut App, path: Option<&str>) -> CommandResult {
     }
 }
 
-/// Load session from file
+/// 从文件加载会话
 pub fn load(app: &mut App, path: Option<&str>) -> CommandResult {
     let load_path = if let Some(p) = path {
         if p.contains('/') || p.contains('\\') {
@@ -132,7 +132,7 @@ pub fn load(app: &mut App, path: Option<&str>) -> CommandResult {
     )
 }
 
-/// Trigger context compaction
+/// 触发上下文压缩
 pub fn compact(_app: &mut App) -> CommandResult {
     // Trigger immediate compaction via engine
     CommandResult::with_message_and_action(
@@ -141,7 +141,7 @@ pub fn compact(_app: &mut App) -> CommandResult {
     )
 }
 
-/// Export conversation to markdown
+/// 将对话导出为 markdown 格式
 pub fn export(app: &mut App, path: Option<&str>) -> CommandResult {
     let export_path = path.map_or_else(
         || {
@@ -194,8 +194,8 @@ pub fn export(app: &mut App, path: Option<&str>) -> CommandResult {
     }
 }
 
-/// Open the session picker UI, or run a sub-action like
-/// `prune <days>` for housekeeping (#406 phase-1.5).
+/// 打开会话选择器 UI，或运行子操作如
+/// `prune <days>` 进行清理 (#406 phase-1.5)。
 pub fn sessions(app: &mut App, arg: Option<&str>) -> CommandResult {
     let trimmed = arg.unwrap_or("").trim();
     if trimmed.is_empty() {
@@ -217,11 +217,10 @@ pub fn sessions(app: &mut App, arg: Option<&str>) -> CommandResult {
     }
 }
 
-/// Prune persisted sessions older than `<days>` from
-/// `~/.deepseek/sessions/`. Wraps
-/// [`crate::session_manager::SessionManager::prune_sessions_older_than`]
-/// so users can run a safe cleanup without leaving the TUI. Skips
-/// the checkpoint subdirectory (the helper guarantees that already).
+/// 从 `~/.deepseek/sessions/` 中修剪早于 `<days>` 的持久化会话。
+/// 包装了 [`crate::session_manager::SessionManager::prune_sessions_older_than`]
+/// 以便用户无需离开 TUI 即可运行安全清理。跳过
+/// 检查点子目录（辅助函数已保证这一点）。
 fn prune(_app: &mut App, days_arg: Option<&str>) -> CommandResult {
     let days_str = match days_arg {
         Some(s) => s,

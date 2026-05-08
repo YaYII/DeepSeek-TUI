@@ -32,19 +32,19 @@ mod user_commands;
 use crate::localization::{Locale, MessageId, tr};
 use crate::tui::app::{App, AppAction};
 
-/// Result of executing a command
+/// 命令执行结果
 #[derive(Debug, Clone)]
 pub struct CommandResult {
-    /// Optional message to display to the user
+    /// 可选的消息，显示给用户
     pub message: Option<String>,
-    /// Optional action for the app to take
+    /// 可选的应用程序操作
     pub action: Option<AppAction>,
-    /// Whether the command failed.
+    /// 命令是否失败
     pub is_error: bool,
 }
 
 impl CommandResult {
-    /// Create an empty result (command succeeded with no output)
+    /// 创建空结果（命令成功，无输出）
     pub fn ok() -> Self {
         Self {
             message: None,
@@ -53,7 +53,7 @@ impl CommandResult {
         }
     }
 
-    /// Create a result with just a message
+    /// 创建仅包含消息的结果
     pub fn message(msg: impl Into<String>) -> Self {
         Self {
             message: Some(msg.into()),
@@ -62,7 +62,7 @@ impl CommandResult {
         }
     }
 
-    /// Create a result with an action
+    /// 创建包含操作的结果
     pub fn action(action: AppAction) -> Self {
         Self {
             message: None,
@@ -71,7 +71,7 @@ impl CommandResult {
         }
     }
 
-    /// Create a result with both message and action
+    /// 创建同时包含消息和操作的结果
     #[allow(dead_code)]
     pub fn with_message_and_action(msg: impl Into<String>, action: AppAction) -> Self {
         Self {
@@ -81,7 +81,7 @@ impl CommandResult {
         }
     }
 
-    /// Create an error message result
+    /// 创建错误消息结果
     pub fn error(msg: impl Into<String>) -> Self {
         Self {
             message: Some(format!("Error: {}", msg.into())),
@@ -91,12 +91,11 @@ impl CommandResult {
     }
 }
 
-/// Command metadata for help and autocomplete.
+/// 用于帮助和自动补全的命令元数据。
 ///
-/// The English description lives in `localization::english` (private), keyed
-/// by `description_id`. Callers resolve a localized description through
-/// [`CommandInfo::description_for`] which delegates to
-/// [`crate::localization::tr`].
+/// 英文描述存在于 `localization::english`（私有）中，由
+/// `description_id` 键控。调用者通过 [`CommandInfo::description_for`]
+/// 解析本地化描述，该函数委托给 [`crate::localization::tr`]。
 #[derive(Debug, Clone, Copy)]
 pub struct CommandInfo {
     pub name: &'static str,
@@ -487,7 +486,7 @@ pub const COMMANDS: &[CommandInfo] = &[
     },
 ];
 
-/// Execute a slash command
+/// 执行斜杠命令
 pub fn execute(cmd: &str, app: &mut App) -> CommandResult {
     let parts: Vec<&str> = cmd.trim().splitn(2, ' ').collect();
     let command = parts[0].to_lowercase();
@@ -622,25 +621,25 @@ pub fn execute(cmd: &str, app: &mut App) -> CommandResult {
     }
 }
 
-/// Update a configuration value programmatically (used by interactive UI views).
+/// 以编程方式更新配置值（由交互式 UI 视图使用）。
 pub fn set_config_value(app: &mut App, key: &str, value: &str, persist: bool) -> CommandResult {
     config::set_config_value(app, key, value, persist)
 }
 
-/// Persist the user's chosen footer items to `~/.deepseek/config.toml` under
-/// `tui.status_items`. See [`config::persist_status_items`] for details.
+/// 将用户选择的页脚项持久化到 `~/.deepseek/config.toml` 的
+/// `tui.status_items` 下。详情见 [`config::persist_status_items`]。
 pub fn persist_status_items(
     items: &[crate::config::StatusItem],
 ) -> anyhow::Result<std::path::PathBuf> {
     config::persist_status_items(items)
 }
 
-/// Persist a root-level string key in `config.toml`.
+/// 持久化 `config.toml` 中的根级别字符串键。
 pub fn persist_root_string_key(key: &str, value: &str) -> anyhow::Result<std::path::PathBuf> {
     config::persist_root_string_key(key, value)
 }
 
-/// Auto-select a model based on request complexity.
+/// 根据请求复杂度自动选择模型。
 pub fn auto_model_heuristic(input: &str, current_model: &str) -> String {
     config::auto_model_heuristic(input, current_model)
 }
@@ -650,12 +649,10 @@ pub use config::{
     parse_auto_route_recommendation, resolve_auto_route_with_flash,
 };
 
-/// Execute a Recursive Language Model (RLM) turn — Algorithm 1 from
-/// Zhang et al. (arXiv:2512.24601).
+/// 执行递归语言模型（RLM）轮次 — 来自 Zhang 等人的算法 1（arXiv:2512.24601）。
 ///
-/// The user's prompt text is passed as the argument. It will be stored
-/// in the REPL as the `PROMPT` variable. The root LLM will only see
-/// metadata about the REPL state, never the prompt text directly.
+/// 用户的提示文本作为参数传递。它将作为 `PROMPT` 变量存储在 REPL 中。
+/// 根 LLM 只会看到关于 REPL 状态的元数据，永远不会直接看到提示文本。
 pub fn rlm(app: &mut App, arg: Option<&str>) -> CommandResult {
     let prompt = match arg {
         Some(p) if !p.trim().is_empty() => p.trim().to_string(),
@@ -702,7 +699,7 @@ pub fn rlm(app: &mut App, arg: Option<&str>) -> CommandResult {
     )
 }
 
-/// Get command info by name or alias
+/// 按名称或别名获取命令信息
 pub fn get_command_info(name: &str) -> Option<&'static CommandInfo> {
     let name = name.strip_prefix('/').unwrap_or(name);
     COMMANDS

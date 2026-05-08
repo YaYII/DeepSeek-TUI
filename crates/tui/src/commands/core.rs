@@ -163,7 +163,7 @@ pub fn subagents(app: &mut App) -> CommandResult {
     CommandResult::action(AppAction::ListSubAgents)
 }
 
-/// Switch to a configured profile.
+/// 切换到已配置的配置文件。
 pub fn profile_switch(_app: &mut App, arg: Option<&str>) -> CommandResult {
     let profile_name = match arg {
         Some(name) if !name.trim().is_empty() => name.trim().to_string(),
@@ -181,7 +181,7 @@ pub fn profile_switch(_app: &mut App, arg: Option<&str>) -> CommandResult {
     )
 }
 
-/// Show `DeepSeek` dashboard and docs links
+/// 显示 DeepSeek 仪表盘和文档链接
 pub fn deepseek_links(app: &mut App) -> CommandResult {
     let locale = app.ui_locale;
     CommandResult::message(format!(
@@ -197,7 +197,7 @@ pub fn deepseek_links(app: &mut App) -> CommandResult {
     ))
 }
 
-/// Show home dashboard with stats and quick actions
+/// 显示包含统计信息和快速操作的主页仪表盘
 pub fn home_dashboard(app: &mut App) -> CommandResult {
     let locale = app.ui_locale;
     let mut stats = String::new();

@@ -14,7 +14,7 @@
 //!   （分块器上游的约定是：只有完整行文本才会被提交；`flush()` 是
 //!   当我们知道不会再有文本到达时的显式逃生口。）
 //!
-//! See `cx5_chx5_newline_gate.md` in the task brief for full rationale.
+//! 完整原理请参见任务简报中的 `cx5_chx5_newline_gate.md`。
 
 /// 持有流式文本，直到到达换行符边界。
 ///
@@ -59,9 +59,8 @@ impl LineBuffer {
         let Some(last_nl) = self.pending.rfind('\n') else {
             return String::new();
         };
-        // Drain everything up to and including the last newline. The remaining
-        // tail (post-newline) stays in `pending` and is concatenated with the
-        // next `push` before the next commit decision is made.
+        // 排空到最后一个换行符为止的所有内容。剩余的尾部（换行符之后）
+        // 保留在 `pending` 中，并在下次提交决策前与下一次 `push` 的内容拼接。
         self.pending.drain(..=last_nl).collect()
     }
 
@@ -93,9 +92,8 @@ mod tests {
 
     #[test]
     fn push_without_newline_holds_everything() {
-        // Cornerstone invariant: nothing escapes the gate until a newline
-        // terminates the line. This is what protects partial code fences
-        // (e.g. ``` arriving in chunk N, language tag in chunk N+1).
+        // 基石不变性：在没有换行符终止行之前，任何内容都不会逃逸门控。
+        // 这保护了部分代码围栏（例如 ``` 在块 N 中到达，语言标签在块 N+1 中）。
         let mut buf = LineBuffer::new();
         buf.push("hello");
         assert_eq!(buf.take_committable(), "");
@@ -108,7 +106,7 @@ mod tests {
         let mut buf = LineBuffer::new();
         buf.push("hello\nwo");
         assert_eq!(buf.take_committable(), "hello\n");
-        // Tail is held for next call.
+        // 尾部保留给下一次调用。
         assert_eq!(buf.pending_len(), 2);
         assert!(!buf.is_empty());
     }
@@ -118,8 +116,7 @@ mod tests {
         let mut buf = LineBuffer::new();
         buf.push("hello\nwo");
         assert_eq!(buf.take_committable(), "hello\n");
-        // The held "wo" is concatenated with "rld\n", and the whole line
-        // becomes committable.
+        // 保留的 "wo" 与 "rld\n" 拼接，整行变为可提交。
         buf.push("rld\n");
         assert_eq!(buf.take_committable(), "world\n");
         assert!(buf.is_empty());
@@ -129,9 +126,9 @@ mod tests {
     fn flush_returns_unterminated_tail() {
         let mut buf = LineBuffer::new();
         buf.push("trailing without newline");
-        // No newline → nothing committable.
+        // 没有换行符 → 无可提交内容。
         assert_eq!(buf.take_committable(), "");
-        // End-of-stream flush returns it raw.
+        // 流结束时 flush 原样返回。
         assert_eq!(buf.flush(), "trailing without newline");
         assert!(buf.is_empty());
     }
@@ -146,51 +143,48 @@ mod tests {
 
     #[test]
     fn multi_line_burst_returns_prefix_through_last_newline() {
-        // Multiple newlines in one push: the entire prefix up through the
-        // last newline is committable in one go; only the unterminated tail
-        // is held.
+        // 一次 push 中有多个换行符：直到最后一个换行符的整个前缀
+        // 可以一次性提交；只有未终止的尾部被保留。
         let mut buf = LineBuffer::new();
         buf.push("a\nb\nc\nd");
         assert_eq!(buf.take_committable(), "a\nb\nc\n");
         assert_eq!(buf.pending_len(), 1);
-        // Finishing "d" with a newline releases it on the next take.
+        // 用换行符结束 "d" 后，下一次 take 会将其释放。
         buf.push("\n");
         assert_eq!(buf.take_committable(), "d\n");
     }
 
     #[test]
     fn partial_code_fence_never_escapes_the_gate() {
-        // Acceptance scenario from CX#5: a fenced code block whose opener
-        // arrives split across deltas must never expose "foo```rust" without
-        // a terminating newline. We assert that on every intermediate
-        // commit, the *committed* text either contains a newline or is empty
-        // — i.e. the pre-language partial fence never leaks.
+        // 来自 CX#5 的验收场景：代码围栏的起始标记在多个数据块中到达时，
+        // 绝不能暴露没有终止换行符的 "foo```rust"。
+        // 我们断言在每次中间提交中，*已提交*的文本要么包含换行符，要么为空
+        // ——即语言标签前的部分围栏永远不会泄漏。
         let mut buf = LineBuffer::new();
 
-        // Chunk 1: a paragraph fragment ending with the fence opener.
+        // 块 1：以代码围栏起始符结尾的段落片段。
         buf.push("foo```");
         let c1 = buf.take_committable();
         assert!(
             c1.is_empty() || c1.ends_with('\n'),
-            "partial fence leaked: {c1:?}"
+            "部分围栏泄漏了：{c1:?}"
         );
         assert!(
             !c1.contains("foo```"),
-            "fence opener escaped without newline: {c1:?}"
+            "围栏起始符在无换行符时逃逸了：{c1:?}"
         );
 
-        // Chunk 2: language tag + start of body. The fence line is now
-        // newline-terminated, so it can commit; the post-newline body is
-        // held.
+        // 块 2：语言标签 + 正文开始。代码围栏行现在由换行符终止，
+        // 因此可以提交；换行符后的正文被保留。
         buf.push("rust\nlet x");
         let c2 = buf.take_committable();
         assert!(
             c2.ends_with('\n'),
-            "expected newline-terminated commit: {c2:?}"
+            "期望以换行符终止的提交：{c2:?}"
         );
         assert_eq!(c2, "foo```rust\n");
 
-        // Chunk 3: rest of body and the fence closer.
+        // 块 3：正文其余部分和代码围栏结束符。
         buf.push("= 1;\n```\n");
         let c3 = buf.take_committable();
         assert_eq!(c3, "let x= 1;\n```\n");
@@ -199,6 +193,7 @@ mod tests {
 
     #[test]
     fn empty_push_is_a_noop() {
+        let mut buf = LineBuffer::new();
         let mut buf = LineBuffer::new();
         buf.push("");
         assert!(buf.is_empty());

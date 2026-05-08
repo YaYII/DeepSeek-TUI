@@ -14,10 +14,9 @@ use super::spec::{
 };
 use crate::snapshot::SnapshotRepo;
 
-/// Default offset: revert the most-recent turn (i.e. the last `pre-turn:*`
-/// snapshot in history).
+/// 默认偏移量：回滚最近的轮次（即历史中最后一个 `pre-turn:*` 快照）。
 const DEFAULT_OFFSET: u64 = 1;
-/// Hard cap so the model can't ask to roll back to the dawn of time.
+/// 硬上限，防止模型要求回滚到初始状态。
 const MAX_OFFSET: u64 = 50;
 
 pub struct RevertTurnTool;
@@ -44,7 +43,7 @@ impl ToolSpec for RevertTurnTool {
                     "type": "integer",
                     "minimum": 1,
                     "maximum": MAX_OFFSET,
-                    "description": "How many turns back to revert (default 1)."
+                    "description": "回退多少轮（默认 1）。"
                 }
             },
             "additionalProperties": false

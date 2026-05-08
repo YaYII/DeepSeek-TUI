@@ -2,32 +2,30 @@
 
 //! 命令执行限制的沙箱策略定义。
 //!
-//! This module defines the policies that control what resources a sandboxed
-//! process can access. Policies range from full unrestricted access to
-//! tightly controlled workspace-only write access.
+//! 此模块定义控制沙箱进程可以访问哪些资源的策略。
+//! 策略范围从完全无限制访问到严格控制的工作区只写访问。
 
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-/// Determines execution restrictions for shell commands.
+/// 确定 shell 命令的执行限制。
 ///
-/// The sandbox policy controls filesystem access, network access, and other
-/// system resources for executed commands. Choose the most restrictive policy
-/// that still allows your command to function.
+/// 沙箱策略控制文件系统访问、网络访问和其他系统资源。
+/// 选择仍然允许命令运行的最严格策略。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "kebab-case")]
 pub enum SandboxPolicy {
-    /// No restrictions whatsoever. Use with extreme caution.
+    /// 没有任何限制。请极其谨慎使用。
     ///
-    /// This policy disables all sandboxing and allows full system access.
-    /// Only use this when absolutely necessary and the command source is trusted.
+    /// 此策略禁用所有沙箱并允许完全的系统访问。
+    /// 仅在绝对必要且命令来源可信时使用。
     #[serde(rename = "danger-full-access")]
     DangerFullAccess,
 
-    /// Read-only access to the entire filesystem.
+    /// 对整个文件系统的只读访问。
     ///
-    /// The process can read any file but cannot write anywhere.
-    /// Useful for analysis tools that need broad read access.
+    /// 进程可以读取任何文件但不能写入任何位置。
+    /// 适用于需要广泛读取权限的分析工具。
     #[serde(rename = "read-only")]
     ReadOnly,
 

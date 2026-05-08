@@ -91,10 +91,10 @@ impl RlmBridge {
         system: Option<String>,
     ) -> SingleResp {
         let request = MessageRequest {
-            // The Python helper accepts `model=` for older snippets, but it is
-            // intentionally not authoritative. RLM child calls are pinned to
-            // the tool's configured child model so model-generated Python
-            // cannot silently upgrade cheap fanout work to an expensive model.
+            // Python 辅助函数接受 `model=` 以兼容旧代码片段，但它
+            // 不是权威的。RLM 子调用固定使用工具配置的子模型，
+            // 这样模型生成的 Python 不会静默地将便宜的扇出工作
+            // 升级到昂贵的模型。
             model: self.child_model.clone(),
             messages: vec![Message {
                 role: "user".to_string(),
@@ -173,15 +173,14 @@ impl RlmBridge {
 
     async fn dispatch_rlm(&self, prompt: String, _model: Option<String>) -> SingleResp {
         if self.depth_remaining == 0 {
-            // Budget exhausted — fall back to a one-shot child completion
-            // rather than returning an error. Matches the paper's behaviour
-            // ("sub_RLM gracefully degrades to llm_query at depth=0").
+            // 预算耗尽 — 回退到单次子调用补全
+            // 而不是返回错误。符合论文行为
+            //（"sub_RLM 在 depth=0 时优雅降级为 llm_query"）。
             return self.dispatch_llm(prompt, None, None, None).await;
         }
 
-        // Build a drain channel to absorb status events from the nested
-        // turn (we don't surface them; this dispatch is invisible to the
-        // outer agent stream).
+        // 构建一个排空通道来吸收嵌套回合的状态事件
+        //（我们不会展示它们；此分派对外部代理流不可见）。
         let (tx, mut rx) = tokio::sync::mpsc::channel(64);
         let drain = spawn_supervised(
             "rlm-bridge-drain",
@@ -191,8 +190,8 @@ impl RlmBridge {
 
         let child_model = self.child_model.clone();
 
-        // Recursive call. The dyn-erasure on `run_rlm_turn_inner` breaks
-        // the `bridge → turn → bridge` opaque-future cycle.
+        // 递归调用。`run_rlm_turn_inner` 上的 dyn 擦除打破了
+        // `bridge → turn → bridge` 的不透明 future 循环。
         let result = super::turn::run_rlm_turn_inner(
             Arc::clone(&self.client),
             child_model.clone(),
