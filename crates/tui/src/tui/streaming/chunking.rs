@@ -304,8 +304,8 @@ mod tests {
 
     #[test]
     fn catch_up_exits_after_low_activity_hold() {
-        // Enter CatchUp via depth burst, then drop pressure below exit
-        // thresholds. Policy must hold for >=EXIT_HOLD before returning to Smooth.
+        // 通过深度突发进入 CatchUp，然后将压力降至退出阈值以下。
+        // 策略必须在返回 Smooth 前保持 >=EXIT_HOLD 时间。
         let mut policy = AdaptiveChunkingPolicy::new();
         let t0 = Instant::now();
 

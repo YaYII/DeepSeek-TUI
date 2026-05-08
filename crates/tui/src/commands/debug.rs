@@ -1196,15 +1196,15 @@ fn tool_result_id(block: &ContentBlock) -> Option<&String> {
     }
 }
 
-/// Revert the most recent write tool (apply_patch/edit_file/write_file) or turn.
+/// 恢复最近的写入工具（apply_patch/edit_file/write_file）或轮次。
 ///
-/// Opens the side-git snapshot repo and finds the most recent snapshot,
-/// preferring per-tool snapshots (`tool:*`) over pre-turn snapshots
-/// (`pre-turn:*`). Restores files from that snapshot and shows a diff
-/// summary. Falls back to conversation undo when no snapshots exist.
+/// 打开辅助 git 快照仓库并找到最近的快照，
+/// 优先使用每工具快照（`tool:*`）而非轮次前快照
+///（`pre-turn:*`）。从该快照恢复文件并显示差异
+/// 摘要。当没有快照存在时回退到对话撤销。
 ///
-/// Posts a `HistoryCell::System` entry so the user can see what was
-/// reverted in the transcript.
+/// 发布 `HistoryCell::System` 条目，以便用户在转录中看到
+/// 被恢复的内容。
 pub fn patch_undo(app: &mut App) -> CommandResult {
     let workspace = app.workspace.clone();
 
