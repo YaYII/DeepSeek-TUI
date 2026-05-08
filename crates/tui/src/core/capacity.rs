@@ -744,8 +744,8 @@ mod tests {
 
     #[test]
     fn cooldown_blocks_repeated_action() {
-        // Capacity controller is opt-in (off by default since v0.6.2). This
-        // test exercises the cooldown logic, so explicitly enable it.
+        // 容量控制器是选择启用的（自 v0.6.2 起默认关闭）。本
+        // 测试执行冷却逻辑，因此显式启用它。
         let config = CapacityControllerConfig {
             enabled: true,
             ..CapacityControllerConfig::default()

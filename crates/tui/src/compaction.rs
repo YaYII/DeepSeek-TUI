@@ -541,8 +541,8 @@ fn estimate_tokens_for_message(message: &Message, include_thinking: bool) -> usi
         .iter()
         .map(|c| match c {
             ContentBlock::Text { text, .. } => text.len() / 4,
-            // Historical reasoning blocks are UI/session metadata for DeepSeek.
-            // Only current-turn tool-call reasoning is sent back to the API.
+            // 历史推理块是 DeepSeek 的 UI/会话元数据。
+            // 只有当前轮次的工具调用推理会发送回 API。
             ContentBlock::Thinking { thinking } if include_thinking => thinking.len() / 4,
             ContentBlock::Thinking { .. } => 0,
             ContentBlock::ToolUse { input, .. } => serde_json::to_string(input)
@@ -557,9 +557,9 @@ fn estimate_tokens_for_message(message: &Message, include_thinking: bool) -> usi
 }
 
 pub fn estimate_tokens(messages: &[Message]) -> usize {
-    // Rough estimate: ~4 chars per token. DeepSeek thinking-mode rule: any
-    // assistant message with tool_calls keeps its reasoning_content forever
-    // (replayed in all subsequent requests). Final text-only answers drop it.
+    // 粗略估计：每个令牌约 4 个字符。DeepSeek 思考模式规则：
+    // 任何有 tool_calls 的助手消息永久保留其 reasoning_content
+    //（在所有后续请求中重放）。最终的纯文本答案则丢弃它。
     messages
         .iter()
         .map(|message| estimate_tokens_for_message(message, message_has_tool_use(message)))
@@ -588,7 +588,7 @@ fn estimate_system_tokens_conservative(system: Option<&SystemPrompt>) -> usize {
     }
 }
 
-/// Conservative estimate for full request input tokens (messages + system + framing).
+/// 完整请求输入令牌的保守估计（消息 + 系统 + 框架）。
 #[must_use]
 pub fn estimate_input_tokens_conservative(
     messages: &[Message],
@@ -613,11 +613,10 @@ pub fn should_compact(
         return false;
     }
 
-    // v0.8.11: hard floor enforcement. Below the floor (default 500K tokens
-    // — see `MINIMUM_AUTO_COMPACTION_TOKENS`), automatic compaction is
-    // refused because rewriting the prefix kills V4's prefix cache for
-    // little budget recovery. Manual `/compact` and the `compact_now` tool
-    // bypass this floor by going through different code paths.
+    // v0.8.11：硬下限执行。低于下限（默认 500K 令牌
+    // — 参见 `MINIMUM_AUTO_COMPACTION_TOKENS`），自动压缩被拒绝，
+    // 因为重写前缀会破坏 V4 的前缀缓存，而预算回收却很少。
+    // 手动 `/compact` 和 `compact_now` 工具通过不同的代码路径绕过此下限。
     if config.auto_floor_tokens > 0 {
         let total_session_tokens: usize = messages
             .iter()
@@ -648,14 +647,13 @@ pub fn should_compact(
         .sum();
     let message_count = plan.summarize_indices.len();
 
-    // Pinned messages consume part of the budget, so compact earlier when needed.
+    // 固定消息消耗部分预算，因此在需要时提前压缩。
     let effective_token_threshold = config.token_threshold.saturating_sub(pinned_tokens);
 
-    // Token-only trigger (v0.8.11): the prior message-count branch was a
-    // 128K-era heuristic that fired compaction on long chats of small
-    // messages — exactly the case where rewriting the V4 prefix cache is
-    // most wasteful. Token budget is the only signal that maps to actual
-    // model context pressure.
+    // 仅令牌触发器（v0.8.11）：先前的消息计数分支是 128K 时代的
+    // 启发式方法，会在包含小消息的长对话上触发压缩 —
+    // 这正是重写 V4 前缀缓存最浪费的情况。
+    // 令牌预算是唯一映射到实际模型上下文压力的信号。
     if effective_token_threshold == 0 {
         return message_count >= MIN_SUMMARIZE_MESSAGES;
     }

@@ -252,14 +252,14 @@ mod tests {
 
     #[test]
     fn smooth_only_burst_drains_available_chunks_in_normal_motion() {
-        // Five slowly-arriving lines, each well below enter thresholds, never
-        // flip the policy out of `Smooth`. Normal motion still drains what is
-        // already available so display pacing follows upstream deltas.
+        // 五条缓慢到达的行，每条都远低于进入阈值，永远不会
+        // 将策略从 `Smooth` 切换出去。正常模式仍会排空
+        // 已有的内容，使显示节奏跟随上游数据块。
         let mut policy = AdaptiveChunkingPolicy::new();
         let t0 = Instant::now();
 
         for i in 0..5 {
-            // 1 queued line, age 10 ms — far below ENTER thresholds.
+            // 1 个排队行，年龄 10 毫秒 — 远低于 ENTER 阈值。
             let decision = policy.decide(snap(1, 10), t0 + Duration::from_millis(50 * i));
             assert_eq!(decision.mode, ChunkingMode::Smooth);
             assert!(!decision.entered_catch_up);
@@ -269,11 +269,10 @@ mod tests {
 
     #[test]
     fn deep_burst_flips_to_catch_up_and_drains_backlog() {
-        // A burst crossing ENTER_QUEUE_DEPTH_LINES enters CatchUp. With
-        // single-grapheme chunks, the threshold stays high enough that
-        // ordinary prose still drips in visibly before catch-up engages.
-        // The policy should enter `CatchUp`, while normal-motion draining still
-        // preserves the already-arrived upstream burst.
+        // 跨越 ENTER_QUEUE_DEPTH_LINES 的突发进入 CatchUp。
+        // 使用单字素块，阈值保持足够高，使得普通散文在 catch-up 生效前
+        // 仍能以可见方式滴入。策略应进入 `CatchUp`，同时正常模式排空
+        // 仍保留已到达的上游突发。
         let mut policy = AdaptiveChunkingPolicy::new();
         let now = Instant::now();
 
@@ -282,7 +281,7 @@ mod tests {
         assert!(decision.entered_catch_up);
         assert_eq!(decision.drain_plan, DrainPlan::Available);
 
-        // Larger backlog requested next tick: still CatchUp, batch grows to match.
+        // 下次节拍请求更大积压：仍为 CatchUp，批次随之增长。
         let larger_backlog = ENTER_QUEUE_DEPTH_LINES + 80;
         let decision = policy.decide(snap(larger_backlog, 30), now + Duration::from_millis(10));
         assert_eq!(decision.mode, ChunkingMode::CatchUp);

@@ -375,8 +375,8 @@ pub(super) fn missing_tool_error_message(tool_name: &str, catalog: &[Tool]) -> S
     let suggestions = suggest_tool_names(catalog, tool_name, 3);
     if suggestions.is_empty() {
         return format!(
-            "Tool '{tool_name}' is not available in the current tool catalog. \
-             Verify mode/feature flags, or use {TOOL_SEARCH_BM25_NAME} with a short query."
+            "工具 '{tool_name}' 在当前工具目录中不可用。\
+             请检查模式/功能标志，或使用 {TOOL_SEARCH_BM25_NAME} 进行简短查询。"
         );
     }
 

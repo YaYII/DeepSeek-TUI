@@ -254,9 +254,9 @@ pub fn persist_root_string_key(key: &str, value: &str) -> anyhow::Result<PathBuf
     Ok(path)
 }
 
-/// Resolve the path to `~/.deepseek/config.toml` (or
-/// `$DEEPSEEK_CONFIG_PATH`). Mirrors what `Config::load` accepts so we
-/// never write to a different file than the one we read.
+/// 解析 `~/.deepseek/config.toml`（或
+/// `$DEEPSEEK_CONFIG_PATH`）的路径。镜像 `Config::load` 接受的路径，
+/// 这样我们永远不会写入与我们读取的不同文件。
 pub(super) fn config_toml_path() -> anyhow::Result<PathBuf> {
     use anyhow::Context;
     if let Ok(env) = std::env::var("DEEPSEEK_CONFIG_PATH") {
@@ -269,7 +269,7 @@ pub(super) fn config_toml_path() -> anyhow::Result<PathBuf> {
     Ok(home.join(".deepseek").join("config.toml"))
 }
 
-/// Modify a setting at runtime
+/// 在运行时修改设置
 pub fn set_config_value(app: &mut App, key: &str, value: &str, persist: bool) -> CommandResult {
     let key = key.to_lowercase();
 
@@ -479,7 +479,7 @@ pub fn set_config_value(app: &mut App, key: &str, value: &str, persist: bool) ->
     }
 }
 
-/// Modify a setting at runtime
+/// 在运行时修改设置
 #[allow(dead_code)]
 pub fn set_config(app: &mut App, args: Option<&str>) -> CommandResult {
     let Some(args) = args else {
