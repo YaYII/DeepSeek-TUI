@@ -1,312 +1,226 @@
-# System Prompt Analysis — "Mismanaged Genius" Hypothesis
+# 系统提示词分析——"管理不当的天才"假说
 
-## Methodology
+## 方法论
 
-Read every prompt layer (`base.md`, mode overlays, personality, approval policies),
-traced the assembly logic in `prompts.rs`, and compared against what DeepSeek V4 can
-actually do vs what the prompt currently encourages.
+阅读每一层提示（`base.md`、模式覆盖层、个性、审批策略），追踪 `prompts.rs` 中的组装逻辑，并与 DeepSeek V4 实际能做什么以及当前提示鼓励什么进行了对比。
 
 ---
 
-## Summary: The Prompt Is Cautious, Not Strategic
+## 摘要：提示词偏向保守，而非战略
 
-The current prompt has excellent safety rails — clear "when NOT to use" guidance,
-anti-hallucination instructions, and decomposition philosophy. But it treats the
-model's most powerful capabilities (RLM, sub-agents, parallel tool execution) as
-**specialty escape hatches** rather than **default strategic tools**. The result:
-a capable model that hesitates to parallelize, underuses its fan-out abilities, and
-serializes work that could be done concurrently.
+当前的提示词有出色的安全护栏——明确的"何时不使用"指南、反幻觉指令和分解哲学。但它将模型最强大的能力（RLM、子代理、并行工具执行）视为**专业逃生舱**而不是**默认战略工具**。结果是：一个有能力的模型会犹豫是否并行化，未充分利用其扇出能力，并将可以并发完成的工作序列化。
 
-The prompt was written when the model was less reliable and needed guardrails. V4
-models can handle more autonomy — the prompt should reflect that.
+这个提示词是在模型不太可靠、需要护栏时编写的。V4 模型可以处理更多自主性——提示词应该反映这一点。
 
 ---
 
-## Gap-by-Gap Analysis
+## 逐项差距分析
 
-### Gap 1: RLM Is Framed as a Last Resort, Not a Strategic Tool
+### 差距 1：RLM 被定位为最后手段，而非战略工具
 
-**Current text** (`base.md`, "RLM Is a Specialty Tool"):
-> `rlm` is for one specific shape of work: a long input that genuinely does not fit
-> in your context. Reach for it ONLY when direct reasoning over the input is impossible
-> because of its size.
+**当前文本**（`base.md`，"RLM 是专业工具"）：
+> `rlm` 适用于一种特定的工作形态：一个确实不适合你上下文的较长输入。只有当因为输入大小而无法直接推理时才使用它。
 
-**Problem**: RLM is actually three tools in one:
-1. Chunk-and-process for long inputs (the only case the prompt acknowledges)
-2. Parallel `llm_query_batched` for multi-angle analysis (e.g., "classify these 20 items")
-3. `rlm_query` for recursive decomposition of problems that benefit from sub-LLM critique
+**问题**：RLM 实际上是三种工具合为一体：
+1. 长输入的分块处理（提示词承认的唯一情况）
+2. 用于多角度分析的并行 `llm_query_batched`（例如"将这 20 个项目分类"）
+3. 用于从子 LLM 获得递归批判的问题分解（`rlm_query`）
 
-The prompt actively discourages cases 2 and 3. A model that could classify 20 files in
-parallel instead reads them one at a time. A model that could get a "second opinion" on
-its reasoning from a sub-LLM instead trusts its first pass.
+提示词主动劝阻情况 2 和 3。一个可以并行分类 20 个文件的模型会改为逐个读取。一个可以从子 LLM 获得其推理"第二意见"的模型会信任其第一遍分析。
 
-**Suggested rewrite** — replace the restrictive framing with a capability guide:
+**建议重写**——将限制性框架替换为能力指南：
 
 ```
-## RLM — When to Use It
+## RLM——如何使用它
 
-RLM loads input into a Python REPL where you write code that calls sub-LLM helpers
-(`llm_query`, `llm_query_batched`, `rlm_query`). Three patterns, not one:
+RLM 将输入加载到 Python REPL 中，你编写代码调用子 LLM 辅助函数
+（`llm_query`、`llm_query_batched`、`rlm_query`）。三种模式，而非一种：
 
-**CHUNK** — A single input that genuinely doesn't fit in your context window (a whole file
-> 50K tokens, a long transcript, a multi-document corpus). Split it, process each chunk,
-synthesize.
+**CHUNK（分块）** — 一个确实不适合你上下文窗口的单个输入（一个完整的文件 > 50K 令牌、长转录稿、多文档语料库）。拆分它，逐块处理，综合。
 
-**BATCH** — Many independent items that each need LLM attention (classify 20 entries,
-extract fields from 30 documents, score 15 candidates). Use `llm_query_batched` for
-parallel execution — it fans out to the same DeepSeek client and finishes in one turn
-what would take 15 sequential reads.
+**BATCH（批量）** — 每个都需要 LLM 关注的多个独立项目（分类 20 个条目、从 30 个文档中提取字段、对 15 个候选人评分）。使用 `llm_query_batched` 进行并行执行——它会扇出到同一个 DeepSeek 客户端，在一个轮次内完成本需要 15 次顺序读取的工作。
 
-**RECURSE** — A problem that benefits from decomposition + critique. Use `rlm_query` to
-have a sub-LLM review your reasoning, identify gaps, or explore alternative approaches.
-The sub-LLM returns a synthesized answer you verify against live tool output.
+**RECURSE（递归）** — 受益于分解 + 批判的问题。使用 `rlm_query` 让子 LLM 审查你的推理、识别差距或探索替代方法。子 LLM 返回一个你通过实况工具输出验证的综合答案。
 
-**When NOT to use RLM**: a single short file you can read directly; a simple
-classification on 3 items; interactive iterative exploration (RLM is one-shot batch).
-For those, `read_file`, `grep_files`, or `agent_spawn` are faster and cheaper.
+**何时不使用 RLM**：一个可以直接读取的短文件；对 3 个项目的简单分类；交互式迭代探索（RLM 是一次性批处理）。对于这些，`read_file`、`grep_files` 或 `agent_spawn` 更快更便宜。
 ```
 
-### Gap 2: Sub-Agents Are "Implementation, Not Exploration"
+### 差距 2：子代理是"实施，而非探索"
 
-**Current text** (`base.md`, "When NOT to use `agent_spawn`"):
-> You haven't first laid out a plan with `checklist_write`. Sub-agents are
-> implementation, not exploration.
+**当前文本**（`base.md`，"何时不使用 `agent_spawn`"）：
+> 你还没有先用 `checklist_write` 制定计划。子代理是实施，而非探索。
 
-**Problem**: This directly contradicts the Plan mode prompt, which correctly says
-"Spawn read-only sub-agents for parallel investigation." But the Agent mode prompt
-gets the restrictive version. The result: in Agent mode (where most work happens),
-the model treats sub-agents as a last step ("now implement the plan") rather than a
-discovery tool ("investigate these 4 things in parallel to understand the problem").
+**问题**：这与 Plan 模式提示直接矛盾，后者的正确说法是"生成只读子代理进行并行调查。"但 Agent 模式提示得到了限制性版本。结果：在大多数工作发生的 Agent 模式下，模型将子代理视为最后一步（"现在实施计划"），而不是发现工具（"并行调查这 4 件事以理解问题"）。
 
-**Reality**: Sub-agents are the BEST tool for parallel exploration. A single
-`agent_spawn` call that fans out to 3 read-only children investigating different
-modules is faster AND more thorough than reading them sequentially.
+**现实**：子代理是并行探索的最佳工具。一个扇出到 3 个调查不同模块的只读子代理的 `agent_spawn` 调用比顺序读取它们**更快且更彻底**。
 
-**Suggested rewrite** — move sub-agent guidance from "when NOT to use" to a positive
-section:
+**建议重写**——将子代理指南从"何时不使用"移至正面部分：
 
 ```
-## Sub-Agent Strategy
+## 子代理策略
 
-Sub-agents are cheap — DeepSeek V4 Flash costs $0.14/M input. Use them liberally for
-parallel work:
+子代理很便宜——DeepSeek V4 Flash 成本为 $0.14/M 输入。在并行工作中自由使用它们：
 
-- **Parallel investigation**: When you need to understand 3+ independent files or
-  modules, spawn one read-only sub-agent per target. They run concurrently and return
-  structured findings you synthesize.
+- **并行调查**：当你需要理解 3 个以上独立文件或模块时，每个目标生成一个只读子代理。它们并发运行，返回你综合的结构化发现。
 
-- **Parallel implementation**: After a plan is laid out (`checklist_write` +
-  `update_plan`), spawn one sub-agent per independent leaf task. Each does one
-  thing well; you integrate results.
+- **并行实施**：在制定计划后（`checklist_write` + `update_plan`），每个独立叶子任务生成一个子代理。每个做一件事；你整合结果。
 
-- **Solo tasks**: A single read, a single search, a focused question — do these
-  yourself. Spawning has overhead; one-turn reads are faster direct.
+- **单人任务**：一次读取、一次搜索、一个专注的问题——自己做这些。生成有开销；一步读取更快。
 
-- **Sequential work**: If step B depends on step A's output, run A yourself, then
-  decide whether to spawn B based on what A found.
+- **顺序工作**：如果步骤 B 依赖于步骤 A 的输出，自己运行 A，然后根据 A 的结果决定是否生成 B。
 ```
 
-### Gap 3: No "Batch Everything" Instinct
+### 差距 3：没有"批量优先"的本能
 
-**Current text** (`base.md`, "Your V4 Characteristics"):
-> **Parallel execution.** Batch independent reads, searches, and greps into a single
-> turn. Never serialize operations that can run concurrently — parallel tool calls
-> share the same turn and finish faster.
+**当前文本**（`base.md`，"你的 V4 特性"）：
+> **并行执行。** 将独立的读取、搜索和 grep 批处理到单个轮次中。永远不要序列化可以并发运行的操作——并行工具调用共享同一轮次并更快完成。
 
-**Problem**: This instruction is correct but buried in a V4 Characteristics section
-the model may not internalize as a behavioral rule. The model often fires one tool,
-waits for the result, then fires another — even when both are independent.
+**问题**：这个指令是正确的，但埋在一个 V4 特性部分中，模型可能不会将其内化为行为规则。模型经常发射一个工具，等待结果，然后再发射另一个——即使两者是独立的。
 
-**Suggested addition** — add a concrete heuristic at the top of the toolbox section:
+**建议补充**——在工具箱部分顶部添加一个具体启发式规则：
 
 ```
-## Parallel-First Heuristic
+## 并行优先启发式
 
-Before you fire any tool, scan your plan: is there another tool you could run
-concurrently? If two operations don't depend on each other, batch them. Examples:
+在发射任何工具前，扫描你的计划：是否还有其他工具可以并发运行？如果两个操作不相互依赖，请批处理它们。示例：
 
-- Reading 3 files → 3 `read_file` calls in one turn
-- Searching for 2 patterns → 2 `grep_files` calls in one turn
-- Checking git status AND reading a config → `git_status` + `read_file` in one turn
+- 读取 3 个文件 → 一个轮次中的 3 个 `read_file` 调用
+- 搜索 2 个模式 → 一个轮次中的 2 个 `grep_files` 调用
+- 检查 git 状态 AND 读取配置 → 一个轮次中的 `git_status` + `read_file`
 
-The dispatcher runs parallel tool calls simultaneously. Serializing independent
-operations wastes the user's time and your context budget.
+调度器并行运行工具调用。序列化独立操作浪费用户的时间和你的上下文预算。
 ```
 
-### Gap 4: Thinking Budget Too Conservative for V4
+### 差距 4：V4 的思考预算过于保守
 
-**Current text** (`base.md`, "Thinking Budget"):
-| Task type | Thinking depth | Rationale |
-|-----------|---------------|-----------|
-| Simple factual lookup | Skip | Answer is immediate |
-| Code generation (single function) | Light | Pattern-matching |
+**当前文本**（`base.md`，"思考预算"）：
+| 任务类型 | 思考深度 | 理由 |
+|---|---|---|
+| 简单事实查询 | 跳过 | 答案立即可得 |
+| 代码生成（单个函数） | 轻 | 模式匹配 |
 
-**Problem**: V4 models have 1M context and produce thinking tokens that improve
-output quality even for "simple" tasks. Skipping thinking on a factual lookup is
-correct. But "Light" for code generation understates the value of thinking — a
-30-second think before writing a function catches edge cases, checks against
-project conventions, and prevents rework.
+**问题**：V4 模型拥有 1M 上下文并产生思考令牌，即使对于"简单"任务也能提高输出质量。跳过事实查询的思考是正确的。但将代码生成标记为"轻"低估了思考的价值——在编写函数前思考 30 秒可以捕捉边界情况、对照项目约定进行检查并防止返工。
 
-**Suggested rewrite** — bump the defaults up one tier:
+**建议重写**——将默认值提升一级：
 
-| Task type | Thinking depth | Rationale |
-|-----------|---------------|-----------|
-| Simple factual lookup (read, search) | Skip | Answer is immediate |
-| Tool output interpretation | Light | Verify result matches intent |
-| Code generation (single function) | Medium | Conventions, edge cases, context fit |
-| Multi-file refactor | Medium | Cross-file dependencies |
-| Debugging (error to root cause) | Deep | Hypothesis generation |
-| Architecture design | Deep | Trade-offs, constraints |
-| Security review | Deep | Adversarial reasoning |
+| 任务类型 | 思考深度 | 理由 |
+|---|---|---|
+| 简单事实查询（读取、搜索） | 跳过 | 答案立即可得 |
+| 工具输出解读 | 轻 | 验证结果与意图匹配 |
+| 代码生成（单个函数） | 中 | 约定、边界情况、上下文适配 |
+| 多文件重构 | 中 | 跨文件依赖 |
+| 调试（错误到根因） | 深 | 假设生成 |
+| 架构设计 | 深 | 权衡、约束 |
+| 安全审查 | 深 | 对抗性推理 |
 
-### Gap 5: No "Verify Before Claiming" Pattern
+### 差距 5：没有"先验证再断言"的模式
 
-**Current state**: The subagent output format (`subagent_output_format.md`) has an
-EVIDENCE section that requires concrete artifact citations. This is excellent. But
-the main prompt (`base.md`) doesn't establish this as a general habit.
+**当前状态**：子代理输出格式（`subagent_output_format.md`）有一个需要具体工件引用的 EVIDENCE（证据）部分。这非常好。但主提示（`base.md`）没有将此建立为通用习惯。
 
-**Problem**: The model sometimes reads a file, then writes a patch based on its
-memory of the file rather than re-reading the specific lines it's changing. Or it
-claims a shell command succeeded based on exit code 0 without checking the output.
+**问题**：模型有时会读取文件，然后根据对文件的记忆而不是重新读取它正在修改的特定行来编写补丁。或者它基于退出代码 0 声称 shell 命令成功，而不检查输出。
 
-**Suggested addition** — add to the "Decomposition Philosophy" section:
+**建议补充**——添加到"分解哲学"部分：
 
 ```
-## Verification Principle
+## 验证原则
 
-After every tool call that produces a result you'll act on, verify before
-proceeding:
-- File reads: confirm the line numbers you're about to patch are what you think
-- Shell commands: check stdout, not just exit code
-- Search results: confirm the match is what you expected
-- Sub-agent results: cross-check one finding against a direct `read_file`
+在每个会产生你将据以行动的结果的工具调用后，先验证再继续：
+- 文件读取：确认你即将修补的行号与你认为的一致
+- Shell 命令：检查 stdout，而不仅仅是退出代码
+- 搜索结果：确认匹配结果与预期一致
+- 子代理结果：通过直接的 `read_file` 交叉验证一个发现
 
-Don't claim a change worked until you've observed evidence. Don't trust memory
-over live tool output.
+在你观察到证据之前，不要声称为变更已完成。不要相信记忆胜过实况输出。
 ```
 
-### Gap 6: No Composition Heuristic for Complex Work
+### 差距 6：复杂工作没有组合启发式规则
 
-**Current state**: The prompt says "For complex initiatives, layer `update_plan`
-above `checklist_write`." This is correct but vague. The model sometimes creates
-a plan, creates a checklist, and then works through the checklist without
-re-evaluating the plan.
+**当前状态**：提示词说"对于复杂计划，在 `checklist_write` 之上分层使用 `update_plan`。"这个说法正确但模糊。模型有时会创建一个计划，创建一个清单，然后在列出清单中逐项完成而不重新评估计划。
 
-**Suggested addition**:
+**建议补充**：
 
 ```
-## Composition Pattern for Multi-Step Work
+## 多步工作的组合模式
 
-For any task estimated to take 5+ steps:
+对于估计需要 5 步以上的任务：
 
-1. `update_plan` — 3-6 high-level phases (status: pending)
-2. `checklist_write` — concrete leaf tasks under the first phase (mark first
-   `in_progress`)
-3. Execute phase 1, updating checklist as you go
-4. After each phase completes, re-read your plan: does phase 2 still make sense?
-   Update the plan if new information changes the approach.
-5. When a phase reveals sub-problems, add them to the checklist or spawn
-   investigation sub-agents — don't guess.
+1. `update_plan` — 3-6 个高级阶段（状态：pending）
+2. `checklist_write` — 第一个阶段下的具体叶子任务（标记第一个为 `in_progress`）
+3. 执行阶段 1，边做边更新清单
+4. 每个阶段完成后，重新阅读你的计划：阶段 2 仍然有意义吗？如果新信息改变了方法，更新计划。
+5. 当一个阶段暴露出子问题时，将它们添加到清单或生成调查子代理——不要猜测。
 ```
 
-### Gap 7: Approval Mode Contradiction
+### 差距 7：审批模式矛盾
 
-**Current state**: The Agent mode approval policy says "Any write, patch, shell
-execution, sub-agent spawn, or CSV batch operation will ask for approval first."
-But the "Key principle" says "make your work visible" and encourages
-`checklist_write` to populate the sidebar.
+**当前状态**：Agent 模式审批策略说"任何写入、补丁、shell 执行、子代理生成或 CSV 批处理操作将首先请求审批。"但"关键原则"说"让你的工作可见"并鼓励 `checklist_write` 来填充侧边栏。
 
-**Problem**: In Agent mode, the model often waits for approval on EACH step
-individually. A batch of 3 `edit_file` calls requires 3 separate approval rounds.
-The prompt should encourage batching approvals: present the full plan, get
-approval once, then execute all writes in parallel.
+**问题**：在 Agent 模式下，模型经常等待每个步骤的单独审批。一批 3 个 `edit_file` 调用需要 3 轮单独的审批。提示词应鼓励批量审批：展示完整计划，一次性获得审批，然后并行执行所有写入。
 
-**Suggested addition** — add to the Agent mode overlay:
+**建议补充**——添加到 Agent 模式覆盖层：
 
 ```
-## Efficient Approvals
+## 高效审批
 
-When your plan includes multiple writes, present them together:
-1. Show `checklist_write` with all write steps listed
-2. Request approval for the batch ("I need to make 3 edits across 2 files...")
-3. Once approved, execute all writes in one turn (parallel `edit_file` /
-   `apply_patch` calls)
+当你的计划包含多个写入时，一次性展示：
+1. 展示 `checklist_write`，列出所有写入步骤
+2. 请求批量审批（"我需要对 2 个文件进行 3 次编辑……"）
+3. 获得审批后，在一个轮次中并行执行所有写入（并行 `edit_file` / `apply_patch` 调用）
 
-Don't sequence approvals one at a time. The user wants context, not interruption.
+不要一次一个地序列化审批。用户需要的是上下文，而不是被打断。
 ```
 
 ---
 
-## Concrete Prompt Changes
+## 具体的提示词更改
 
-### 1. `base.md` — Replace "RLM Is a Specialty Tool" section
+### 1. `base.md` — 替换"RLM 是专业工具"部分
 
-Remove the current restrictive "RLM Is a Specialty Tool" section entirely.
-Replace with the "RLM — When to Use It" section from Gap 1 above.
+完全删除当前限制性的"RLM 是专业工具"部分。替换为上面"差距 1"中的"RLM——如何使用它"部分。
 
-### 2. `base.md` — Replace "When NOT to use `agent_spawn`"
+### 2. `base.md` — 替换"何时不使用 `agent_spawn`"
 
-Remove the bullet about sub-agents from the "When NOT to use" section.
-Move it to a new positive "Sub-Agent Strategy" section (Gap 2 above) placed
-immediately after the "Decomposition Philosophy" section.
+从"何时不使用"部分移除关于子代理的条目。移至一个新的正面"子代理策略"部分（上面差距 2），紧接在"分解哲学"部分之后。
 
-### 3. `base.md` — Add "Parallel-First Heuristic"
+### 3. `base.md` — 添加"并行优先启发式"
 
-Insert after the toolbox reference section, before "When NOT to use."
-(Gap 3 above.)
+插入在工具箱参考部分之后、"何时不使用"之前。（上面差距 3。）
 
-### 4. `base.md` — Bump thinking budget defaults
+### 4. `base.md` — 提升思考预算默认值
 
-Change the "Code generation (single function)" row from Light → Medium.
-(Gap 4 above.) Single-line change.
+将"代码生成（单个函数）"行从轻→中。（上面差距 4。）单行更改。
 
-### 5. `base.md` — Add "Verification Principle"
+### 5. `base.md` — 添加"验证原则"
 
-Insert as a sub-heading under "Decomposition Philosophy."
-(Gap 5 above.)
+作为"分解哲学"下的一个子标题插入。（上面差距 5。）
 
-### 6. `base.md` — Add "Composition Pattern"
+### 6. `base.md` — 添加"组合模式"
 
-Insert as a sub-heading under "Decomposition Philosophy," after
-"Verification Principle."
-(Gap 6 above.)
+作为"分解哲学"下的一个子标题插入，在"验证原则"之后。（上面差距 6。）
 
-### 7. `modes/agent.md` — Add "Efficient Approvals"
+### 7. `modes/agent.md` — 添加"高效审批"
 
-Insert at the end of the Agent mode overlay.
-(Gap 7 above.)
+插入到 Agent 模式覆盖层的末尾。（上面差距 7。）
 
 ---
 
-## What NOT to Change
+## 不更改的内容
 
-- **"When NOT to use `exec_shell`"** — this guidance is correct and important.
-  Typed tools beat shell-outs for reliability.
-- **"When NOT to use `edit_file` / `apply_patch`"** — tool selection rules are
-  good and prevent blind patching.
-- **Preamble rhythm** — the tone guidance is well-calibrated.
-- **Output formatting** — terminal constraints are real; the guidance is correct.
-- **Context management** — the ~80% compaction suggestion is practical.
-- **Sub-agent sentinel protocol** — the integration pattern is well-defined.
+- **"何时不使用 `exec_shell`"** — 这个指南正确且重要。类型化工具在可靠性上优于 shell 执行。
+- **"何时不使用 `edit_file` / `apply_patch`"** — 工具选择规则很好，可以防止盲目修补。
+- **前奏节奏** — 语气指南校准良好。
+- **输出格式** — 终端限制是真实的；指南是正确的。
+- **上下文管理** — 约 80% 的压缩建议是实用的。
+- **子代理标记协议** — 集成模式定义良好。
 
 ---
 
-## Risk Assessment
+## 风险评估
 
-**Risk: Over-parallelization**. A model told to "batch everything" might spawn
-sub-agents for trivial reads. Mitigation: the "Solo tasks" bullet in the new
-sub-agent strategy section explicitly says "do these yourself."
+**风险：过度并行化**。被告知"批量处理一切"的模型可能会为微小读取生成子代理。缓解措施：新的子代理策略部分中的"单人任务"条目明确说明了"自己做这些。"
 
-**Risk: Over-thinking**. Bumping the thinking budget might waste tokens on
-simple code generation. Mitigation: "Medium" for single-function generation is
-still conservative; the model can self-regulate with the existing guidance
-"skip for lookups."
+**风险：过度思考**。提升思考预算可能会在简单的代码生成上浪费令牌。缓解措施：单个函数生成设为"中"仍然是保守的；模型可以通过现有的"跳过查找"指南进行自我调节。
 
-**Risk: RLM over-use**. Framing RLM as a strategic tool might cause inappropriate
-use for tasks better served by `agent_spawn`. Mitigation: the new "When NOT to
-use RLM" bullet covers the common failure modes.
+**风险：RLM 过度使用**。将 RLM 定位为战略工具可能会导致其不适用于 `agent_spawn` 更适合的任务。缓解措施：新的"何时不使用 RLM"条目涵盖了常见的失败模式。
 
-**Risk: Cache busting**. Adding text to the system prompt changes its byte
-representation, which busts the prefix cache for the first turn after the change.
-Mitigation: this is a one-time cost; subsequent turns hit the cache at the new
-prompt boundary.
+**风险：缓存破坏**。向系统提示添加文本改变其字节表示，这会在更改后的第一个轮次破坏前缀缓存。缓解措施：这是一次性成本；后续轮次将在新提示边界处命中缓存。
