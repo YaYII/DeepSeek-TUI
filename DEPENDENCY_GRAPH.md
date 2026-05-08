@@ -1,12 +1,12 @@
-# Dependency Graph
+# 依赖关系图
 
-## Crate Dependencies (from Cargo.toml)
+## Crate 依赖关系（来自 Cargo.toml）
 
 ```
-deepseek-tui (binary: `deepseek-tui`)
-  (no workspace deps — monolith source under crates/tui/src/)
+deepseek-tui (二进制: `deepseek-tui`)
+  (无工作空间依赖——单体源码位于 crates/tui/src/ 下)
 
-deepseek-tui-cli (binary: `deepseek`)
+deepseek-tui-cli (二进制: `deepseek`)
   <- deepseek-agent
   <- deepseek-app-server
   <- deepseek-config
@@ -25,7 +25,7 @@ deepseek-app-server
   <- deepseek-state
   <- deepseek-tools
 
-deepseek-core (agent loop)
+deepseek-core (代理循环)
   <- deepseek-agent
   <- deepseek-config
   <- deepseek-execpolicy
@@ -41,25 +41,21 @@ deepseek-hooks      <- deepseek-protocol
 deepseek-execpolicy <- deepseek-protocol
 deepseek-agent      <- deepseek-config
 
-deepseek-config     (leaf — no internal deps)
-deepseek-protocol   (leaf — no internal deps)
-deepseek-state      (leaf — no internal deps)
-deepseek-tui-core   (leaf — no internal deps)
+deepseek-config     (叶子——无内部依赖)
+deepseek-protocol   (叶子——无内部依赖)
+deepseek-state      (叶子——无内部依赖)
+deepseek-tui-core   (叶子——无内部依赖)
 ```
 
-Note: `deepseek-tui` has zero workspace deps because it still compiles the
-monolith source tree (`crates/tui/src/main.rs`). The crate split is
-structural — source migration into individual workspace crates is
-incremental.
+注意：`deepseek-tui` 没有工作空间依赖，因为它仍然编译单体源码树（`crates/tui/src/main.rs`）。crate 拆分是结构性的——源码逐步迁移到各个工作空间 crate 中。
 
-## Build Order (bottom-up)
+## 构建顺序（自底向上）
 
 ```
-Layer 0 (leaves):  deepseek-protocol, deepseek-config, deepseek-state, deepseek-tui-core
-Layer 1:           deepseek-tools, deepseek-mcp, deepseek-hooks, deepseek-execpolicy
-Layer 2:           deepseek-agent
-Layer 3:           deepseek-core
-Layer 4:           deepseek-app-server, deepseek-tui
-Layer 5:           deepseek-tui-cli
+第 0 层（叶子层）： deepseek-protocol, deepseek-config, deepseek-state, deepseek-tui-core
+第 1 层：          deepseek-tools, deepseek-mcp, deepseek-hooks, deepseek-execpolicy
+第 2 层：          deepseek-agent
+第 3 层：          deepseek-core
+第 4 层：          deepseek-app-server, deepseek-tui
+第 5 层：          deepseek-tui-cli
 ```
-

@@ -1,3 +1,3 @@
-# v0.7.5 Implementation Plan
+# v0.7.5 实施计划
 
-This document has been archived. See [docs/archive/V0_7_5_IMPLEMENTATION_PLAN.md](archive/V0_7_5_IMPLEMENTATION_PLAN.md).
+本文档已归档。请参见 [docs/archive/V0_7_5_IMPLEMENTATION_PLAN.md](archive/V0_7_5_IMPLEMENTATION_PLAN.md)。

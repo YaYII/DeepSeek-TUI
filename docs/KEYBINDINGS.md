@@ -1,108 +1,108 @@
-# Keybindings
+# 快捷键
 
-This is the source-of-truth catalog of every keyboard shortcut the TUI recognizes. Bindings are grouped by **context** — the focus or modal state they fire in. A binding listed under "Composer" only takes effect when the composer is focused; one under "Transcript" only when the transcript has focus; and so on.
+这是 TUI 识别的所有键盘快捷键的权威目录。绑定按**上下文**分组——即它们触发的焦点或模态状态。列在"Composer"下的绑定仅在 composer 聚焦时生效；列在"Transcript"下的绑定仅在对话区域聚焦时生效；依此类推。
 
-Bindings are not (yet) user-configurable — tracked for a future release (#436, #437). This document is the contract that future config-file overrides will name into.
+快捷键目前尚不支持用户自定义——计划在未来版本中实现（#436, #437）。本文档是未来配置文件覆盖将引用的契约。
 
-## Global (any context)
+## 全局（任何上下文）
 
-| Chord                | Action                                                        |
-|----------------------|---------------------------------------------------------------|
-| `F1` or `Ctrl-/`     | Toggle the help overlay                                       |
-| `Ctrl-K`             | Open the command palette (slash-command finder)                |
-| `Ctrl-C`             | Cancel current turn / dismiss modal / arm-then-confirm quit    |
-| `Ctrl-D`             | Quit (only when the composer is empty)                         |
-| `Tab`                | Cycle TUI mode: Plan → Agent → YOLO → Plan                     |
-| `Shift-Tab`          | Cycle reasoning effort: off → high → max → off                 |
-| `Ctrl-R`             | Open the resume-session picker                                 |
-| `Ctrl-L`             | Refresh / clear the screen                                     |
-| `Ctrl-Shift-E` / `Cmd-Shift-E` | Toggle the file-tree sidebar                          |
-| `Esc`                | Close topmost modal · cancel slash menu · dismiss toast        |
+| 按键                    | 动作                                                         |
+|-------------------------|--------------------------------------------------------------|
+| `F1` 或 `Ctrl-/`        | 切换帮助覆盖层                                                |
+| `Ctrl-K`                | 打开命令面板（斜杠命令查找器）                                 |
+| `Ctrl-C`                | 取消当前轮次 / 关闭模态框 / 确认退出                          |
+| `Ctrl-D`                | 退出（仅在 composer 为空时）                                  |
+| `Tab`                   | 循环切换 TUI 模式：Plan → Agent → YOLO → Plan                 |
+| `Shift-Tab`             | 循环切换推理力度：off → high → max → off                      |
+| `Ctrl-R`                | 打开恢复会话选择器                                             |
+| `Ctrl-L`                | 刷新 / 清除屏幕                                               |
+| `Ctrl-Shift-E` / `Cmd-Shift-E` | 切换文件树侧边栏                                      |
+| `Esc`                   | 关闭顶层模态框 · 取消斜杠菜单 · 关闭提示条                    |
 
-## Composer
+## Composer（消息编辑器）
 
-Editing the message you're about to send.
+编辑你即将发送的消息。
 
-| Chord                       | Action                                                  |
-|-----------------------------|---------------------------------------------------------|
-| `Enter`                     | Send the message (or run the slash command)             |
-| `Alt-Enter` / `Ctrl-J`      | Insert a newline without sending                        |
-| `Ctrl-U`                    | Delete to start of line                                 |
-| `Ctrl-W`                    | Delete previous word                                    |
-| `Ctrl-A` / `Home`           | Move to start of line                                   |
-| `Ctrl-E` / `End`            | Move to end of line                                     |
-| `Ctrl-←` / `Alt-←`          | Move backward one word                                  |
-| `Ctrl-→` / `Alt-→`          | Move forward one word                                   |
-| `Ctrl-V` / `Cmd-V`          | Paste from clipboard (also bracketed-paste auto-handled)|
-| `Ctrl-Y`                    | Yank (paste) from kill buffer                           |
-| `↑` / `↓`                   | Cycle composer history (also selects popup/attachment items) |
-| `Ctrl-P` / `Ctrl-N`         | Cycle composer history (alternative)                     |
-| `Ctrl-S`                    | Stash current draft (`/stash list`, `/stash pop` to recover) |
-| `Alt-R`                    | Search prompt history (Alt-R to exit)                  |
-| `Tab`                       | Slash-command / `@`-mention completion (popup-aware)    |
-| `Ctrl-O`                    | Open external editor for the composer draft             |
+| 按键                        | 动作                                                   |
+|-----------------------------|--------------------------------------------------------|
+| `Enter`                     | 发送消息（或运行斜杠命令）                              |
+| `Alt-Enter` / `Ctrl-J`      | 插入换行但不发送                                        |
+| `Ctrl-U`                    | 删除到行首                                              |
+| `Ctrl-W`                    | 删除前一个单词                                          |
+| `Ctrl-A` / `Home`           | 移动到行首                                              |
+| `Ctrl-E` / `End`            | 移动到行尾                                              |
+| `Ctrl-←` / `Alt-←`          | 向后移动一个单词                                        |
+| `Ctrl-→` / `Alt-→`          | 向前移动一个单词                                        |
+| `Ctrl-V` / `Cmd-V`          | 从剪贴板粘贴（括号粘贴也会自动处理）                    |
+| `Ctrl-Y`                    | 从 kill buffer 粘贴                                     |
+| `↑` / `↓`                   | 循环浏览 composer 历史（也可选择弹出/附件项目）          |
+| `Ctrl-P` / `Ctrl-N`         | 循环浏览 composer 历史（备选方式）                       |
+| `Ctrl-S`                    | 暂存当前草稿（用 `/stash list`、`/stash pop` 恢复）     |
+| `Alt-R`                     | 搜索提示历史（再次按 Alt-R 退出）                       |
+| `Tab`                       | 斜杠命令 / `@` 提及补全（弹出感知）                     |
+| `Ctrl-O`                    | 用外部编辑器打开 composer 草稿                          |
 
-### `@` mentions
+### `@` 提及
 
-Type `@<partial>` to open the file mention popup. `↑`/`↓` cycle the entries, `Tab` or `Enter` accepts. `Esc` hides the popup. As of v0.8.10 (#441), completions are re-ranked by mention frecency — files you mention often + recently float to the top.
+输入 `@<部分名称>` 可打开文件提及弹出框。`↑`/`↓` 循环浏览条目，`Tab` 或 `Enter` 确认选择。`Esc` 隐藏弹出框。从 v0.8.10 开始（#441），补全结果会按提及频率重新排序——你经常且最近提及的文件会排在前面。
 
-### `#` quick-add (memory)
+### `#` 快速添加（记忆）
 
-When `[memory] enabled = true`, typing `# foo` and pressing `Enter` appends `foo` as a timestamped bullet to your memory file *without* sending a turn. See `docs/MEMORY.md`.
+当 `[memory] enabled = true` 时，输入 `# foo` 并按 `Enter` 会将 `foo` 作为带时间戳的项目追加到你的记忆文件中，*而不会*发送一轮对话。参见 `docs/MEMORY.md`。
 
-## Transcript (when transcript has focus)
+## Transcript（对话区域聚焦时）
 
-| Chord                | Action                                              |
-|----------------------|-----------------------------------------------------|
-| `↑` / `↓` / `j` / `k`| Scroll one line (v0.8.13+: bare arrows also scroll when composer empty) |
-| `PgUp` / `PgDn`      | Scroll one page                                    |
-| `Home` / `g`         | Jump to top                                         |
-| `End` / `G`          | Jump to bottom                                     |
-| `Esc`                | Return focus to composer                           |
-| `y`                  | Yank selected region to clipboard                  |
-| `v`                  | Begin / extend visual selection                    |
-| `o`                  | Open URL under cursor (OSC 8 capable terminals)    |
+| 按键                 | 动作                                               |
+|----------------------|----------------------------------------------------|
+| `↑` / `↓` / `j` / `k`| 滚动一行（v0.8.13+：composer 为空时，单独方向键也可滚动） |
+| `PgUp` / `PgDn`      | 滚动一页                                            |
+| `Home` / `g`         | 跳转到顶部                                           |
+| `End` / `G`          | 跳转到底部                                           |
+| `Esc`                | 将焦点返回到 composer                                |
+| `y`                  | 复制选定区域到剪贴板                                  |
+| `v`                  | 开始 / 扩展视觉选择                                  |
+| `o`                  | 打开光标下的 URL（支持 OSC 8 的终端）                |
 
-## Sidebar (when sidebar has focus)
+## Sidebar（侧边栏聚焦时）
 
-| Chord                | Action                                              |
-|----------------------|-----------------------------------------------------|
-| `↑` / `↓` / `j` / `k`| Move selection                                     |
-| `Enter`              | Activate the selected item (open / focus / cancel) |
-| `Tab`                | Cycle to next sidebar panel (Files → Tasks → Agents → Todos) |
-| `Esc`                | Return focus to composer                           |
+| 按键                 | 动作                                               |
+|----------------------|----------------------------------------------------|
+| `↑` / `↓` / `j` / `k`| 移动选择                                            |
+| `Enter`              | 激活所选项目（打开 / 聚焦 / 取消）                   |
+| `Tab`                | 切换到下一个侧边栏面板（文件 → 任务 → 代理 → 待办事项） |
+| `Esc`                | 将焦点返回到 composer                                |
 
-## Slash-command palette (after `Ctrl-K` or typing `/`)
+## 斜杠命令面板（按 `Ctrl-K` 或输入 `/` 后）
 
-| Chord                | Action                                              |
-|----------------------|-----------------------------------------------------|
-| `↑` / `↓`            | Move selection                                     |
-| `Enter` / `Tab`      | Run / complete the highlighted command             |
-| `Esc`                | Dismiss palette                                     |
+| 按键                 | 动作                                               |
+|----------------------|----------------------------------------------------|
+| `↑` / `↓`            | 移动选择                                            |
+| `Enter` / `Tab`      | 运行 / 补全高亮显示的命令                            |
+| `Esc`                | 关闭面板                                            |
 
-## Approval modal (when a tool requests approval)
+## 审批模态框（工具请求审批时）
 
-| Chord                | Action                                              |
-|----------------------|-----------------------------------------------------|
-| `y` / `Y`            | Approve once                                        |
-| `a` / `A`            | Approve all (auto-approve subsequent calls)        |
-| `n` / `N` / `Esc`    | Deny                                                |
-| `e`                  | Edit the approved input before running              |
+| 按键                 | 动作                                               |
+|----------------------|----------------------------------------------------|
+| `y` / `Y`            | 批准一次                                            |
+| `a` / `A`            | 全部批准（自动批准后续调用）                          |
+| `n` / `N` / `Esc`    | 拒绝                                                |
+| `e`                  | 在运行前编辑已批准的输入                              |
 
-## Onboarding (first-run flow)
+## 首次运行引导流程
 
-| Chord                | Action                                              |
-|----------------------|-----------------------------------------------------|
-| `Enter`              | Advance to next step (Welcome → Language → API → …) |
-| `Esc`                | Step back one screen                                |
-| `1`–`5`              | Pick a language (Language step)                    |
-| `y` / `Y`            | Trust the workspace (Trust step)                   |
-| `n` / `N`            | Skip the trust prompt                              |
+| 按键                 | 动作                                               |
+|----------------------|----------------------------------------------------|
+| `Enter`              | 进入下一步（欢迎 → 语言 → API → …）                 |
+| `Esc`                | 后退一步                                            |
+| `1`–`5`              | 选择语言（语言步骤）                                 |
+| `y` / `Y`            | 信任工作区（信任步骤）                                |
+| `n` / `N`            | 跳过信任提示                                        |
 
-## v0.8.13 audit notes
+## v0.8.13 审计说明
 
-- **Ctrl-S is stash, not history search.** Fixed in this revision — `Alt-R` is history search.
-- **Phantom `Alt+Up` removed.** The "Edit last queued message" binding was listed in README but never existed in the key dispatch code.
-- **Bare Up/Down arrows scroll transcript when composer empty (v0.8.13).** Previously the `should_scroll_with_arrows` gate was hardcoded to false, meaning bare arrows always navigated composer history even when the composer was empty. Users in virtual terminals (Ghostty, Codex, Kitty-protocol) were especially affected because they couldn't use Cmd+Up / Alt+Up shortcuts.
-- **Configurable keymap (#436) and `tui.toml` (#437) remain deferred.** The `TuiPrefs` struct and loader exist in `settings.rs` but are not wired at startup. The named-binding registry that would let `~/.deepseek/tui.toml` override individual entries is still pending.
-- **No other broken bindings found.** Every other chord listed above resolves to a live handler in `crates/tui/src/tui/ui.rs` (key-event dispatch) or `crates/tui/src/tui/app.rs` (mode + state transitions).
+- **Ctrl-S 是暂存功能，不是历史搜索。** 本次修订已修正——`Alt-R` 才是历史搜索。
+- **移除了不存在的 `Alt+Up`。** README 中曾经列出"编辑最后一条排队消息"的绑定，但该绑定在按键调度代码中从未存在过。
+- **Composer 为空时，单独方向键 Up/Down 可滚动对话（v0.8.13）。** 此前 `should_scroll_with_arrows` 开关被硬编码为 false，这意味着即使 composer 为空，单独方向键也始终导航 composer 历史。在虚拟终端（Ghostty、Codex、Kitty 协议）中的用户受影响尤其明显，因为他们无法使用 Cmd+Up / Alt+Up 快捷键。
+- **可配置键位映射（#436）和 `tui.toml`（#437）仍延后处理。** `TuiPrefs` 结构体和加载器存在于 `settings.rs` 中，但尚未在启动时接入。用于让 `~/.deepseek/tui.toml` 覆盖个别条目的命名绑定注册表仍待实现。
+- **未发现其他损坏的绑定。** 上面列出的每个按键组合都能解析为 `crates/tui/src/tui/ui.rs`（按键事件分发）或 `crates/tui/src/tui/app.rs`（模式 + 状态转换）中的实际处理函数。

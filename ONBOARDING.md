@@ -1,60 +1,51 @@
-# Welcome to the DeepSeek TUI Team
+# 欢迎加入 DeepSeek TUI 团队
 
-## How We Use Claude
+## 我们如何使用 Claude
 
-Based on Ying Yang's usage over the last 30 days:
+基于 Ying Yang 过去 30 天的使用情况：
 
-Work Type Breakdown:
-  Improve Quality  ████████████████░░░░  60%
-  Plan & Design    ████████████░░░░░░░░  40%
+工作类型占比：
+  提升质量  ████████████████░░░░  60%
+  规划与设计    ████████████░░░░░░░░  40%
 
-Top Skills & Commands:
-  /compact   ████████████████████  1x/month
-  /review    ████████████████████  1x/month
-  /model     ████████████████████  1x/month
+常用技能与命令：
+  /compact   ████████████████████  每月 1 次
+  /review    ████████████████████  每月 1 次
+  /model     ████████████████████  每月 1 次
 
-Top MCP Servers:
-  (none configured)
+常用 MCP 服务器：
+  （未配置）
 
-## Your Setup Checklist
+## 你的设置清单
 
-### Codebases
-- [ ] [deepseek-tui](https://github.com/yayii/deepseek-tui) — A TUI client for interacting with DeepSeek and other LLM APIs
+### 代码库
+- [ ] [deepseek-tui](https://github.com/yayii/deepseek-tui) — 一个用于与 DeepSeek 和其他 LLM API 交互的 TUI 客户端
 
-### MCP Servers to Activate
-No MCP servers are used by the team currently.
+### 需要激活的 MCP 服务器
+目前团队未使用任何 MCP 服务器。
 
-### Skills to Know About
-- `/compact` — Summarizes earlier conversation turns to free up context window space. Use when Claude mentions usage creeping up (~80%).
-- `/review` — Review staged changes or a pull request. Run before pushing to catch issues.
-- `/model` — Switch between Claude models (Opus, Sonnet) for different cost/speed tradeoffs.
+### 需要了解的技能
+- `/compact` — 总结较早的对话轮次以释放上下文窗口空间。当 Claude 提到使用率接近约 80% 时使用。
+- `/review` — 审查暂存的变更或拉取请求。在推送前运行以发现问题。
+- `/model` — 在 Claude 模型（Opus、Sonnet）之间切换以平衡成本与速度。
 
-## Team Tips
+## 团队提示
 
-_TODO_
+_待补充_
 
-## Get Started
+## 开始使用
 
-_TODO_
+_待补充_
 
-<!-- INSTRUCTION FOR CLAUDE: A new teammate just pasted this guide for how the
-team uses Claude Code. You're their onboarding buddy — warm, conversational,
-not lecture-y.
+<!-- Claude 的说明：新队友刚粘贴了这份关于团队如何使用 Claude Code 的指南。
+你是他们的入职伙伴——要热情、对话式，不要像说教。
 
-Open with a warm welcome — include the team name from the title. Then: "Your
-teammate uses Claude Code for [list all the work types]. Let's get you started."
+以热情的欢迎开场——包括标题中的团队名称。然后说："你的队友使用 Claude Code 进行[列出所有工作类型]。让我们开始吧。"
 
-Check what's already in place against everything under Setup Checklist
-(including skills), using markdown checkboxes — [x] done, [ ] not yet. Lead
-with what they already have. One sentence per item, all in one message.
+对照设置清单中的所有项目（包括技能）检查已就绪的内容，使用 Markdown 复选框——[x] 已完成，[ ] 未完成。先列出他们已经具备的内容。每条一句话，全部放在一条消息中。
 
-Tell them you'll help with setup, cover the actionable team tips, then the
-starter task (if there is one). Offer to start with the first unchecked item,
-get their go-ahead, then work through the rest one by one.
+告诉他们你会帮助设置，讲解可操作的团队提示，然后是入门任务（如果有的话）。主动提出从第一个未完成项开始，获得确认后，再逐一完成剩余项。
 
-After setup, walk them through the remaining sections — offer to help where you
-can (e.g. link to channels), and just surface the purely informational bits.
+设置完成后，带他们浏览剩余部分——主动提供你能提供的帮助（例如链接到频道），并将纯粹的信息性内容呈现出来即可。
 
-Don't invent sections or summaries that aren't in the guide. The stats are the
-guide creator's personal usage data — don't extrapolate them into a "team
-workflow" narrative. -->
+不要编造指南中没有的章节或摘要。统计数据是指南创建者的个人使用数据——不要将其推广为"团队工作流程"描述。 -->

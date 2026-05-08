@@ -1,61 +1,56 @@
-# v0.7.5 Implementation Plan
+# v0.7.5 实施计划
 
-Scope: background shell job UX, in-TUI MCP management/discovery, and V4
-context/cache policy. Do not include provider expansion or Whalescale
-rename/migration work in this release lane.
+范围：后台 shell 任务用户体验、TUI 内 MCP 管理/发现功能，以及 V4 上下文/缓存策略。在此发布路线中不包含 provider 扩展或 Whalescale 重命名/迁移工作。
 
-## Context/cache decision
+## 上下文/缓存决策
 
-Default path:
+默认路径：
 
-- Keep the transcript append-only and preserve the stable prefix for DeepSeek V4 cache reuse.
-- Disable replacement-style `auto_compact` by default.
-- Keep replacement compaction manual or late: if a user enables `auto_compact`, V4 compacts only near the 80% model-window guard (`800000` tokens for 1M-context models), not at reasoning-effort soft caps.
-- Keep the Flash seam manager (`[context].enabled`) opt-in until issue #200 has repeatable cache-hit/miss evidence.
-- Keep the capacity controller disabled by default. Treat it as telemetry or an experimental guardrail unless `capacity.enabled = true` is set.
-- Use emergency overflow recovery only when the request would otherwise exceed the model input budget.
+- 保持 transcript 仅追加模式，保留稳定前缀以实现 DeepSeek V4 缓存复用。
+- 默认禁用替换式 `auto_compact`。
+- 将替换式压缩保留为手动或后期操作：如果用户启用 `auto_compact`，V4 仅在接近 80% 模型窗口警戒线（1M 上下文模型为 `800000` tokens）时进行压缩，而不是在推理努力（reasoning-effort）软上限处触发。
+- 保持 Flash seam 管理器（`[context].enabled`）为 opt-in，直到 issue #200 有可重复的缓存命中/未命中证据。
+- 默认禁用容量控制器。将其视为遥测或实验性护栏，除非设置了 `capacity.enabled = true`。
+- 仅当请求会超出模型输入预算时，才使用紧急溢出恢复。
 
-Rationale: V4's 1M-token window and prefix-cache economics make early
-replacement compaction suspect. The first shippable slice should prevent old
-128K-era heuristics from rewriting context before there is evidence that the
-rewrite is cheaper and more reliable than preserving a hot prefix.
+理由：V4 的 1M token 窗口和前缀缓存经济性使得早期替换式压缩变得可疑。首个可交付的切片应防止旧的 128K 时代启发式方法在有证据表明重写比保留热前缀更便宜、更可靠之前重写上下文。
 
-## Shippable slices
+## 可交付切片
 
-### Slice 1: Context policy and docs
+### 切片 1：上下文策略和文档
 
-- Change default `auto_compact` to off.
-- Keep V4 replacement-compaction thresholds late and independent of reasoning effort.
-- Make `[context].enabled` default to false.
-- Make `docs/CONFIGURATION.md`, `docs/capacity_controller.md`, and `config.example.toml` match code defaults.
-- Add focused tests for defaults and V4 threshold behavior.
+- 将默认 `auto_compact` 改为关闭。
+- 保持 V4 替换式压缩阈值推迟触发，且独立于推理努力。
+- 将 `[context].enabled` 默认设为 false。
+- 使 `docs/CONFIGURATION.md`、`docs/capacity_controller.md` 和 `config.example.toml` 与代码默认值一致。
+- 为默认值和 V4 阈值行为添加针对性测试。
 
-### Slice 2: Background shell job center (#195)
+### 切片 2：后台 shell 任务中心（#195）
 
-- Add a job-center view fed by `ShellManager::list()`.
-- Show command, cwd, linked task id when available, status, elapsed time, exit code, and latest output.
-- Add controls to inspect full output, poll latest output, send stdin for PTY/stdin-capable jobs, kill a background job, and attach completed output as task evidence.
-- Mark restart-stale jobs explicitly rather than presenting them as live.
-- Add lifecycle tests for start, poll, cancel, complete, stale/restart, plus TUI snapshots for running and completed job details.
+- 添加由 `ShellManager::list()` 提供数据的任务中心视图。
+- 显示命令、cwd、关联的任务 id（若有）、状态、已用时间、退出码和最新输出。
+- 添加控件以检查完整输出、轮询最新输出、向支持 PTY/stdin 的任务发送 stdin、杀死后台任务，以及将已完成的输出附加为任务证据。
+- 明确标记重启后的陈旧任务，而不是将其呈现为活跃任务。
+- 为启动、轮询、取消、完成、陈旧/重启添加生命周期测试，以及运行中和已完成任务详情的 TUI 快照。
 
-### Slice 3: MCP manager (#196)
+### 切片 3：MCP 管理器（#196）
 
-- Add `/mcp` or a command-palette action that opens an MCP manager view.
-- Show resolved config path, server enabled/disabled state, transport, command/url, timeout settings, startup errors, and discovered tool/resource/prompt counts.
-- Wire `mcp_config_path` into the interactive config surface.
-- Support init, add stdio server, add HTTP/SSE server, enable, disable, remove, validate, reconnect, and inspect tools/resources/prompts.
-- Preserve both `servers` and `mcpServers` config shapes.
+- 添加 `/mcp` 或命令面板操作以打开 MCP 管理器视图。
+- 显示已解析的配置路径、服务器启用/禁用状态、传输方式、命令/URL、超时设置、启动错误以及发现的工具/资源/提示词数量。
+- 将 `mcp_config_path` 接入交互式配置界面。
+- 支持初始化、添加 stdio 服务器、添加 HTTP/SSE 服务器、启用、禁用、移除、验证、重新连接以及检查工具/资源/提示词。
+- 保留 `servers` 和 `mcpServers` 两种配置格式。
 
-### Slice 4: MCP discoverability (#197)
+### 切片 4：MCP 可发现性（#197）
 
-- Add an MCP command-palette section backed by the same discovery state as the manager.
-- Group tools/resources/prompts by server.
-- Show disabled/failed servers without blocking palette rendering.
-- Keep model-visible names consistent with `mcp_<server>_<tool>`.
+- 添加一个 MCP 命令面板区域，由与管理器相同的发现状态支持。
+- 按服务器分组展示工具/资源/提示词。
+- 显示已禁用/失败的服务器，但不阻塞面板渲染。
+- 保持模型可见名称与 `mcp_<server>_<tool>` 一致。
 
-## Stop rules
+## 停止规则
 
-- Do not close #159 or #162 unless a verified PR actually resolves them.
-- Do not add provider expansion.
-- Do not rename or migrate anything to Whalescale.
-- Do not broaden the TUI into a large redesign; each slice should remain independently testable and shippable.
+- 除非经过验证的 PR 实际解决了 #159 或 #162，否则不要关闭它们。
+- 不要添加 provider 扩展。
+- 不要重命名或迁移任何内容到 Whalescale。
+- 不要将 TUI 扩展为大规模重新设计；每个切片应保持独立可测试和可交付。
