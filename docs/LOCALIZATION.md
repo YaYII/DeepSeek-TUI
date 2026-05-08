@@ -1,94 +1,91 @@
-# Localization Matrix
+# 本地化矩阵
 
-Status date: 2026-04-29
+状态日期：2026-04-29
 
-This document tracks UI localization only. It does not change model output language, provider behavior, or DeepSeek payload support. Media attachments remain local path text references unless native media payload support is added separately.
+本文档仅跟踪 UI 本地化。它不会改变模型输出语言、提供商行为或 DeepSeek 负载支持。除非单独添加原生媒体负载支持，否则媒体附件仍为本地路径文本引用。
 
-## Source Audit
+## 来源审计
 
-The v0.7.6 parity check used live GitHub sources with `/opt/homebrew/bin/gh`.
+v0.7.6 一致性检查使用实时 GitHub 源，工具为 `/opt/homebrew/bin/gh`。
 
-| Project | Ref | Evidence | Result |
+| 项目 | 引用 | 证据 | 结果 |
 |---|---:|---|---|
-| Codex CLI | `openai/codex@df966996a75333add031fca47b72655e9ee504fd` | `gh repo view openai/codex`; recursive tree scan for `locale`, `i18n`, `l10n`, `translation`, `messages`; README language scan | No checked-in CLI UI localization registry found in the audited tree. Treat Codex CLI parity as English-first terminal UI behavior, not a source for shipped locale tags. |
-| opencode | `anomalyco/opencode@00bb9836a60f1dcdd0ce5078b05d12f749fdde66` | `packages/console/app/src/lib/language.ts`, `packages/app/src/context/language.tsx`, `packages/web/src/i18n/locales.ts`, `packages/app/src/i18n/parity.test.ts` | opencode ships app/docs locale infrastructure with language detection, locale labels, docs locale aliases, RTL direction for Arabic, and parity tests for targeted keys. |
+| Codex CLI | `openai/codex@df966996a75333add031fca47b72655e9ee504fd` | `gh repo view openai/codex`；递归树扫描以查找 `locale`、`i18n`、`l10n`、`translation`、`messages`；README 语言扫描 | 在审计树中未找到已检入的 CLI UI 本地化注册表。Codex CLI 对等性视为英语优先的终端 UI 行为，而非已发布语言标签的来源。 |
+| opencode | `anomalyco/opencode@00bb9836a60f1dcdd0ce5078b05d12f749fdde66` | `packages/console/app/src/lib/language.ts`、`packages/app/src/context/language.tsx`、`packages/web/src/i18n/locales.ts`、`packages/app/src/i18n/parity.test.ts` | opencode 提供了应用/文档的区域设置基础设施，包含语言检测、区域设置标签、文档区域设置别名、阿拉伯语的 RTL 方向以及针对目标键的一致性测试。 |
 
-## v0.7.6 Shipped Core Pack
+## v0.7.6 已发布核心包
 
-These locales are supported by `locale` in `settings.toml` and by `LANG` / `LC_ALL` auto-detection.
+以下区域设置由 `settings.toml` 中的 `locale` 以及 `LANG` / `LC_ALL` 自动检测支持。
 
-| Locale | Display | Script | Direction | Fallback | Priority tier | v0.7.6 scope | Notes |
+| 区域设置 | 显示名称 | 文字 | 方向 | 回退 | 优先级层级 | v0.7.6 范围 | 备注 |
 |---|---|---|---|---|---|---|---|
-| `en` | English | Latin | LTR | `en` | Baseline | Source strings remain canonical. | English is always available. |
-| `ja` | Japanese | Jpan | LTR | `en` | v0.7.6 must-have | Core TUI chrome | Covers composer placeholder/history search, help chrome, and `/config` chrome. |
-| `zh-Hans` | Chinese Simplified | Hans | LTR | `en` | v0.7.6 must-have | Core TUI chrome | `zh`, `zh-CN`, and `zh-Hans` resolve here. Traditional Chinese is not shipped. |
-| `pt-BR` | Portuguese (Brazil) | Latin | LTR | `en` | v0.7.6 must-have | Core TUI chrome | `pt` and `pt-PT` currently fall back to Brazilian Portuguese; European Portuguese is not separately shipped. |
+| `en` | 英语 | Latin | LTR | `en` | 基准 | 源字符串保持规范。 | 英语始终可用。 |
+| `ja` | 日语 | Jpan | LTR | `en` | v0.7.6 必备 | 核心 TUI 界面 | 涵盖 composer 占位符/历史搜索、帮助界面和 `/config` 界面。 |
+| `zh-Hans` | 简体中文 | Hans | LTR | `en` | v0.7.6 必备 | 核心 TUI 界面 | `zh`、`zh-CN` 和 `zh-Hans` 均解析为此项。不提供繁体中文。 |
+| `pt-BR` | 葡萄牙语（巴西） | Latin | LTR | `en` | v0.7.6 必备 | 核心 TUI 界面 | `pt` 和 `pt-PT` 当前回退到巴西葡萄牙语；不单独提供欧洲葡萄牙语。 |
 
-Selection:
+选择配置：
 
 ```toml
-locale = "auto"     # default; checks LC_ALL, LC_MESSAGES, then LANG
+locale = "auto"     # 默认值；依次检查 LC_ALL、LC_MESSAGES 和 LANG
 locale = "ja"
 locale = "zh-Hans"
 locale = "pt-BR"
 ```
 
-Fallback:
+回退规则：
 
-- Missing or unsupported configured locales fall back to English.
-- `auto` falls back to English when no supported environment locale is detected.
-- The resolved locale is included in the system prompt as the fallback natural
-  language for V4 reasoning and replies. The latest user message takes priority,
-  including for `reasoning_content`, so a Chinese turn should remain Chinese
-  even when the resolved locale is English.
+- 缺少或不支持的已配置区域设置将回退到英语。
+- `auto` 在未检测到受支持的环境区域设置时回退到英语。
+- 解析后的区域设置会包含在系统提示中，作为 V4 推理和回复的回退自然语言。最新的用户消息优先，包括 `reasoning_content`，因此即使解析后的区域设置为英语，中文对话回合也应保持中文。
 
-## Planned Global South QA Matrix
+## 计划中的全球南方 QA 矩阵
 
-These are not claimed as shipped translations in v0.7.6 unless a later change adds complete message coverage and QA evidence.
+除非后续更改添加完整的消息覆盖范围和 QA 证据，否则这些不被视为 v0.7.6 中已发布的翻译。
 
-| Locale | Display | Script | Direction | Priority tier | Coverage status | Fallback | QA status | Layout risks |
+| 区域设置 | 显示名称 | 文字 | 方向 | 优先级层级 | 覆盖状态 | 回退 | QA 状态 | 布局风险 |
 |---|---|---|---|---|---|---|---|---|
-| `ar` | Arabic | Arab | RTL | Follow-up | Planned | `en` | Automated renderer sample only; native review required before shipping | RTL ordering, punctuation, key-chord mixing |
-| `hi` | Hindi | Deva | LTR | Follow-up | Planned | `en` | Automated renderer sample only; native review preferred before shipping | Combining marks, cursor width, truncation |
-| `bn` | Bengali | Beng | LTR | Follow-up | Planned | `en` | Matrix only; native review required before shipping | Combining marks, line wrapping |
-| `id` | Indonesian | Latin | LTR | Follow-up | Planned | `en` | Matrix only; automated narrow-width snapshots and reviewer pass required | Longer labels than English |
-| `vi` | Vietnamese | Latin | LTR | Follow-up | Planned | `en` | Matrix only; automated width snapshots and reviewer pass required | Diacritics and wrapped labels |
-| `sw` | Swahili | Latin | LTR | Follow-up | Planned | `en` | Matrix only; native or fluent review required before shipping | Translation quality, longer command descriptions |
-| `ha` | Hausa | Latin | LTR | Follow-up | Planned | `en` | Matrix only; native or fluent review required before shipping | Diacritics and terminology |
-| `yo` | Yoruba | Latin | LTR | Follow-up | Planned | `en` | Matrix only; native or fluent review required before shipping | Tone marks and terminology |
-| `fil` | Filipino/Tagalog | Latin | LTR | Follow-up | Planned | `en` | Matrix only; source strings required before shipping | Terminology consistency |
-| `es-419` | Spanish (Latin America) | Latin | LTR | Follow-up | Planned | `en` | Matrix only; reviewer pass required before shipping | Regional terminology |
-| `fr` | French | Latin | LTR | Follow-up | Planned | `en` | Matrix only; reviewer pass required before shipping | African locale terminology varies |
+| `ar` | 阿拉伯语 | Arab | RTL | 后续跟进 | 已计划 | `en` | 仅自动渲染样本；发布前需要母语评审 | RTL 排序、标点符号、按键组合混用 |
+| `hi` | 印地语 | Deva | LTR | 后续跟进 | 已计划 | `en` | 仅自动渲染样本；发布前建议母语评审 | 组合标记、光标宽度、截断 |
+| `bn` | 孟加拉语 | Beng | LTR | 后续跟进 | 已计划 | `en` | 仅矩阵；发布前需要母语评审 | 组合标记、换行 |
+| `id` | 印度尼西亚语 | Latin | LTR | 后续跟进 | 已计划 | `en` | 仅矩阵；需要自动窄屏快照和评审员通过 | 标签比英语更长 |
+| `vi` | 越南语 | Latin | LTR | 后续跟进 | 已计划 | `en` | 仅矩阵；需要自动宽度快照和评审员通过 | 变音符号和换行标签 |
+| `sw` | 斯瓦希里语 | Latin | LTR | 后续跟进 | 已计划 | `en` | 仅矩阵；发布前需要母语或流利者评审 | 翻译质量、更长的命令描述 |
+| `ha` | 豪萨语 | Latin | LTR | 后续跟进 | 已计划 | `en` | 仅矩阵；发布前需要母语或流利者评审 | 变音符号和术语 |
+| `yo` | 约鲁巴语 | Latin | LTR | 后续跟进 | 已计划 | `en` | 仅矩阵；发布前需要母语或流利者评审 | 声调标记和术语 |
+| `fil` | 菲律宾语/他加禄语 | Latin | LTR | 后续跟进 | 已计划 | `en` | 仅矩阵；发布前需要源字符串 | 术语一致性 |
+| `es-419` | 西班牙语（拉丁美洲） | Latin | LTR | 后续跟进 | 已计划 | `en` | 仅矩阵；发布前需要评审员通过 | 区域术语差异 |
+| `fr` | 法语 | Latin | LTR | 后续跟进 | 已计划 | `en` | 仅矩阵；发布前需要评审员通过 | 非洲区域术语存在差异 |
 
-## Message Coverage
+## 消息覆盖范围
 
-The first registry pass covers stable message IDs for high-visibility terminal chrome:
+第一轮注册表覆盖了高可见性终端界面的稳定消息 ID：
 
-- composer placeholder
-- composer history search title, placeholder, hints, and no-match state
-- `/config` title, filter placeholder, no-match state, filtered count, and footer hints
-- help overlay title, filter placeholder, no-match state, section labels, and footer hints
+- composer 占位符
+- composer 历史搜索标题、占位符、提示和无匹配状态
+- `/config` 标题、筛选占位符、无匹配状态、筛选计数和底部提示
+- 帮助覆盖层标题、筛选占位符、无匹配状态、分区标签和底部提示
 
-Not yet translated in v0.7.6:
+v0.7.6 中尚未翻译的内容：
 
-- model/system prompts and personalities
-- provider or tool schemas
-- full slash-command descriptions and every status/toast/error path
-- README/docs content beyond this configuration note
+- 模型/系统提示和角色设定
+- 提供商或工具模式
+- 完整的斜杠命令描述及每个状态/提示/错误路径
+- 除本配置说明之外的 README/文档内容
 
-## Translator Notes
+## 译者说明
 
-Keep these technical terms stable unless a later glossary explicitly changes
-them: `Plan`, `Agent`, `YOLO`, `/config`, `/mcp`, `@path`, `/attach`, `DeepSeek`,
-`MCP`, `CLI`, `TUI`, and key chords such as `Enter`, `Esc`, `Tab`, `PgUp`, and
-`PgDn`.
+除非后续术语表明确更改，请保持以下技术术语稳定不变：
+`Plan`、`Agent`、`YOLO`、`/config`、`/mcp`、`@path`、`/attach`、`DeepSeek`、
+`MCP`、`CLI`、`TUI` 以及按键组合如 `Enter`、`Esc`、`Tab`、`PgUp` 和
+`PgDn`。
 
-## QA Checklist
+## QA 检查清单
 
-Before promoting a planned locale to shipped:
+在将计划中的区域设置提升为已发布状态之前：
 
-1. Add complete message coverage in `crates/tui/src/localization.rs`.
-2. Add locale resolution tests and missing-key tests.
-3. Add narrow-width render coverage for at least composer, help, and `/config`.
-4. Verify CJK width, RTL punctuation, combining marks, and truncation.
-5. Record native/fluent review status, or mark the locale as automated-QA-only.
+1. 在 `crates/tui/src/localization.rs` 中添加完整的消息覆盖范围。
+2. 添加区域设置解析测试和缺失键测试。
+3. 至少为 composer、帮助和 `/config` 添加窄屏渲染覆盖。
+4. 验证 CJK 宽度、RTL 标点符号、组合标记和截断。
+5. 记录母语/流利者评审状态，或将区域设置标记为仅自动 QA。

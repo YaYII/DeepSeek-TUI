@@ -1,89 +1,87 @@
-# Modes and Approvals
+# 模式与审批
 
-DeepSeek TUI has two related concepts:
+DeepSeek TUI 有两个相关概念：
 
-- **TUI mode**: what kind of visible interaction you're in (Plan/Agent/YOLO).
-- **Approval mode**: how aggressively the UI asks before executing tools.
+- **TUI 模式**：你处于何种可见交互类型（Plan/Agent/YOLO）。
+- **审批模式**：UI 在执行工具前询问的积极程度。
 
-## TUI Modes
+## TUI 模式
 
-Press `Tab` to complete composer menus, queue a draft as a next-turn follow-up
-while a turn is running, or cycle through the visible modes when the composer is
-otherwise idle: **Plan → Agent → YOLO → Plan**.
-Press `Shift+Tab` to cycle reasoning effort.
+按 `Tab` 可以补全编辑器菜单、在轮次运行中将草稿排队为下一轮跟进，或在编辑器空闲时循环切换可见模式：**Plan → Agent → YOLO → Plan**。
+按 `Shift+Tab` 循环切换推理努力级别。
 
-- **Plan**: design-first prompting. Read-only investigation tools stay available; shell and patch execution stay off. Use this when you want to think out loud and produce a plan to hand to a human (yourself later, or a reviewer).
-- **Agent**: multi-step tool use. Approvals for shell and paid tools (file writes are allowed without a prompt).
-- **YOLO**: enables shell + trust mode and auto-approves all tools. Use only in trusted repos.
+- **Plan**：设计优先的提示方式。只读调查工具保持可用；shell 和补丁执行保持关闭。当你希望边思考边输出，并将计划交给人类（之后的你自己，或审查者）时使用此模式。
+- **Agent**：多步骤工具使用。Shell 和付费工具需要审批（文件写入无需提示即可执行）。
+- **YOLO**：启用 shell + 信任模式并自动批准所有工具。仅在受信任的仓库中使用。
 
-All three modes have access to the `rlm` tool. Inside its Python REPL, `llm_query_batched` fans out 1–16 cheap parallel child calls pinned to `deepseek-v4-flash`. The model reaches for it when work is decomposable.
+所有三种模式都可以使用 `rlm` 工具。在其 Python REPL 内部，`llm_query_batched` 可以扇出 1–16 个廉价的并行子调用，固定使用 `deepseek-v4-flash`。当工作可分解时，模型会使用此工具。
 
-## Compatibility Notes
+## 兼容性说明
 
-- `/normal` is a hidden compatibility alias that switches to `Agent`.
-- Older settings files with `default_mode = "normal"` still load as `agent`; saving rewrites the normalized value.
+- `/normal` 是一个隐藏的兼容性别名，会切换到 `Agent`。
+- 带有 `default_mode = "normal"` 的旧配置文件仍然会作为 `agent` 加载；保存时会重写为标准化值。
 
-## Escape Key Behavior
+## Escape 键行为
 
-`Esc` is a cancel stack, not a mode switch.
+`Esc` 是一个取消堆栈，而非模式开关。
 
-- Close slash menus or transient UI first.
-- Cancel the active request if a turn is running.
-- Discard a queued draft if the composer is empty.
-- Clear the current input if text is present.
-- Otherwise it is a no-op.
+- 首先关闭斜杠菜单或瞬态 UI。
+- 如果轮次正在运行，取消当前请求。
+- 如果编辑器为空，丢弃已排队的草稿。
+- 如果存在文本，清除当前输入。
+- 否则为无操作。
 
-## Approval Mode
+## 审批模式
 
-You can override approval behavior at runtime:
+你可以在运行时覆盖审批行为：
 
 ```text
 /config
-# edit the approval_mode row to: suggest | auto | never
+# 将 approval_mode 行编辑为：suggest | auto | never
 ```
 
-Legacy note: `/set approval_mode ...` was retired in favor of `/config`.
+历史说明：`/set approval_mode ...` 已被弃用，改用 `/config`。
 
-- `suggest` (default): uses the per-mode rules above.
-- `auto`: auto-approves all tools (similar to YOLO approval behavior, but without forcing YOLO mode).
-- `never`: blocks any tool that isn't considered safe/read-only.
+- `suggest`（默认）：使用上述的按模式规则。
+- `auto`：自动批准所有工具（类似于 YOLO 的审批行为，但不强制进入 YOLO 模式）。
+- `never`：阻止任何不被视为安全/只读的工具。
 
-## Small-Screen Status Behavior
+## 小屏幕状态行为
 
-When terminal height is constrained, the status area compacts first so header/chat/composer/footer remain visible:
+当终端高度受限时，状态区域会首先压缩，以便头部/聊天/编辑器/底部栏保持可见：
 
-- Loading and queued status rows are budgeted by available height.
-- Queued previews collapse to compact summaries when full previews do not fit.
-- `/queue` workflows remain available; compact status only affects rendering density.
+- 加载中和排队中的状态行会根据可用高度进行预算。
+- 当完整预览无法容纳时，排队预览会折叠为紧凑摘要。
+- `/queue` 工作流仍然可用；紧凑状态仅影响渲染密度。
 
-## Workspace Boundary and Trust Mode
+## 工作区边界与信任模式
 
-By default, file tools are restricted to the `--workspace` directory. Enable trust mode to allow file access outside the workspace:
+默认情况下，文件工具被限制在 `--workspace` 目录内。启用信任模式以允许文件访问工作区之外：
 
 ```text
 /trust
 ```
 
-YOLO mode enables trust mode automatically.
+YOLO 模式会自动启用信任模式。
 
-## MCP Behavior
+## MCP 行为
 
-MCP tools are exposed as `mcp_<server>_<tool>` and use the same approval flow as built-in tools. Read-only MCP helpers may auto-run in suggestive approval modes; MCP tools with possible side effects require approval.
+MCP 工具以 `mcp_<server>_<tool>` 形式暴露，并使用与内置工具相同的审批流程。只读的 MCP 辅助工具在建议性审批模式下可能会自动运行；可能有副作用的 MCP 工具需要审批。
 
-See `MCP.md`.
+参见 `MCP.md`。
 
-## Related CLI Flags
+## 相关 CLI 标志
 
-Run `deepseek --help` for the canonical list. Common flags:
+运行 `deepseek --help` 获取权威列表。常用标志：
 
-- `-p, --prompt <TEXT>`: one-shot prompt mode (prints and exits)
-- `--model <MODEL>`: when using the `deepseek` facade, forward a DeepSeek model override to the TUI
-- `--workspace <DIR>`: workspace root for file tools
-- `--yolo`: start in YOLO mode
-- `-r, --resume <ID|PREFIX|latest>`: resume a saved session
-- `-c, --continue`: resume the most recent session in this workspace
-- `--max-subagents <N>`: clamp to `1..=20`
-- `--mouse-capture` / `--no-mouse-capture`: opt in or out of internal mouse scrolling, transcript selection, and right-click context actions. Mouse capture is enabled by default on non-Windows terminals so drag selection copies only user/assistant transcript text; hold Shift while dragging or use `--no-mouse-capture` for raw terminal selection. It defaults off on Windows (CMD/terminal mouse-escape spam in the prompt) and inside JetBrains JediTerm — PyCharm/IDEA/CLion/etc. — where the terminal advertises mouse support but forwards SGR mouse events as raw text (#878, #898). Use `--mouse-capture` to opt in anywhere it's defaulted off.
-- `--profile <NAME>`: select config profile
-- `--config <PATH>`: config file path
-- `-v, --verbose`: verbose logging
+- `-p, --prompt <TEXT>`：一次性提示模式（打印并退出）
+- `--model <MODEL>`：使用 `deepseek` 外观时，向 TUI 转发 DeepSeek 模型覆盖
+- `--workspace <DIR>`：文件工具的工作区根目录
+- `--yolo`：以 YOLO 模式启动
+- `-r, --resume <ID|PREFIX|latest>`：恢复已保存的会话
+- `-c, --continue`：恢复此工作区中最近的会话
+- `--max-subagents <N>`：限制为 `1..=20`
+- `--mouse-capture` / `--no-mouse-capture`：选择启用或禁用内部鼠标滚动、转录本选择和右键点击上下文操作。鼠标捕获在非 Windows 终端上默认启用，因此拖动选择仅复制用户/助手转录文本；拖动时按住 Shift 或使用 `--no-mouse-capture` 进行原始终端选择。在 Windows（CMD/终端鼠标转义序列泛滥）和 JetBrains JediTerm 内部——PyCharm/IDEA/CLion 等——默认关闭，因为终端宣称支持鼠标但将 SGR 鼠标事件作为原始文本转发（#878, #898）。在任何默认关闭的地方使用 `--mouse-capture` 选择启用。
+- `--profile <NAME>`：选择配置档案
+- `--config <PATH>`：配置文件路径
+- `-v, --verbose`：详细日志输出
