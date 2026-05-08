@@ -40,6 +40,7 @@ use crate::core::engine::{EngineConfig, EngineHandle, spawn_engine};
 use crate::core::events::Event as EngineEvent;
 use crate::core::ops::Op;
 use crate::hooks::HookEvent;
+use crate::localization::{MessageId, tr};
 use crate::models::{ContentBlock, Message, SystemPrompt, context_window_for_model};
 use crate::palette;
 use crate::prompts;
@@ -8070,7 +8071,7 @@ fn open_thinking_pager(app: &mut App) -> bool {
         .unwrap_or(80);
     let text = history_cell_to_text(cell, width);
     app.view_stack.push(PagerView::from_text(
-        "Thinking",
+        tr(app.ui_locale, MessageId::RenderCellTypeReasoning),
         &text,
         width.saturating_sub(2),
     ));
@@ -8161,11 +8162,11 @@ fn open_details_pager_for_cell(app: &mut App, cell_index: usize) -> bool {
     let title = match cell {
         HistoryCell::User { .. } => "You".to_string(),
         HistoryCell::Assistant { .. } => "Assistant".to_string(),
-        HistoryCell::System { .. } => "Note".to_string(),
-        HistoryCell::Error { .. } => "Error".to_string(),
-        HistoryCell::Thinking { .. } => "Reasoning".to_string(),
-        HistoryCell::Tool(_) => "Message".to_string(),
-        HistoryCell::SubAgent(_) => "Sub-agent".to_string(),
+        HistoryCell::System { .. } => tr(app.ui_locale, MessageId::RenderCellTypeNote).to_string(),
+        HistoryCell::Error { .. } => tr(app.ui_locale, MessageId::RenderCellTypeError).to_string(),
+        HistoryCell::Thinking { .. } => tr(app.ui_locale, MessageId::RenderCellTypeReasoning).to_string(),
+        HistoryCell::Tool(_) => tr(app.ui_locale, MessageId::RenderCellTypeMessage).to_string(),
+        HistoryCell::SubAgent(_) => tr(app.ui_locale, MessageId::RenderCellTypeSubAgent).to_string(),
         HistoryCell::ArchivedContext { .. } => "Archived Context".to_string(),
     };
     let width = app

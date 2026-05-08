@@ -1,5 +1,6 @@
 //! 聊天历史和工具输出的 TUI 渲染辅助函数。
 
+use crate::localization::{Locale, MessageId, tr};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
@@ -31,106 +32,104 @@ const TOOL_RUNNING_SYMBOLS: [&str; 4] = ["·", "◦", "•", "◦"];
 // ~2.88 s — fast enough that the user sees motion within a few hundred ms of
 // starting a tool, slow enough to read as a pulse rather than a strobe.
 const TOOL_STATUS_SYMBOL_MS: u64 = 720;
-/// Visual marker for the user role at the start of their message line. Solid
-/// vertical bar — no animation; user input is a finished thing.
+/// 用户角色在其消息行开头的视觉标记。实心竖条——无动画；用户输入是已完成的事情。
 const USER_GLYPH: &str = "\u{258E}"; // ▎
-/// Visual marker for the assistant role. Solid bullet that pulses at 2s
-/// cycle while the response is streaming, holds full brightness when idle.
+/// 助手角色的视觉标记。实心病号，在响应流式传输时以 2 秒周期脉冲，空闲时保持全亮度。
 const ASSISTANT_GLYPH: &str = "\u{25CF}"; // ●
-/// Transcript body left rail. Solid 1/8 block (`▏`) followed by a space —
-/// used as a visual left-margin anchor for continuation lines, tool-card
-/// detail rows, and affordance lines. Dimmed so it guides the eye without
-/// competing with content.
+/// 转录主体左轨。实心 1/8 块（`▏`）后跟一个空格——用作续行、工具卡片详情行和提示行的视觉左边界锚点。
+/// 变暗以引导视线而不与内容竞争。
 const TRANSCRIPT_RAIL: &str = "\u{258F} "; // ▏ + space
-/// Reasoning header opener. Replaces the spinner glyph on thinking cells —
-/// reasoning is a slow exhale, not a tool spin.
+/// 推理头部打开器。替换思考单元格上的旋转器符号——推理是缓慢的呼气，而不是工具旋转。
 const REASONING_OPENER: &str = "\u{2026}"; // …
-/// Reasoning body left rail. Dashed (`╎`) instead of the solid `▏` block to
-/// visually separate reasoning from message body and tool output.
+/// 推理主体左轨。虚线（`╎`）而不是实心 `▏` 块，以在视觉上区分推理与消息主体和工具输出。
 const REASONING_RAIL: &str = "\u{254E} "; // ╎ + space
-/// Trailing-line cursor on streaming reasoning. Anchored to the live colour
-/// so the user sees where new tokens land.
+/// 流式推理的尾随行光标。锚定到实时颜色，因此用户可以看到新 token 的落点。
 const REASONING_CURSOR: &str = "\u{258E}"; // ▎
 const TOOL_CARD_SUMMARY_LINES: usize = 4;
 const THINKING_SUMMARY_LINE_LIMIT: usize = 4;
 const TOOL_DONE_SYMBOL: &str = "•";
 const TOOL_FAILED_SYMBOL: &str = "•";
 
-/// Render mode controlling whether tool/thinking cells render their compact
-/// "live" form (with caps and collapsed reasoning) or their full transcript
-/// form (uncapped, suitable for the pager / clipboard / message export).
+/// 渲染模式，控制工具/思考单元格是渲染紧凑的"实时"形式（带截断和折叠的推理），
+/// 还是完整的转录形式（未截断，适用于分页器/剪贴板/消息导出）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RenderMode {
-    /// Live in-stream view: thinking is collapsed to a summary, tool output is
-    /// truncated with a "Alt+V for details" affordance.
+    /// 实时流式视图：思考被折叠为摘要，工具输出被截断并带有"Alt+V 查看详情"提示。
     Live,
-    /// Full transcript view: every line of reasoning and tool output is
-    /// emitted, no caps, no affordance.
+    /// 完整转录视图：推理和工具输出的每一行都被完整输出，无截断，无提示。
     Transcript,
 }
 
+/// 思考视觉状态
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ThinkingVisualState {
+    /// 实时流式
     Live,
+    /// 已完成
     Done,
+    /// 空闲
     Idle,
 }
 
-// === History Cells ===
+// === 历史单元格 ===
 
-/// Renderable history cell for user/assistant/system entries.
+/// 可渲染的历史单元格，用于用户/助手/系统条目。
 #[derive(Debug, Clone)]
 pub enum HistoryCell {
+    /// 用户消息
     User {
         content: String,
     },
+    /// 助手回复
     Assistant {
         content: String,
         streaming: bool,
     },
+    /// 系统消息
     System {
         content: String,
     },
-    /// Categorized engine-error cell. Severity drives the label glyph + color
-    /// (red for `Error`/`Critical`, amber for `Warning`, dim for `Info`) so
-    /// the user can prioritize at a glance.
+    /// 分类的引擎错误单元格。严重程度决定标签符号 + 颜色
+    /// （`Error`/`Critical` 为红色，`Warning` 为琥珀色，`Info` 为暗色），
+    /// 使用户可以一目了然地确定优先级。
     Error {
         message: String,
         severity: crate::error_taxonomy::ErrorSeverity,
     },
+    /// 思考内容
     Thinking {
         content: String,
         streaming: bool,
         duration_secs: Option<f32>,
     },
-    /// An `<archived_context>` seam block produced by the Flash seam manager
-    /// (issue #159). Rendered dimmed/italic with a level + range label so
-    /// the user can see at a glance where context seams exist.
+    /// 由 Flash 缝合管理器生成的 `<archived_context>` 缝合块（问题 #159）。
+    /// 以暗色/斜体渲染，带有级别 + 范围标签，使用户可以一目了然地看到上下文缝合的位置。
     ArchivedContext {
-        /// Seam level (1, 2, 3, or 0 for cycle-level).
+        /// 缝合级别（1、2、3，或 0 表示周期级别）。
         level: u8,
-        /// Message range covered (e.g. "msg 0-128").
+        /// 覆盖的消息范围（例如 "msg 0-128"）。
         range: String,
-        /// Token estimate string (e.g. "~2500").
+        /// Token 估算字符串（例如 "~2500"）。
         tokens: String,
-        /// Density label (e.g. "~2,500 tokens").
+        /// 密度标签（例如 "~2,500 tokens"）。
         density: String,
-        /// Model that produced the summary.
+        /// 生成摘要的模型。
         model: String,
-        /// RFC 3339 timestamp.
+        /// RFC 3339 时间戳。
         timestamp: String,
-        /// The summary text content.
+        /// 摘要文本内容。
         summary: String,
     },
+    /// 工具单元格
     Tool(ToolCell),
-    /// Live in-transcript card for sub-agent activity (issue #128). Owns
-    /// either a single `DelegateCard` or a multi-worker `FanoutCard`; the
-    /// UI re-binds it from the mailbox stream as envelopes arrive.
+    /// 子代理活动的实时转录卡片（问题 #128）。
+    /// 拥有单个 `DelegateCard` 或多工作器 `FanoutCard`；
+    /// UI 在邮件到达时从邮箱流中重新绑定它。
     SubAgent(SubAgentCell),
 }
 
-/// In-transcript sub-agent cell — either a single delegate or a fanout.
-/// State mutates over the turn as mailbox envelopes are drained.
+/// 转录中的子代理单元格——单个委托或多工作器扇出。
+/// 状态在邮件被处理时随回合变化。
 #[derive(Debug, Clone)]
 pub enum SubAgentCell {
     Delegate(crate::tui::widgets::agent_card::DelegateCard),
@@ -153,6 +152,7 @@ pub struct TranscriptRenderOptions {
     pub calm_mode: bool,
     pub low_motion: bool,
     pub spacing: TranscriptSpacing,
+    pub locale: Locale,
 }
 
 impl Default for TranscriptRenderOptions {
@@ -163,19 +163,19 @@ impl Default for TranscriptRenderOptions {
             calm_mode: false,
             low_motion: false,
             spacing: TranscriptSpacing::Comfortable,
+            locale: Locale::En,
         }
     }
 }
 
 impl HistoryCell {
-    /// Render the cell into a set of terminal lines.
+    /// 将单元格渲染为终端行。
     ///
-    /// This is the live-display path used by widgets that don't already pass
-    /// `TranscriptRenderOptions`. Tool output is capped, but thinking is shown
-    /// in full because callers using bare `lines()` historically expected the
-    /// uncollapsed body. For the in-stream transcript view prefer
-    /// `lines_with_options`; for the pager / clipboard prefer
-    /// `transcript_lines`.
+    /// 这是用于小部件的实时显示路径，这些小部件历史上不传递
+    /// `TranscriptRenderOptions`。工具输出会被限制，但思考内容会以完整形式显示，
+    /// 因为使用 bare `lines()` 的调用者期望未折叠的主体。
+    /// 对于流式转录视图，优先使用 `lines_with_options`；
+    /// 对于分页器/剪贴板，优先使用 `transcript_lines`。
     pub fn lines(&self, width: u16) -> Vec<Line<'static>> {
         match self {
             HistoryCell::User { content } => render_message(
@@ -197,7 +197,7 @@ impl HistoryCell {
                     render_cycle_boundary(content, width)
                 } else {
                     render_message(
-                        "Note",
+                        tr(Locale::En, MessageId::RenderNote),
                         system_label_style(),
                         system_body_style(),
                         content,
@@ -216,19 +216,21 @@ impl HistoryCell {
                 content,
                 streaming,
                 duration_secs,
-            } => render_thinking(content, width, *streaming, *duration_secs, false, false),
+            } => render_thinking(content, width, *streaming, *duration_secs, false, false, Locale::En),
             HistoryCell::Tool(cell) => cell.lines_with_motion(width, false),
             HistoryCell::SubAgent(cell) => cell.lines(width),
-            HistoryCell::ArchivedContext { .. } => render_archived_context(self, width, false),
+            HistoryCell::ArchivedContext { .. } => render_archived_context(self, width, false, Locale::En),
         }
     }
 
+    /// 带选项渲染单元格为终端行。
     pub fn lines_with_options(
         &self,
         width: u16,
         options: TranscriptRenderOptions,
     ) -> Vec<Line<'static>> {
         match self {
+            // 如果不显示思考内容，返回空
             HistoryCell::Thinking { .. } if !options.show_thinking => Vec::new(),
             HistoryCell::Thinking {
                 content,
@@ -241,13 +243,14 @@ impl HistoryCell {
                 *duration_secs,
                 !*streaming,
                 options.low_motion,
+                options.locale,
             ),
             HistoryCell::Tool(cell) if !options.show_tool_details => {
                 let mut lines = cell.lines_with_motion(width, options.low_motion);
                 if lines.len() > 2 {
                     lines.truncate(2);
                     lines.push(details_affordance_line(
-                        "details hidden",
+                        tr(options.locale, MessageId::RenderDetailsHidden),
                         Style::default().fg(palette::TEXT_MUTED).italic(),
                     ));
                 }
@@ -258,7 +261,7 @@ impl HistoryCell {
                 if lines.len() > TOOL_CARD_SUMMARY_LINES {
                     lines.truncate(TOOL_CARD_SUMMARY_LINES);
                     lines.push(details_affordance_line(
-                        "Alt+V for details",
+                        tr(options.locale, MessageId::RenderAltVDetails),
                         Style::default().fg(palette::TEXT_MUTED).italic(),
                     ));
                 }
@@ -282,19 +285,18 @@ impl HistoryCell {
             HistoryCell::System { .. } | HistoryCell::Error { .. } => self.lines(width),
             HistoryCell::SubAgent(cell) => cell.lines(width),
             HistoryCell::ArchivedContext { .. } => {
-                render_archived_context(self, width, options.low_motion)
+                render_archived_context(self, width, options.low_motion, options.locale)
             }
         }
     }
 
-    /// Render the cell in transcript mode: full content, no caps, no
-    /// "Alt+V for details" affordances.
+    /// 以转录模式渲染单元格：完整内容，无截断，无
+    /// "Alt+V 查看详情"提示。
     ///
-    /// Use this for the pager (`v` / `Ctrl+O`), clipboard exports, and any
-    /// surface that wants the complete body rather than the live summary.
-    /// For most variants (User / Assistant / System) this matches `lines()`;
-    /// `Thinking` and `Tool` are where the live and transcript surfaces
-    /// diverge.
+    /// 用于分页器（`v` / `Ctrl+O`）、剪贴板导出，以及任何
+    /// 需要完整主体而非实时摘要的表面。
+    /// 对于大多数变体（User / Assistant / System），这与 `lines()` 相同；
+    /// `Thinking` 和 `Tool` 是实时和转录表面分道的地方。
     pub fn transcript_lines(&self, width: u16) -> Vec<Line<'static>> {
         match self {
             HistoryCell::User { content } => render_message(
@@ -325,14 +327,15 @@ impl HistoryCell {
                 *duration_secs,
                 /*collapsed*/ false,
                 /*low_motion*/ false,
+                Locale::En,
             ),
             HistoryCell::Tool(cell) => cell.transcript_lines(width),
             HistoryCell::SubAgent(cell) => cell.lines(width),
-            HistoryCell::ArchivedContext { .. } => render_archived_context(self, width, true),
+            HistoryCell::ArchivedContext { .. } => render_archived_context(self, width, true, Locale::En),
         }
     }
 
-    /// Whether this cell is the continuation of a streaming assistant message.
+    /// 判断此单元格是否是流式助手消息的延续。
     #[must_use]
     pub fn is_stream_continuation(&self) -> bool {
         matches!(
@@ -344,6 +347,7 @@ impl HistoryCell {
         )
     }
 
+    /// 判断此单元格是否是对话式的。
     #[must_use]
     pub fn is_conversational(&self) -> bool {
         matches!(
@@ -353,11 +357,10 @@ impl HistoryCell {
     }
 }
 
-/// Parse an `<archived_context>` block from an assistant Text block.
+/// 解析助手文本块中的 `<archived_context>` 块。
 ///
-/// Returns `Some(HistoryCell::ArchivedContext)` when the text contains a
-/// well-formed `<archived_context>...</archived_context>` block, or `None`
-/// if the text is regular assistant content.
+/// 当文本包含格式良好的 `<archived_context>...</archived_context>` 块时，
+/// 返回 `Some(HistoryCell::ArchivedContext)`，如果文本是普通助手内容，则返回 `None`。
 fn parse_archived_context(text: &str) -> Option<HistoryCell> {
     let text = text.trim();
     if !text.starts_with("<archived_context") || !text.ends_with("</archived_context>") {
@@ -404,11 +407,12 @@ fn archived_context_attr(tag: &str, name: &str) -> Option<String> {
     Some(rest[..end].to_string())
 }
 
-/// Render an `<archived_context>` block with dimmed/italic styling.
+/// 以暗色/斜体样式渲染 `<archived_context>` 块。
 fn render_archived_context(
     cell: &HistoryCell,
     width: u16,
     _low_motion: bool,
+    locale: Locale,
 ) -> Vec<Line<'static>> {
     let HistoryCell::ArchivedContext {
         level,
@@ -424,7 +428,7 @@ fn render_archived_context(
     };
 
     let body = if summary.is_empty() {
-        "(no summary)".to_string()
+        tr(locale, MessageId::RenderNoSummary).to_string()
     } else {
         summary.clone()
     };
@@ -456,7 +460,7 @@ fn render_archived_context(
     let model_display = if model.is_empty() {
         String::new()
     } else {
-        format!("via {model}")
+        tr(locale, MessageId::RenderViaModel).replace("{model}", model)
     };
     let ts_display = if timestamp.is_empty() {
         String::new()
@@ -501,7 +505,7 @@ fn render_archived_context(
     lines
 }
 
-/// Convert a message into history cells for rendering.
+/// 将消息转换为用于渲染的历史单元格。
 #[must_use]
 pub fn history_cells_from_message(msg: &Message) -> Vec<HistoryCell> {
     let mut cells = Vec::new();
@@ -578,9 +582,9 @@ pub fn history_cells_from_message(msg: &Message) -> Vec<HistoryCell> {
     cells
 }
 
-// === Tool Cells ===
+// === 工具单元格 ===
 
-/// Variants describing a tool result cell.
+/// 描述工具结果单元格的变体。
 #[derive(Debug, Clone)]
 pub enum ToolCell {
     Exec(ExecCell),
@@ -596,7 +600,7 @@ pub enum ToolCell {
 }
 
 impl ToolCell {
-    /// Render the tool cell into lines.
+    /// 将工具单元格渲染为行。
     pub fn lines(&self, width: u16) -> Vec<Line<'static>> {
         self.lines_with_motion(width, false)
     }
@@ -605,9 +609,9 @@ impl ToolCell {
         self.render(width, low_motion, RenderMode::Live)
     }
 
-    /// Full-content rendering for the pager / clipboard. Tool output that
-    /// would be capped + suffixed with "Alt+V for details" in the live view
-    /// is emitted in full here.
+    /// 用于分页器/剪贴板的完整内容渲染。
+    /// 在实时视图中会被截断并带有"Alt+V 查看详情"提示的工具输出，
+    /// 在这里会完整输出。
     pub fn transcript_lines(&self, width: u16) -> Vec<Line<'static>> {
         self.render(width, /*low_motion*/ false, RenderMode::Transcript)
     }
@@ -628,15 +632,18 @@ impl ToolCell {
     }
 }
 
-/// Overall status for a tool execution.
+/// 工具执行的总体状态。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ToolStatus {
+    /// 运行中
     Running,
+    /// 成功
     Success,
+    /// 失败
     Failed,
 }
 
-/// Shell command execution rendering data.
+/// Shell 命令执行渲染数据。
 #[derive(Debug, Clone)]
 pub struct ExecCell {
     pub command: String,
@@ -649,7 +656,7 @@ pub struct ExecCell {
 }
 
 impl ExecCell {
-    /// Render the execution cell into lines (live view, capped output).
+    /// 渲染执行单元格为行（实时视图，截断输出）。
     #[cfg(test)]
     pub fn lines_with_motion(&self, width: u16, low_motion: bool) -> Vec<Line<'static>> {
         self.render(width, low_motion, RenderMode::Live)
@@ -731,21 +738,23 @@ impl ExecCell {
     }
 }
 
-/// Source of a shell command execution.
+/// Shell 命令执行的来源。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExecSource {
+    /// 用户发起
     User,
+    /// 助手发起
     Assistant,
 }
 
-/// Aggregate cell for tool exploration runs.
+/// 工具探索运行的聚合单元格。
 #[derive(Debug, Clone)]
 pub struct ExploringCell {
     pub entries: Vec<ExploringEntry>,
 }
 
 impl ExploringCell {
-    /// Render the exploring cell into lines.
+    /// 渲染探索单元格为行。
     pub fn lines_with_motion(&self, width: u16, low_motion: bool) -> Vec<Line<'static>> {
         let mut lines = Vec::new();
         let all_done = self
@@ -783,7 +792,7 @@ impl ExploringCell {
         lines
     }
 
-    /// Insert a new entry and return its index.
+    /// 插入新条目并返回其索引。
     #[must_use]
     pub fn insert_entry(&mut self, entry: ExploringEntry) -> usize {
         self.entries.push(entry);
@@ -791,14 +800,14 @@ impl ExploringCell {
     }
 }
 
-/// Single entry for exploring tool output.
+/// 探索工具输出的单个条目。
 #[derive(Debug, Clone)]
 pub struct ExploringEntry {
     pub label: String,
     pub status: ToolStatus,
 }
 
-/// Cell for plan updates emitted by the plan tool.
+/// 计划工具更新的单元格。
 #[derive(Debug, Clone)]
 pub struct PlanUpdateCell {
     pub explanation: Option<String>,
@@ -807,7 +816,7 @@ pub struct PlanUpdateCell {
 }
 
 impl PlanUpdateCell {
-    /// Render the plan update cell into lines.
+    /// 渲染计划更新单元格为行。
     pub fn lines_with_motion(&self, width: u16, low_motion: bool) -> Vec<Line<'static>> {
         let mut lines = Vec::new();
         lines.push(render_tool_header(
@@ -846,14 +855,14 @@ impl PlanUpdateCell {
     }
 }
 
-/// Single plan step rendered in the UI.
+/// 在 UI 中渲染的单个计划步骤。
 #[derive(Debug, Clone)]
 pub struct PlanStep {
     pub step: String,
     pub status: String,
 }
 
-/// Cell for patch summaries emitted by the patch tool.
+/// 补丁工具发出的补丁摘要单元格。
 #[derive(Debug, Clone)]
 pub struct PatchSummaryCell {
     pub path: String,
@@ -902,7 +911,7 @@ impl PatchSummaryCell {
     }
 }
 
-/// Cell for structured review output.
+/// 结构化审查输出的单元格。
 #[derive(Debug, Clone)]
 pub struct ReviewCell {
     pub target: String,
@@ -1038,7 +1047,7 @@ impl ReviewCell {
     }
 }
 
-/// Cell for showing a diff preview before applying changes.
+/// 应用更改前显示差异预览的单元格。
 #[derive(Debug, Clone)]
 pub struct DiffPreviewCell {
     pub title: String,
@@ -1068,7 +1077,7 @@ impl DiffPreviewCell {
     }
 }
 
-/// Cell representing an MCP tool execution.
+/// 表示 MCP 工具执行的单元格。
 #[derive(Debug, Clone)]
 pub struct McpToolCell {
     pub tool: String,
@@ -1121,14 +1130,14 @@ impl McpToolCell {
     }
 }
 
-/// Cell for image view actions.
+/// 图像查看操作的单元格。
 #[derive(Debug, Clone)]
 pub struct ViewImageCell {
     pub path: PathBuf,
 }
 
 impl ViewImageCell {
-    /// Render the image view cell into lines.
+    /// 渲染图像查看单元格为行。
     pub fn lines_with_motion(&self, width: u16, low_motion: bool) -> Vec<Line<'static>> {
         let path = self.path.display().to_string();
         let mut lines = vec![render_tool_header_with_summary(
@@ -1144,7 +1153,7 @@ impl ViewImageCell {
     }
 }
 
-/// Cell for web search tool output.
+/// 网络搜索工具输出的单元格。
 #[derive(Debug, Clone)]
 pub struct WebSearchCell {
     pub query: String,
@@ -1153,7 +1162,7 @@ pub struct WebSearchCell {
 }
 
 impl WebSearchCell {
-    /// Render the web search cell into lines.
+    /// 渲染网络搜索单元格为行。
     pub fn lines_with_motion(&self, width: u16, low_motion: bool) -> Vec<Line<'static>> {
         let mut lines = Vec::new();
         lines.push(render_tool_header_with_summary(
@@ -1182,23 +1191,20 @@ impl WebSearchCell {
     }
 }
 
-/// Generic cell for tool output when no specialized rendering exists.
+/// 当没有专用渲染器时用于工具输出的通用单元格。
 #[derive(Debug, Clone)]
 pub struct GenericToolCell {
     pub name: String,
     pub status: ToolStatus,
     pub input_summary: Option<String>,
     pub output: Option<String>,
-    /// Optional list of per-child prompts. When populated (by any future
-    /// fan-out tool), each prompt is shown on its own indented row instead
-    /// of the inline `args:` summary. `None` for ordinary tools.
+    /// 每个子提示的可选列表。当被任何未来的扇出工具填充时，
+    /// 每个提示显示在自己的缩进上，而不是内联的 `args:` 摘要。
+    /// 对于普通工具为 `None`。
     pub prompts: Option<Vec<String>>,
-    /// Filesystem path to the full output's spillover file (#422/#423).
-    /// Set by the tool-routing layer when `ToolResult.metadata` carried a
-    /// `spillover_path` field. The truncation affordance includes the
-    /// path so the user can `read_file` it (or Cmd+click in
-    /// OSC 8-aware terminals — the path renders as a hyperlink when
-    /// `tui.osc8_links` is enabled).
+    /// 完整输出的溢出文件路径（#422/#423）。
+    /// 当 `ToolResult.metadata` 携带 `spillover_path` 字段时，由工具路由层设置。
+    /// 截断提示包含路径，因此用户可以 `read_file` 它（或在支持 OSC 8 的终端中 Cmd+ 点击）。
     pub spillover_path: Option<std::path::PathBuf>,
 }
 
@@ -1404,18 +1410,15 @@ impl GenericToolCell {
     }
 }
 
-/// Render the inline annotation for a tool cell whose full output was
-/// spilled to disk (#422 + #423). Produces a one-line muted hint:
+/// 渲染工具单元格的内联注释，其完整输出已溢出到磁盘（#422 + #423）。
+/// 生成一行柔和的提示：
 ///
 /// ```text
 ///   full output: /Users/you/.deepseek/tool_outputs/call-abc12.txt
 /// ```
 ///
-/// Path is plain text on this branch; the OSC 8 hyperlink-wrap that
-/// makes it Cmd+click-openable lives on the OSC 8 branch (PR #515)
-/// and merges in once both PRs land on `main`. The clipboard /
-/// selection path already strips OSC 8 there, so a future enhancement
-/// stays backward-compatible.
+/// 在此分支上路径是纯文本；OSC 8 超链接包装在 OSC 8 分支（PR #515）中，
+/// 并在两个 PR 都合并到 `main` 后合并。剪贴板/选择路径在复制时已经剥离 OSC 8。
 fn render_spillover_annotation(path: &std::path::Path, width: u16) -> Line<'static> {
     let display = path.display().to_string();
     let prefix = "  full output: ";
@@ -1427,17 +1430,15 @@ fn render_spillover_annotation(path: &std::path::Path, width: u16) -> Line<'stat
     ])
 }
 
-/// Pull the `agent_id` field out of an `agent_spawn` tool output. The
-/// tool emits structured JSON shaped like
-/// `{"agent_id": "agent-abc12", "nickname": "...", "model": "..."}` so we
-/// look for the `agent_id` key and return its string value.
+/// 从 `agent_spawn` 工具输出中提取 `agent_id` 字段。
+/// 工具发出结构化 JSON，形状为 `{"agent_id": "agent-abc12", "nickname": "...", "model": "..."}`，
+/// 因此我们查找 `agent_id` 键并返回其字符串值。
 ///
-/// Returns `None` for outputs we can't parse as JSON or that lack the
-/// expected key — the caller falls back to a placeholder so a still-pending
-/// spawn renders cleanly.
+/// 对于无法解析为 JSON 或缺少预期键的输出，返回 `None`——调用者回退到占位符，
+/// 因此待处理的生成可以正常渲染。
 fn extract_agent_id(output: &str) -> Option<&str> {
-    // Cheap, deterministic, no allocations: scan for the literal key.
-    // Avoids dragging serde_json into a render hot path on every frame.
+    // 廉价、确定性、无分配：扫描字面键。
+    // 避免在每一帧的渲染热路径中拖入 serde_json。
     let key = "\"agent_id\"";
     let key_idx = output.find(key)?;
     let rest = &output[key_idx + key.len()..];
@@ -1461,12 +1462,11 @@ fn is_checklist_tool_name(name: &str) -> bool {
     )
 }
 
-/// Heuristic: does the output look like a unified diff? Returns true when
-/// the output contains at least one hunk header (`@@`) or a `diff --git`
-/// line, which are reliable markers of unified diff content (#380).
+/// 启发式：输出是否看起来像统一差异？当输出包含至少一个 hunk 头部（`@@`）
+/// 或 `diff --git` 行时返回 true，这是统一差异内容的可靠标记（#380）。
 fn output_looks_like_diff(output: &str) -> bool {
     let mut lines = output.lines();
-    // Check first 5 lines for diff markers
+    // 检查前 5 行是否有差异标记
     for _ in 0..5 {
         let Some(line) = lines.next() else { break };
         let trimmed = line.trim();
@@ -1491,10 +1491,9 @@ struct ChecklistSnapshot {
     total: usize,
 }
 
-/// Pull a structured checklist snapshot out of the tool's text output.
-/// The tool emits a leading human-readable line followed by JSON, so we
-/// scan for the first `{` and parse from there. Returns `None` if the
-/// payload is missing the expected `items` array.
+/// 从工具的文本输出中提取结构化的检查清单快照。
+/// 工具发出一个领先的人类可读行，后跟 JSON，因此我们扫描第一个 `{` 并从那里解析。
+/// 如果负载缺少预期的 `items` 数组，则返回 `None`。
 fn parse_checklist_snapshot(output: &str) -> Option<ChecklistSnapshot> {
     let json_start = output.find('{')?;
     let parsed: Value = serde_json::from_str(&output[json_start..]).ok()?;
@@ -1544,24 +1543,21 @@ fn parse_checklist_snapshot(output: &str) -> Option<ChecklistSnapshot> {
     })
 }
 
-/// One parsed "Updated todo #N to STATUS" prefix line emitted by
-/// `todo_update` / `checklist_update`. Used by [`render_checklist_change_card`]
-/// to show a compact state-change line instead of the full item list.
+/// 一个解析的 "Updated todo #N to STATUS" 前缀行，由 `todo_update` / `checklist_update` 发出。
+/// 用于 [`render_checklist_change_card`] 以显示紧凑的状态变更行，而不是完整的项目列表。
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct ChecklistChange {
     id: u32,
     status: String,
 }
 
-/// Parse the leading line of a checklist-update tool output. Returns
-/// `None` for non-update outputs (e.g. `todo_write` snapshots, errors,
-/// or an unexpected format) so the caller falls back to the full-list
-/// renderer.
+/// 解析检查清单更新工具输出的前导行。
+/// 对于非更新输出（例如 `todo_write` 快照、错误或意外格式）返回 `None`，
+/// 因此调用者会回退到完整列表渲染器。
 fn parse_update_prefix(output: &str) -> Option<ChecklistChange> {
-    // The tool output shape is `Updated todo #3 to in_progress\n{ ... }`.
-    // We tolerate `checklist` or `todo` as the noun and any reasonable
-    // status word (the snapshot lookup in the renderer is the source of
-    // truth for the title — we just need the id+status pair).
+    // 工具输出形状为 `Updated todo #3 to in_progress\n{ ... }`。
+    // 我们容忍 `checklist` 或 `todo` 作为名词，以及任何合理的状态词
+    // （渲染器中的快照查找是标题的真实来源——我们只需要 id+ 状态对）。
     let first = output.lines().next()?.trim();
     let rest = first
         .strip_prefix("Updated todo #")
@@ -1575,11 +1571,9 @@ fn parse_update_prefix(output: &str) -> Option<ChecklistChange> {
     Some(ChecklistChange { id, status })
 }
 
-/// Render a compact one-line state-change card for `todo_update` /
-/// `checklist_update` calls (#403). Shows the changed item's marker,
-/// title, and old → new status, with a `M/N · pct%` progress summary
-/// in the header. The full list is still available via Alt+V on the
-/// detail record.
+/// 为 `todo_update` / `checklist_update` 调用渲染紧凑的单行状态变更卡片（#403）。
+/// 显示变更项目的标记、标题和旧 → 新状态，以及头部中的 `M/N · pct%` 进度摘要。
+/// 完整列表仍可通过详细记录上的 Alt+V 访问。
 fn render_checklist_change_card(
     name: &str,
     status: ToolStatus,
@@ -1910,14 +1904,14 @@ pub fn summarize_tool_output(output: &str) -> String {
 
 // === MCP Output Summaries ===
 
-/// Summary information extracted from an MCP tool output payload.
+/// 从 MCP 工具输出负载中提取的摘要信息。
 pub struct McpOutputSummary {
     pub content: Option<String>,
     pub is_image: bool,
     pub is_error: Option<bool>,
 }
 
-/// Summarize raw MCP output into UI-friendly content.
+/// 将原始 MCP 输出摘要为 UI 友好的内容。
 #[must_use]
 pub fn summarize_mcp_output(output: &str) -> McpOutputSummary {
     if let Ok(json) = serde_json::from_str::<Value>(output) {
@@ -2046,6 +2040,7 @@ fn render_thinking(
     duration_secs: Option<f32>,
     collapsed: bool,
     low_motion: bool,
+    locale: Locale,
 ) -> Vec<Line<'static>> {
     let state = thinking_visual_state(streaming, duration_secs);
     let style = thinking_style();
@@ -2067,7 +2062,7 @@ fn render_thinking(
             format!("{REASONING_OPENER} "),
             Style::default().fg(thinking_state_accent(state)),
         ),
-        Span::styled("thinking", thinking_title_style()),
+        Span::styled(tr(locale, MessageId::RenderThinkingLabel), thinking_title_style()),
     ];
     header_spans.push(Span::styled(" ", Style::default()));
     header_spans.push(Span::styled(
@@ -2436,15 +2431,13 @@ fn is_path_or_url_like(line: &str) -> bool {
     has_separator && has_extension
 }
 
-/// Detect whether a system message is a cycle-boundary announcement
-/// (e.g. `─── cycle 0 → 1  (briefing: 2500 tokens) ───`).
+/// 检测系统消息是否是周期边界公告（例如 `─── cycle 0 → 1  (briefing: 2500 tokens) ───`）。
 fn is_cycle_boundary(content: &str) -> bool {
     content.contains("cycle")
 }
 
-/// Render a cycle-boundary system message with distinct visual styling (#395):
-/// full-width line with DEEPSEEK_BLUE text and bold weight, plus a thin
-/// horizontal rule above for visual separation.
+/// 以独特的视觉样式渲染周期边界系统消息（#395）：
+/// 全宽行，带有 DEEPSEEK_BLUE 文本和粗体权重，上方有一条细水平线用于视觉分隔。
 fn render_cycle_boundary(content: &str, width: u16) -> Vec<Line<'static>> {
     let style = Style::default()
         .fg(palette::DEEPSEEK_BLUE)
@@ -2472,11 +2465,9 @@ fn render_cycle_boundary(content: &str, width: u16) -> Vec<Line<'static>> {
     lines
 }
 
-/// Detect whether a line contains a `path:line` pattern that could be
-/// opened by `try_open_file_at_line`. Returns a distinctive style
-/// (underline + blue) when the pattern matches, or `None` otherwise.
-/// The style is applied over the existing value style so the line
-/// remains readable.
+/// 检测行是否包含 `path:line` 模式，该模式可以被 `try_open_file_at_line` 打开。
+/// 当模式匹配时返回独特的样式（下划线 + 蓝色），否则返回 `None`。
+/// 样式应用于现有的值样式之上，因此行保持可读性。
 fn file_line_style(text: &str) -> Option<Style> {
     let trimmed = text.trim();
     if let Some((before, after)) = trimmed.rsplit_once(':')
@@ -2494,13 +2485,13 @@ fn file_line_style(text: &str) -> Option<Style> {
     }
 }
 
-/// Apply inline diff highlighting to a single text line.
+/// 为单行文本应用内联差异高亮。
 ///
-/// Returns the appropriate style for the line based on its prefix:
-/// - Lines starting with `+` (after trimming) => `palette::DIFF_ADDED` (green)
-/// - Lines starting with `-` (after trimming) => `palette::STATUS_ERROR` (red)
-/// - Lines starting with `@@` => `palette::DEEPSEEK_SKY` (cyan/blue)
-/// - All other lines => None (use default style)
+/// 根据行的前缀返回适当的样式：
+/// - 以 `+` 开头的行（修剪后）=> `palette::DIFF_ADDED`（绿色）
+/// - 以 `-` 开头的行（修剪后）=> `palette::STATUS_ERROR`（红色）
+/// - 以 `@@` 开头的行 => `palette::DEEPSEEK_SKY`（青色/蓝色）
+/// - 所有其他行 => None（使用默认样式）
 fn diff_line_style(text: &str) -> Option<Style> {
     let trimmed = text.trim_start();
     if trimmed.starts_with("@@") {
@@ -2642,11 +2633,10 @@ fn user_body_style() -> Style {
     Style::default().fg(palette::USER_BODY)
 }
 
-/// Style for the assistant glyph (`●`). When the cell is streaming and
-/// motion is allowed, the foreground pulses on a 2s cycle between 30% and
-/// 100% brightness — the only deliberately animated element in a calm
-/// transcript. When idle (or low_motion is on) it sits at the full DeepSeek
-/// sky color so finished turns read as solid rather than dim.
+/// 助手符号（`●`）的样式。当单元格正在流式传输且允许运动时，
+/// 前景在 2 秒周期内在 30% 和 100% 亮度之间脉冲——这是平静转录中唯一故意动画的元素。
+/// 当空闲时（或 low_motion 开启时），它保持在完整的 DeepSeek 天空颜色，
+/// 因此完成的回合读起来是实心的而不是暗淡的。
 fn assistant_label_style_for(streaming: bool, low_motion: bool) -> Style {
     let color = if streaming && !low_motion {
         let now_ms = std::time::SystemTime::now()
@@ -2672,9 +2662,8 @@ fn system_body_style() -> Style {
     Style::default().fg(palette::TEXT_MUTED).italic()
 }
 
-/// Label glyph for an error cell. `Critical`/`Error` get the loudest marker;
-/// `Warning` is softer; `Info` is neutral. Kept as ASCII so it survives any
-/// terminal font fallback.
+/// 错误单元格的标签符号。`Critical`/`Error` 获得最响亮的标记；
+/// `Warning` 更柔和；`Info` 是中性的。保持为 ASCII，以便在任何终端字体回退中都能存活。
 fn error_label_text(severity: crate::error_taxonomy::ErrorSeverity) -> &'static str {
     match severity {
         crate::error_taxonomy::ErrorSeverity::Critical
@@ -2684,7 +2673,7 @@ fn error_label_text(severity: crate::error_taxonomy::ErrorSeverity) -> &'static 
     }
 }
 
-/// Label color for an error cell — drives the leading rail glyph.
+/// 错误单元格的标签颜色——驱动前导轨符号。
 fn error_label_style(severity: crate::error_taxonomy::ErrorSeverity) -> Style {
     let color = match severity {
         crate::error_taxonomy::ErrorSeverity::Critical
@@ -3082,6 +3071,7 @@ mod tests {
         running_status_label_with_elapsed,
     };
     use crate::deepseek_theme::Theme;
+    use crate::localization::Locale;
     use crate::models::{ContentBlock, Message};
     use crate::palette;
     use ratatui::style::Modifier;
@@ -3557,6 +3547,7 @@ mod tests {
             Some(2.0),
             true,
             false,
+            Locale::En,
         );
         let text = lines
             .iter()
@@ -3799,7 +3790,7 @@ mod tests {
 
     #[test]
     fn render_thinking_uses_dotted_opener_in_header() {
-        let lines = render_thinking("Step one\nStep two", 80, false, Some(2.0), false, true);
+        let lines = render_thinking("Step one\nStep two", 80, false, Some(2.0), false, true, Locale::En);
         let header = &lines[0];
         // First span carries `…` followed by a space.
         assert!(
@@ -3814,10 +3805,11 @@ mod tests {
         let lines = render_thinking(
             "concrete reasoning content",
             80,
-            /*streaming*/ false,
+            false,
             Some(1.0),
-            /*collapsed*/ false,
-            /*low_motion*/ true,
+            false,
+            true,
+            Locale::En,
         );
         // Header is index 0; first body line is index 1.
         assert!(lines.len() >= 2, "expected at least one body line");
@@ -3845,6 +3837,7 @@ mod tests {
             None,
             /*collapsed*/ false,
             /*low_motion*/ false,
+            Locale::En,
         );
         // Last line is the most recent body line — cursor lives there.
         let last = lines.last().expect("body line present");
@@ -3865,6 +3858,7 @@ mod tests {
             None,
             /*collapsed*/ false,
             /*low_motion*/ true,
+            Locale::En,
         );
         let last = lines.last().expect("body line present");
         let visible: String = last
