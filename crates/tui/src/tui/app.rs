@@ -973,7 +973,9 @@ pub struct App {
     pub lsp_enabled: bool,
     /// 是否启用输出翻译（英文→中文）。
     pub translate_output: bool,
-    pub translator: Option<crate::tui::translator::Translator>,
+    /// 后台文本翻译任务（避免阻塞事件循环）。
+    /// 收到翻译结果后替换最后一条 assistant 消息的内容。
+    pub pending_text_translation: Option<tokio::sync::oneshot::Receiver<String>>,
 }
 
 /// Message queued while the engine is busy.
@@ -1431,7 +1433,7 @@ impl App {
             edit_in_progress: false,
             lsp_enabled: config.lsp.as_ref().and_then(|l| l.enabled).unwrap_or(true),
             translate_output: false,
-            translator: None,
+            pending_text_translation: None,
         }
     }
 

@@ -702,22 +702,9 @@ async fn run_event_loop(
                             if !text.is_empty()
                                 && crate::tui::translator::is_mostly_english(&text)
                             {
-                                // 懒初始化翻译器
-                                if app.translator.is_none() {
-                                    app.translator =
-                                        crate::tui::translator::Translator::from_config(config);
-                                }
-                                let display_text = if let Some(translator) = &app.translator {
-                                    match translator.translate(&text).await {
-                                        Ok(t) => t,
-                                        Err(_) => text.clone(),
-                                    }
-                                } else {
-                                    text.clone()
-                                };
-                                // 创建 assistant cell 并写入翻译后的内容
+                                // 1. 立即显示原文，不阻塞事件循环
                                 let index = ensure_streaming_assistant_history_cell(app);
-                                append_streaming_text(app, index, &display_text);
+                                append_streaming_text(app, index, &text);
                                 if let Some(HistoryCell::Assistant { streaming, .. }) =
                                     app.history.get_mut(index)
                                 {
@@ -725,6 +712,26 @@ async fn run_event_loop(
                                 }
                                 app.bump_history_cell(index);
                                 transcript_batch_updated = true;
+
+                                // 2. 启动后台翻译
+                                if app.pending_text_translation.is_none() {
+                                    let text_for_task = text.clone();
+                                    let config_for_task = (*config).clone();
+                                    let (tx, rx) = tokio::sync::oneshot::channel();
+                                    tokio::spawn(async move {
+                                        let translator = crate::tui::translator::Translator::from_config(&config_for_task);
+                                        let result = if let Some(translator) = translator {
+                                            match translator.translate(&text_for_task).await {
+                                                Ok(t) => t,
+                                                Err(_) => text_for_task.clone(),
+                                            }
+                                        } else {
+                                            text_for_task.clone()
+                                        };
+                                        let _ = tx.send(result);
+                                    });
+                                    app.pending_text_translation = Some(rx);
+                                }
                             } else if !text.is_empty() {
                                 // 非英文，直接显示
                                 let index = ensure_streaming_assistant_history_cell(app);
@@ -826,33 +833,8 @@ async fn run_event_loop(
                     EngineEvent::ThinkingComplete { .. } => {
                         if app.translate_output {
                             let reasoning = std::mem::take(&mut app.reasoning_buffer);
-                            if !reasoning.is_empty()
-                                && crate::tui::translator::is_mostly_english(&reasoning)
-                            {
-                                // 懒初始化翻译器
-                                if app.translator.is_none() {
-                                    app.translator =
-                                        crate::tui::translator::Translator::from_config(config);
-                                }
-                                let display_text = if let Some(translator) = &app.translator {
-                                    match translator.translate(&reasoning).await {
-                                        Ok(t) => t,
-                                        Err(_) => reasoning.clone(),
-                                    }
-                                } else {
-                                    reasoning.clone()
-                                };
-                                // 创建 thinking entry 并写入翻译后的内容
-                                let entry_idx = ensure_streaming_thinking_active_entry(app);
-                                append_streaming_thinking(app, entry_idx, &display_text);
-                                if finalize_current_streaming_thinking(app) {
-                                    transcript_batch_updated = true;
-                                }
-                                // 存储翻译结果用于 api_messages
-                                app.last_reasoning = Some(display_text);
-                                app.reasoning_header = None;
-                            } else if !reasoning.is_empty() {
-                                // 非英文，直接显示
+                            if !reasoning.is_empty() {
+                                // 翻译模式下，直接显示原文不阻塞（推理内容较长时翻译可后续优化）
                                 let entry_idx = ensure_streaming_thinking_active_entry(app);
                                 append_streaming_thinking(app, entry_idx, &reasoning);
                                 if finalize_current_streaming_thinking(app) {
@@ -1485,6 +1467,28 @@ async fn run_event_loop(
             if !committed.is_empty() {
                 append_streaming_thinking(app, entry_idx, &committed);
                 transcript_batch_updated = true;
+            }
+        }
+        // 检查后台翻译是否完成（非阻塞轮询）
+        if let Some(rx) = &mut app.pending_text_translation {
+            match rx.try_recv() {
+                Ok(translated) => {
+                    // 替换最后一条 assistant 消息的内容
+                    let last_idx = app.history.len().saturating_sub(1);
+                    if let Some(HistoryCell::Assistant { content, .. }) = app.history.get_mut(last_idx) {
+                        *content = translated;
+                        app.bump_history_cell(last_idx);
+                        transcript_batch_updated = true;
+                    }
+                    app.pending_text_translation = None;
+                }
+                Err(tokio::sync::oneshot::error::TryRecvError::Empty) => {
+                    // 翻译尚未完成，继续等待
+                }
+                Err(_) => {
+                    // 翻译任务失败或取消，保留原文
+                    app.pending_text_translation = None;
+                }
             }
         }
         if transcript_batch_updated {
