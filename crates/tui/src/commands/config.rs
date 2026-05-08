@@ -162,7 +162,7 @@ fn show_single_setting(app: &App, key: &str) -> CommandResult {
     match value {
         Some(v) => CommandResult::message(format!("{key} = {v}")),
         None => CommandResult::error(format!(
-            "Unknown setting '{key}'. See `/help config` for available settings."
+            "未知设置 '{key}'。参见 `/help config` 查看可用设置。"
         )),
     }
 }
@@ -171,7 +171,7 @@ fn show_single_setting(app: &App, key: &str) -> CommandResult {
 pub fn show_settings(app: &mut App) -> CommandResult {
     match Settings::load() {
         Ok(settings) => CommandResult::message(settings.display(app.ui_locale)),
-        Err(e) => CommandResult::error(format!("Failed to load settings: {e}")),
+        Err(e) => CommandResult::error(format!("加载设置失败：{e}")),
     }
 }
 
@@ -294,7 +294,7 @@ pub fn set_config_value(app: &mut App, key: &str, value: &str, persist: bool) ->
             app.last_effective_model = None;
             let Some(model) = normalize_model_name(value) else {
                 return CommandResult::error(format!(
-                    "Invalid model '{value}'. Expected a DeepSeek model ID. Common models: {}",
+                    "无效模型 '{value}'。期望一个 DeepSeek 模型 ID。常用模型：{}",
                     COMMON_DEEPSEEK_MODELS.join(", ")
                 ));
             };
@@ -315,13 +315,13 @@ pub fn set_config_value(app: &mut App, key: &str, value: &str, persist: bool) ->
                     CommandResult::message(format!("approval_mode = {}", m.label()))
                 }
                 None => CommandResult::error(
-                    "Invalid approval_mode. Use: auto, suggest/on-request/untrusted, never/deny",
+                    "无效的 approval_mode。使用：auto, suggest/on-request/untrusted, never/deny",
                 ),
             };
         }
         "mcp_config_path" | "mcp" => {
             if value.trim().is_empty() {
-                return CommandResult::error("mcp_config_path cannot be empty");
+                return CommandResult::error("mcp_config_path 不能为空");
             }
             app.mcp_config_path = PathBuf::from(expand_tilde(value));
             app.mcp_restart_required = true;
@@ -332,7 +332,7 @@ pub fn set_config_value(app: &mut App, key: &str, value: &str, persist: bool) ->
                         app.mcp_config_path.display(),
                         path.display()
                     ),
-                    Err(err) => return CommandResult::error(format!("Failed to save: {err}")),
+                    Err(err) => return CommandResult::error(format!("保存失败：{err}")),
                 }
             } else {
                 format!(
@@ -349,11 +349,11 @@ pub fn set_config_value(app: &mut App, key: &str, value: &str, persist: bool) ->
         Ok(s) => s,
         Err(e) if !persist => {
             app.status_message = Some(format!(
-                "Settings unavailable; applying session-only override ({e})"
+                "设置不可用；应用仅会话覆盖（{e}）"
             ));
             Settings::default()
         }
-        Err(e) => return CommandResult::error(format!("Failed to load settings: {e}")),
+        Err(e) => return CommandResult::error(format!("加载设置失败：{e}")),
     };
 
     if let Err(e) = settings.set(&key, value) {
@@ -464,7 +464,7 @@ pub fn set_config_value(app: &mut App, key: &str, value: &str, persist: bool) ->
 
     let message = if persist {
         if let Err(e) = settings.save() {
-            return CommandResult::error(format!("Failed to save: {e}"));
+            return CommandResult::error(format!("保存失败：{e}"));
         }
         format!("{key} = {display_value} (saved)")
     } else {
@@ -488,18 +488,18 @@ pub fn set_config(app: &mut App, args: Option<&str>) -> CommandResult {
             .collect::<Vec<_>>()
             .join("\n");
         return CommandResult::message(format!(
-            "Usage: /set <key> <value>\n\n\
-             Available settings:\n{available}\n\n\
-             Session-only settings:\n  \
-             model: Current model\n  \
+            "用法：/set <key> <value>\n\n\
+             可用设置：\n{available}\n\n\
+             仅会话设置：\n  \
+             model: 当前模型\n  \
              approval_mode: auto | suggest | never\n\n\
-             Add --save to persist to settings file."
+             添加 --save 以持久化到设置文件。"
         ));
     };
 
     let parts: Vec<&str> = args.splitn(2, ' ').collect();
     if parts.len() < 2 {
-        return CommandResult::error("Usage: /set <key> <value>");
+        return CommandResult::error("用法：/set <key> <value>");
     }
 
     let key = parts[0].to_lowercase();
@@ -521,20 +521,20 @@ pub fn yolo(app: &mut App) -> CommandResult {
 /// 已移除的普通模式的遗留别名。
 pub fn normal_mode(app: &mut App) -> CommandResult {
     app.set_mode(AppMode::Agent);
-    CommandResult::message("Normal mode was removed. Switched to Agent mode.")
+    CommandResult::message("普通模式已移除。已切换到 Agent 模式。")
 }
 
 /// 启用代理模式（带批准的自助工具使用）
 pub fn agent_mode(app: &mut App) -> CommandResult {
     app.set_mode(AppMode::Agent);
-    CommandResult::message("Agent mode enabled.")
+    CommandResult::message("Agent 模式已启用。")
 }
 
 /// 启用计划模式（工具规划，然后选择执行路径）
 pub fn plan_mode(app: &mut App) -> CommandResult {
     app.set_mode(AppMode::Plan);
     CommandResult::message(
-        "Plan mode enabled. Describe your goal and I will create a plan before execution.",
+        "Plan 模式已启用。描述您的目标，我将在执行前创建计划。",
     )
 }
 

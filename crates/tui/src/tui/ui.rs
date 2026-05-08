@@ -1255,7 +1255,7 @@ async fn run_event_loop(
                         if app.agent_activity_started_at.is_none() {
                             app.agent_activity_started_at = Some(Instant::now());
                         }
-                        app.status_message = Some(format!("Sub-agent {id}: {display}"));
+                        app.status_message = Some(format!("子代理 {id}：{display}"));
                     }
                     EngineEvent::AgentComplete { id, result } => {
                         let subagent_elapsed = app
@@ -1271,7 +1271,7 @@ async fn run_event_loop(
                                 });
                         app.agent_progress.remove(&id);
                         app.status_message = Some(format!(
-                            "Sub-agent {id} completed: {}",
+                            "子代理 {id} 完成：{}",
                             summarize_tool_output(&result)
                         ));
                         let should_recapture_terminal =
@@ -1317,7 +1317,7 @@ async fn run_event_loop(
                         let view_agents = subagent_view_agents(app, &sorted);
                         if app.view_stack.update_subagents(&view_agents) {
                             app.status_message =
-                                Some(format!("Sub-agents: {} total", view_agents.len()));
+                                Some(format!("子代理：共 {} 个", view_agents.len()));
                         }
                         // Individual spawn/complete events already log to history;
                         // full list available via /agents command.

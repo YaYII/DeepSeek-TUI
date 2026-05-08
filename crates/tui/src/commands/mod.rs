@@ -597,11 +597,11 @@ pub fn execute(cmd: &str, app: &mut App) -> CommandResult {
 
         // Legacy command migrations (kept out of registry/autocomplete intentionally).
         "set" => CommandResult::error(
-            "The /set command was retired. Use /config to edit settings and /settings to inspect current values.",
+            "/set 命令已弃用。使用 /config 编辑设置，使用 /settings 检查当前值。",
         ),
         "normal" => config::normal_mode(app),
         "deepseek" => CommandResult::error(
-            "The /deepseek command was renamed. Use /links (aliases: /dashboard, /api).",
+            "/deepseek 命令已重命名。使用 /links（别名：/dashboard, /api）。",
         ),
 
         _ => {
@@ -613,7 +613,7 @@ pub fn execute(cmd: &str, app: &mut App) -> CommandResult {
             let suggestions = suggest_command_names(command, 3);
             if suggestions.is_empty() {
                 CommandResult::error(format!(
-                    "Unknown command: /{command}. Type /help for available commands."
+                    "未知命令：/{command}。输入 /help 查看可用命令。"
                 ))
             } else {
                 let list = suggestions
@@ -622,7 +622,7 @@ pub fn execute(cmd: &str, app: &mut App) -> CommandResult {
                     .collect::<Vec<_>>()
                     .join(", ");
                 CommandResult::error(format!(
-                    "Unknown command: /{command}. Did you mean: {list}? Type /help for available commands."
+                    "未知命令：/{command}。您是指：{list}？输入 /help 查看可用命令。"
                 ))
             }
         }

@@ -41,13 +41,13 @@ use crate::tui::views::ViewStack;
 
 // === Types ===
 
-/// State machine for onboarding new users.
+/// 新用户引导状态机。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OnboardingState {
     Welcome,
-    /// Pick the UI locale before any other config decisions (#566).
-    /// Defaults to auto-detection from `LC_ALL` / `LANG`; explicit picks
-    /// land in `~/.deepseek/settings.toml` via `Settings::set("locale", …)`.
+    /// 在其他配置决策之前选择 UI 语言环境（#566）。
+    /// 默认从 `LC_ALL` / `LANG` 自动检测；显式选择
+    /// 通过 `Settings::set("locale", …)` 保存到 `~/.deepseek/settings.toml`。
     Language,
     ApiKey,
     TrustDirectory,
@@ -83,7 +83,7 @@ fn onboarding_is_workspace_trust_gate(
     !skip_onboarding && was_onboarded && !needs_api_key && needs_workspace_trust
 }
 
-/// Supported application modes for the TUI.
+/// TUI 支持的应用程序模式。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AppMode {
     Agent,
@@ -91,39 +91,37 @@ pub enum AppMode {
     Plan,
 }
 
-/// One row in the per-turn cache-telemetry ring (`/cache` debug surface, #263).
+/// 每轮缓存遥测环中的一行（`/cache` 调试界面，#263）。
 #[derive(Debug, Clone)]
 pub struct TurnCacheRecord {
-    /// Provider-reported total input tokens for the turn (cache-hit +
-    ///   cache-miss + uncategorized). Useful for sanity-checking that hits +
-    ///   misses sum back to roughly the prompt size.
+    /// 提供方报告的该轮总输入令牌数（缓存命中 +
+    ///   缓存未命中 + 未分类）。用于健全性检查，确保命中 +
+    ///   未命中之和大致等于提示词大小。
     pub input_tokens: u32,
-    /// Provider-reported output tokens.
+    /// 提供方报告的输出令牌数。
     pub output_tokens: u32,
-    /// `prompt_cache_hit_tokens` from DeepSeek's usage payload. `None` when
-    ///   the model in use does not report cache telemetry (see
-    ///   `Capabilities::cache_telemetry_supported`).
+    /// DeepSeek 使用量负载中的 `prompt_cache_hit_tokens`。当
+    ///   使用的模型不支持缓存遥测时为 `None`（参见
+    ///   `Capabilities::cache_telemetry_supported`）。
     pub cache_hit_tokens: Option<u32>,
-    /// `prompt_cache_miss_tokens`. `None` when the provider did not report it
-    ///   — in that case the `/cache` formatter infers the miss as
-    ///   `input_tokens − cache_hit_tokens`.
+    /// `prompt_cache_miss_tokens`。当提供方未报告时为
+    ///   `None` — 在这种情况下 `/cache` 格式化器将未命中推断为
+    ///   `input_tokens − cache_hit_tokens`。
     pub cache_miss_tokens: Option<u32>,
-    /// Approximate tokens spent re-sending prior `reasoning_content` on
-    ///   V4-thinking tool-calling turns (chars/3 heuristic). Helps separate
-    ///   cache misses caused by reasoning-replay churn from misses caused by
-    ///   real prefix instability.
+    /// 在 V4-thinking 工具调用轮次中重新发送先前 `reasoning_content`
+    ///   所花费的近似令牌数（chars/3 启发式）。有助于区分由推理重放
+    ///   抖动引起的缓存未命中和由真正的前缀不稳定引起的未命中。
     pub reasoning_replay_tokens: Option<u32>,
-    /// Local timestamp the turn telemetry was recorded.
+    /// 记录轮次遥测的本地时间戳。
     pub recorded_at: Instant,
 }
 
-/// DeepSeek reasoning-effort tier, mirrored on ChatGPT/Claude effort pickers.
+/// DeepSeek 推理强度层级，镜像 ChatGPT/Claude 努力选择器。
 ///
-/// The config file accepts all five string values for forward-compat with
-/// providers that expose the full spectrum; DeepSeek currently collapses
-/// `Low`/`Medium` → `high` and `Max` → `max` at the API boundary. The
-/// keyboard cycler (Shift+Tab) walks only the three behaviorally distinct
-/// tiers: `Off` → `High` → `Max` → `Off`.
+/// 配置文件接受所有五个字符串值以与公开完整谱系的提供方
+/// 向前兼容；DeepSeek 当前在 API 边界处将 `Low`/`Medium` → `high`
+/// 和 `Max` → `max` 折叠。键盘循环器（Shift+Tab）仅遍历三个
+/// 行为上不同的层级：`Off` → `High` → `Max` → `Off`。
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum ReasoningEffort {
     Off,
@@ -136,8 +134,8 @@ pub enum ReasoningEffort {
 }
 
 impl ReasoningEffort {
-    /// Parse a config-file string into an effort tier. Unknown values fall
-    /// back to the default (`Max`) rather than erroring out.
+    /// 将配置文件的字符串解析为努力层级。未知值回退到
+    /// 默认值（`Max`）而不是报错。
     #[must_use]
     pub fn from_setting(value: &str) -> Self {
         match value.trim().to_ascii_lowercase().as_str() {

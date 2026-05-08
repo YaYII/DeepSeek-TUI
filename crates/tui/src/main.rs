@@ -98,8 +98,8 @@ fn configure_windows_console_utf8() {}
     name = "deepseek",
     author,
     version = env!("DEEPSEEK_BUILD_VERSION"),
-    about = "DeepSeek TUI/CLI for DeepSeek models",
-    long_about = "Terminal-native TUI and CLI for DeepSeek models.\n\nRun 'deepseek' to start.\n\nNot affiliated with DeepSeek Inc."
+    about = "DeepSeek TUI/CLI 用于 DeepSeek 模型",
+    long_about = "DeepSeek 模型的终端原生 TUI 和 CLI。\n\n运行 'deepseek' 启动。\n\n与 DeepSeek Inc. 无关联。"
 )]
 struct Cli {
     /// Subcommand to run
@@ -498,7 +498,7 @@ enum McpCommand {
     /// For the HTTP/SSE runtime API, use `deepseek serve --http` directly instead.
     #[command(
         name = "add-self",
-        long_about = "Register this DeepSeek binary as a local MCP stdio server.\n\nAdds a config entry to ~/.deepseek/mcp.json that launches `deepseek serve --mcp`\nvia the stdio transport. Other DeepSeek sessions (or any MCP client) can then\ndiscover and call tools exposed by this server.\n\nUse `deepseek serve --http` instead if you need the HTTP/SSE runtime API."
+        long_about = "将此 DeepSeek 二进制文件注册为本地 MCP stdio 服务器。\n\n向 ~/.deepseek/mcp.json 添加一个配置条目，通过 stdio 传输启动 `deepseek serve --mcp`。\n其他 DeepSeek 会话（或任何 MCP 客户端）可以发现并调用此服务器暴露的工具。\n\n如果需要 HTTP/SSE 运行时 API，请改用 `deepseek serve --http`。"
     )]
     AddSelf {
         /// Server name in mcp.json (default: "deepseek")
@@ -608,7 +608,7 @@ async fn main() -> Result<()> {
             .location()
             .map(|loc| loc.to_string())
             .unwrap_or_else(|| "unknown".to_string());
-        tracing::error!(target: "panic", "Process panicked at {location}: {msg}");
+        tracing::error!(target: "panic", "进程在 {location} 处崩溃：{msg}");
         // Write crash dump best-effort
         if let Some(home) = dirs::home_dir() {
             let crash_dir = home.join(".deepseek").join("crashes");
@@ -617,7 +617,7 @@ async fn main() -> Result<()> {
             let ts = Utc::now().format("%Y%m%dT%H%M%S%.3fZ");
             let path = crash_dir.join(format!("{ts}-process-panic.log"));
             let contents =
-                format!("Process panicked\nLocation: {location}\nTimestamp: {ts}\nPanic: {msg}\n",);
+                format!("进程崩溃\n位置：{location}\n时间戳：{ts}\n崩溃：{msg}\n",);
             let _ = std::fs::write(&path, contents);
         }
         // Invoke the original hook (prints to stderr, etc.)
@@ -713,7 +713,7 @@ async fn main() -> Result<()> {
                 let config = load_config_from_cli(&cli)?;
                 if !config.features().enabled(Feature::ExecPolicy) {
                     bail!(
-                        "The `exec_policy` feature is disabled. Enable it in [features] or via profile."
+                        "exec_policy` 功能已禁用。在 [features] 中或通过 profile 启用它。"
                     );
                 }
                 run_execpolicy_command(command)
@@ -732,7 +732,7 @@ async fn main() -> Result<()> {
                     .filter(|selected| *selected)
                     .count();
                 if selected_modes != 1 {
-                    bail!("Choose exactly one server mode: --mcp, --http, or --acp");
+                    bail!("请选择一种服务器模式：--mcp、--http 或 --acp");
                 }
                 if args.mcp {
                     mcp_server::run_mcp_server(workspace)
@@ -836,7 +836,7 @@ fn run_eval(args: EvalArgs) -> Result<()> {
         let json = serde_json::to_string_pretty(&report)?;
         println!("{json}");
     } else {
-        println!("Offline Eval Harness");
+        println!("离线评估工具");
         println!("scenario: {}", report.scenario_name);
         println!("workspace: {}", report.workspace_root.display());
         println!("success: {}", report.metrics.success);
@@ -891,7 +891,7 @@ fn ensure_parent_dir(path: &Path) -> Result<()> {
         && !parent.as_os_str().is_empty()
     {
         std::fs::create_dir_all(parent)
-            .with_context(|| format!("Failed to create directory for {}", parent.display()))?;
+            .with_context(|| format!("为 {} 创建目录失败", parent.display()))?;
     }
     Ok(())
 }
@@ -910,7 +910,7 @@ fn write_template_file(path: &Path, contents: &str, force: bool) -> Result<Write
     };
 
     std::fs::write(path, contents)
-        .with_context(|| format!("Failed to write template at {}", path.display()))?;
+        .with_context(|| format!("在 {} 写入模板失败", path.display()))?;
 
     Ok(status)
 }
@@ -935,7 +935,7 @@ fn mcp_template_json() -> Result<String> {
         },
     );
     serde_json::to_string_pretty(&cfg)
-        .map_err(|e| anyhow!("Failed to render MCP template JSON: {e}"))
+        .map_err(|e| anyhow!("渲染 MCP 模板 JSON 失败：{e}"))
 }
 
 fn init_mcp_config(path: &Path, force: bool) -> Result<WriteStatus> {
@@ -961,7 +961,7 @@ When this skill is active:\n\
 
 fn init_skills_dir(skills_dir: &Path, force: bool) -> Result<(PathBuf, WriteStatus)> {
     std::fs::create_dir_all(skills_dir)
-        .with_context(|| format!("Failed to create skills dir {}", skills_dir.display()))?;
+        .with_context(|| format!("创建 skills 目录 {} 失败", skills_dir.display()))?;
 
     let skill_name = "getting-started";
     let skill_path = skills_dir.join(skill_name).join("SKILL.md");
@@ -997,7 +997,7 @@ fn tools_example_script() -> &'static str {
 
 fn init_tools_dir(tools_dir: &Path, force: bool) -> Result<(PathBuf, WriteStatus, WriteStatus)> {
     std::fs::create_dir_all(tools_dir)
-        .with_context(|| format!("Failed to create tools dir {}", tools_dir.display()))?;
+        .with_context(|| format!("创建 tools 目录 {} 失败", tools_dir.display()))?;
 
     let readme_path = tools_dir.join("README.md");
     let readme_status = write_template_file(&readme_path, tools_readme_template(), force)?;
@@ -1041,7 +1041,7 @@ fn init_plugins_dir(
     force: bool,
 ) -> Result<(PathBuf, PathBuf, WriteStatus, WriteStatus)> {
     std::fs::create_dir_all(plugins_dir)
-        .with_context(|| format!("Failed to create plugins dir {}", plugins_dir.display()))?;
+        .with_context(|| format!("创建 plugins 目录 {} 失败", plugins_dir.display()))?;
 
     let readme_path = plugins_dir.join("README.md");
     let readme_status = write_template_file(&readme_path, plugins_readme_template(), force)?;
@@ -1131,7 +1131,7 @@ fn execute_clean_plan(plan: &CleanPlan) -> Result<Vec<PathBuf>> {
     let mut removed = Vec::with_capacity(plan.targets.len());
     for path in &plan.targets {
         std::fs::remove_file(path)
-            .with_context(|| format!("Failed to remove {}", path.display()))?;
+            .with_context(|| format!("删除 {} 失败", path.display()))?;
         removed.push(path.clone());
     }
     Ok(removed)

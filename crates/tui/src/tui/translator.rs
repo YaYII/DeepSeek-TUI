@@ -62,9 +62,9 @@ impl Translator {
     /// 使用 `deepseek-v4-flash` 模型，关闭思考模式，
     /// 以最快速度完成翻译。
     pub async fn translate(&self, text: &str) -> Result<String> {
-        let system_msg = "You are a translator. Translate the following text to Simplified Chinese. \
-                         Keep code, file paths, identifiers, tool names, URLs and log lines unchanged. \
-                         Only translate natural language prose. Return ONLY the translation, no explanations or notes.";
+        let system_msg = "你是一个翻译器。将以下文本翻译成简体中文。\
+                         保持代码、文件路径、标识符、工具名称、URL 和日志行不变。\
+                         仅翻译自然语言散文。只返回翻译结果，不要解释或注释。";
 
         let request = MessageRequest {
             model: "deepseek-v4-flash".to_string(),
