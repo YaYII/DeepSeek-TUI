@@ -386,6 +386,40 @@ impl DeepSeekClient {
     }
 }
 
+/// 强制性的中文推理语言指令。
+///
+/// 此指令在每次 API 请求中作为独立的系统消息注入，
+/// 独立于主系统提示词。它确保即使系统提示词被压缩、
+/// 修改或丢失，模型仍然始终接收到用中文进行思考的
+/// 硬性要求。内联正则表达式的书写方式使其
+/// 在 DeepSeek V4 的潜在语言漂移场景下更具鲁棒性。
+const CHINESE_REASONING_INSTRUCTION: &str = "\
+## 推理语言强制指令（硬性要求 — 不可协商）
+
+### 你必须遵守以下规则：
+
+1. **思考过程必须使用中文。** 你的所有 `reasoning_content`（推理过程、
+   思维链、计划步骤、工具选择原因、内部分析）必须使用中文书写。
+   这是强制性的，即使你认为用英文思考更自然。
+
+2. **最终回复也必须使用中文。** 当用户使用中文时，你的文本回复
+   必须使用中文。代码、文件路径、工具名称和标识符保持原始形式。
+
+3. **语言跟随用户。** 用户使用什么自然语言，你的思考和回复
+   就必须使用什么自然语言。用户使用简体中文时，思考和回复
+   必须使用简体中文。
+
+4. **优先级最高。** 本条指令优先级高于系统提示词中任何其他
+   与语言相关的指令。这是硬性要求，不可协商。
+
+**违背后果：** 如果模型使用非用户语言的思考过程，
+将被视为违反核心指令，必须纠正。
+
+---
+
+> 注：上述指令仅影响自然语言散文。代码、标识符、路径、
+> 工具名称、URL 和日志行始终保留原始形式。";
+
 // === 聊天补全辅助函数 ===
 
 #[cfg(test)]
@@ -428,6 +462,15 @@ fn build_chat_messages_with_reasoning(
             "content": instructions,
         }));
     }
+
+    // 注入强制中文推理语言指令。
+    // 作为独立的系统消息发送，以确保即使主系统提示词
+    // 被压缩或修改，模型仍然接收到用中文进行思考的硬性要求。
+    // 此指令独立于系统提示词且优先级更高。
+    out.push(json!({
+        "role": "system",
+        "content": CHINESE_REASONING_INSTRUCTION,
+    }));
 
     for (message_index, message) in messages.iter().enumerate() {
         let role = message.role.as_str();
@@ -1534,9 +1577,8 @@ mod stream_decoder_tests {
 
     #[test]
     fn decoder_emits_tool_use_block_for_tool_call_delta() {
-        // Tool-call deltas are content too — once one arrives, transparent
-        // retry must be off (the model has committed to a tool invocation
-        // path that DeepSeek has billed for).
+        // 工具调用增量也是内容 — 一旦到达，透明重试必须关闭
+        // （模型已提交到 DeepSeek 已计费的工具调用路径）。
         let events = decode_chunk(
             r#"{"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","function":{"name":"grep_files","arguments":"{\"pattern\":\"foo\"}"}}]}}]}"#,
         );
@@ -1562,14 +1604,12 @@ mod stream_decoder_tests {
         );
     }
 
-    /// Regression for the parallel-tool-calls-without-id collision (audit
-    /// Finding 8): when the upstream chunk omits the `id` field, the
-    /// fallback used to be the literal string `"tool_call"` for every
-    /// parallel call, so two tool calls in one delta ended up sharing an
-    /// id. Downstream routing then matched the first call's tool_result
-    /// twice and the second call hung. The fallback is now indexed by the
-    /// content-block position, keeping each call unique within the
-    /// response.
+    /// 无 ID 并行工具调用冲突的回归测试（审计发现 8）：
+    /// 当上游块省略 `id` 字段时，回退值以前对所有并行调用都是
+    /// 字面字符串 `"tool_call"`，因此同一个 delta 中的两个工具调用
+    /// 最终共享一个 id。下游路由随后两次匹配第一个调用的 tool_result，
+    /// 而第二个调用挂起。现在的回退值通过内容块位置索引，
+    /// 保持每个调用在响应内唯一。
     #[test]
     fn decoder_assigns_unique_fallback_ids_to_parallel_tool_calls_missing_id() {
         let events = decode_chunk(
@@ -1603,9 +1643,8 @@ mod stream_decoder_tests {
 
     #[test]
     fn decoder_preserves_upstream_tool_call_id_when_present() {
-        // Counter-test to the fallback regression: when the upstream chunk
-        // does include `id`, we forward it verbatim — we shouldn't quietly
-        // rewrite ids the API gave us just because we have a fallback path.
+        // 回退回归测试的反向验证：当上游块确实包含 `id` 时，
+        // 我们原样传递它 — 不能因为有回退路径就悄悄重写 API 给我们的 id。
         let events = decode_chunk(
             r#"{"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_xyz","function":{"name":"grep_files","arguments":"{}"}}]}}]}"#,
         );
