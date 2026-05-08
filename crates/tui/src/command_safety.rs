@@ -597,41 +597,40 @@ pub fn analyze_command(command: &str) -> SafetyAnalysis {
     }
 
     if command.contains("`") || command.contains("$(") {
-        // Substitution is a common shell pattern (e.g., `cargo test
-        // $(cargo test --list | head -1)` or `echo $(date)`). Codex
-        // doesn't block it; escalate to approval so the user can
-        // inspect, but don't hard-block.
+        // 命令替换是常见的 shell 模式（例如 `cargo test
+        // $(cargo test --list | head -1)` 或 `echo $(date)`）。Codex
+        // 不阻止它；升级到批准级别以便用户检查，但不硬性阻止。
         return SafetyAnalysis::requires_approval(
             command,
-            vec!["Command substitution detected".to_string()],
+            vec!["检测到命令替换".to_string()],
         );
     }
 
-    // Check for dangerous patterns first
+    // 首先检查危险模式
     for (pattern, reason) in DANGEROUS_PATTERNS {
         if command_lower.contains(&pattern.to_lowercase()) {
             return SafetyAnalysis::dangerous(
                 command,
                 vec![(*reason).to_string()],
-                vec!["Review the command carefully before execution".to_string()],
+                vec!["执行前请仔细检查命令".to_string()],
             );
         }
     }
 
-    // Check for privileged commands
+    // 检查特权命令
     for pattern in PRIVILEGED_PATTERNS {
         if command_trimmed.starts_with(pattern) || command_lower.contains(&format!(" {pattern} ")) {
             return SafetyAnalysis::requires_approval(
                 command,
                 vec![format!(
-                    "Command uses privileged execution ({})",
+                    "命令使用特权执行（{}）",
                     pattern.trim()
                 )],
             );
         }
     }
 
-    // Check for pipe to shell (remote code execution risk)
+    // 检查管道到 shell（远程代码执行风险）
     if (command_lower.contains("curl") || command_lower.contains("wget"))
         && (command_lower.contains("| sh")
             || command_lower.contains("| bash")
@@ -639,42 +638,42 @@ pub fn analyze_command(command: &str) -> SafetyAnalysis {
     {
         return SafetyAnalysis::dangerous(
             command,
-            vec!["Piping remote content directly to shell is dangerous".to_string()],
-            vec!["Download the script first and review it before execution".to_string()],
+            vec!["将远程内容直接管道到 shell 是危险的".to_string()],
+            vec!["先下载脚本并在执行前检查".to_string()],
         );
     }
 
-    // Check if it's a known safe command
+    // 检查是否为已知安全命令
     let first_word = command_trimmed.split_whitespace().next().unwrap_or("");
     if is_safe_command(command_trimmed) {
         return SafetyAnalysis::safe(command);
     }
 
-    // Check for workspace-safe commands
+    // 检查工作区安全命令
     if is_workspace_safe_command(command_trimmed) {
-        return SafetyAnalysis::workspace_safe(command, "Command modifies files within workspace");
+        return SafetyAnalysis::workspace_safe(command, "命令在工作区内修改文件");
     }
 
-    // Check for network commands
+    // 检查网络命令
     if NETWORK_COMMANDS.contains(&first_word) {
         return SafetyAnalysis::requires_approval(
             command,
-            vec!["Command may make network requests".to_string()],
+            vec!["命令可能发起网络请求".to_string()],
         );
     }
 
-    // Check for rm with -r or -f flags
+    // 检查带有 -r 或 -f 标志的 rm
     if first_word == "rm" && (command_lower.contains("-r") || command_lower.contains("-f")) {
-        let mut reasons = vec!["Recursive or forced deletion".to_string()];
+        let mut reasons = vec!["递归或强制删除".to_string()];
         let mut suggestions = vec![];
 
-        // Check if it's deleting outside workspace markers
+        // 检查是否正在删除工作区标记之外的内容
         if command_lower.contains("..")
             || command_lower.contains("~/")
             || command_lower.contains("$HOME")
         {
-            reasons.push("May delete files outside workspace".to_string());
-            suggestions.push("Use relative paths within the workspace".to_string());
+            reasons.push("可能删除工作区外的文件".to_string());
+            suggestions.push("使用工作区内的相对路径".to_string());
             return SafetyAnalysis::dangerous(command, reasons, suggestions);
         }
 

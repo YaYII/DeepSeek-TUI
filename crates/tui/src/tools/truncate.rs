@@ -184,24 +184,17 @@ pub fn maybe_spillover(
 /// 完整输出保存在磁盘上；模型在需要尾部时可以通过 `read_file` 读回。
 pub const SPILLOVER_HEAD_BYTES: usize = 32 * 1024;
 
-/// Apply spillover to a tool result in place. If the result's
-/// content exceeds [`SPILLOVER_THRESHOLD_BYTES`], writes the full
-/// content to a sibling file under `~/.deepseek/tool_outputs/`,
-/// replaces `result.content` with a [`SPILLOVER_HEAD_BYTES`] head
-/// plus a footer pointing the model at the spillover file, and
-/// stamps `metadata.spillover_path` so the UI can render its
-/// "full output: …" annotation.
+/// 就地应用溢出到工具结果。如果结果的内容超过 [`SPILLOVER_THRESHOLD_BYTES`]，
+/// 将完整内容写入 `~/.deepseek/tool_outputs/` 下的姐妹文件，将 `result.content`
+/// 替换为 [`SPILLOVER_HEAD_BYTES`] 大小的头部加上指向溢出文件的页脚，
+/// 并标记 `metadata.spillover_path` 以便 UI 渲染其"完整输出：…"注释。
 ///
-/// Returns the spillover path on success, `None` if no spillover
-/// happened (content small enough, error result, write failure).
-/// Failures are logged but never bubble up — a tool that produced a
-/// result shouldn't be marked failed because the spillover writer
-/// couldn't reach disk; we degrade to no-op and the model gets the
-/// original (large) content.
+/// 成功时返回溢出路径，如果没有溢出发生则返回 `None`（内容足够小、错误结果、
+/// 写入失败）。失败会被记录但不会冒泡——生成结果的工具不应因为溢出写入器无法
+/// 写入磁盘而被标记为失败；我们降级为无操作，模型将获得原始的（大）内容。
 ///
-/// Error results (`success == false`) are skipped: error messages
-/// are typically short, and turning them into a "see file" pointer
-/// would just hide the error from the model's reasoning.
+/// 错误结果（`success == false`）会被跳过：错误消息通常很短，将其转为"查看文件"
+/// 指针只会向模型隐藏错误信息。
 pub fn apply_spillover(result: &mut ToolResult, tool_id: &str) -> Option<PathBuf> {
     if !result.success {
         return None;
@@ -260,10 +253,8 @@ pub fn apply_spillover(result: &mut ToolResult, tool_id: &str) -> Option<PathBuf
     Some(path)
 }
 
-/// Sanitise a tool call id for use as a filename. Keeps ASCII
-/// alphanumerics, `-`, and `_`; rejects `.` to keep `..` traversal
-/// out, rejects empty results. Returns `None` if the input contains
-/// no acceptable characters.
+/// 清理工具调用 id 以用作文件名。保留 ASCII 字母数字、`-` 和 `_`；
+/// 拒绝 `.` 以防止 `..` 遍历，拒绝空结果。如果输入中不包含可接受的字符则返回 `None`。
 fn sanitise_id(id: &str) -> Option<String> {
     let cleaned: String = id
         .chars()
@@ -276,9 +267,8 @@ fn sanitise_id(id: &str) -> Option<String> {
     }
 }
 
-/// Override the spillover root for tests so they don't pollute the
-/// user's real `~/.deepseek/` directory. Wraps the body with a
-/// temporary `HOME` override that gets restored on drop.
+/// 为测试覆盖溢出根目录，以免污染用户的真实 `~/.deepseek/` 目录。
+/// 使用临时 `HOME` 覆盖来包装主体，该覆盖在 drop 时恢复。
 #[cfg(test)]
 fn with_test_home<F, R>(home: &Path, f: F) -> R
 where

@@ -303,20 +303,18 @@ impl FooterWidget {
     }
 
     fn auxiliary_spans(&self, max_width: usize) -> Vec<Span<'static>> {
-        // `cost` is rendered in the left cluster now — keep it out of the
-        // right-hand chip parade. Coherence / agents / replay / cache are
-        // transient signals; they belong on the right where they appear and
-        // disappear without disturbing the steady mode·model·cost line.
+        // `cost` 现在在左侧簇中渲染 — 将其排除在右侧芯片展示之外。
+        // 一致性/代理/回放/缓存是瞬态信号；它们属于右侧，
+        // 在那里出现和消失，不会干扰稳定的模式·模型·成本行。
         let parts: Vec<&Vec<Span<'static>>> = [
             &self.props.coherence,
             &self.props.agents,
             &self.props.reasoning_replay,
             &self.props.cache,
             &self.props.mcp,
-            // `worked` is the lowest-priority chip — drops first under
-            // narrow widths (the priority loop below removes from the
-            // tail). `cost` is steady info and stays in the left
-            // cluster where the eye finds it without scanning.
+            // `worked` 是优先级最低的芯片 — 在窄宽度下最先丢弃
+            //（下面的优先级循环从尾部移除）。`cost` 是稳定信息，
+            // 留在左侧簇中，眼睛无需扫描即可找到它。
             &self.props.worked,
         ]
         .into_iter()
@@ -344,19 +342,19 @@ impl FooterWidget {
         vec![Span::styled(truncated, Style::default().fg(toast.color))]
     }
 
-    /// Build the left status line with priority-ordered hint dropping.
+    /// 使用优先级排序构建左侧状态行。
     ///
-    /// Priority order (highest to lowest — last to drop):
-    /// 1. Mode label (always visible at any width; truncated only as a last resort)
-    /// 2. Model name (always visible; then truncated mid-word once status & cost are gone)
-    /// 3. Cost chip — drops second after status (steady-info still wants to be visible)
-    /// 4. Status label (e.g. "working", "draft") — drops first when space is tight
+    /// 优先级顺序（最高到最低 — 最后丢弃）：
+    /// 1. 模式标签（在任何宽度下始终可见；仅作为最后手段截断）
+    /// 2. 模型名称（始终可见；当状态和成本消失后在词中截断）
+    /// 3. 成本芯片 — 在状态之后第二个丢弃（稳定信息仍希望可见）
+    /// 4. 状态标签（例如 "working"、"draft"）— 空间紧张时最先丢弃
     ///
-    /// At every width ≥40 cols the line never wraps mid-hint: the widget
-    /// chooses one of (`mode · model · cost · status`, `mode · model · cost`,
-    /// `mode · model`, `mode`) and renders that single line within
-    /// `max_width`. Cost lives between model and status so the eye finds
-    /// "what's this run going to cost me" without scanning past the wave.
+    /// 在每个宽度 ≥ 40 列时，行永远不会在提示中间换行：
+    /// 小部件选择 (`mode · model · cost · status`、`mode · model · cost`、
+    /// `mode · model`、`mode`) 之一，并在 `max_width` 内渲染该单行。
+    /// 成本位于模型和状态之间，以便眼睛无需扫描过波动动画就能找到
+    /// "这次运行要花我多少钱"。
     fn status_line_spans(&self, max_width: usize) -> Vec<Span<'static>> {
         if max_width == 0 {
             return Vec::new();
@@ -502,16 +500,15 @@ fn spans_text(spans: &[Span<'_>]) -> String {
     spans.iter().map(|s| s.content.as_ref()).collect::<String>()
 }
 
-/// Render the retry banner (#499) when the props' captured snapshot
-/// reports an active retry or a final failure. Returns `None` when idle
-/// so callers fall back to the regular status line / toast.
+/// 当 props 捕获的快照报告活动重试或最终失败时，
+/// 渲染重试横幅 (#499)。空闲时返回 `None`，
+/// 以便调用方回退到常规状态行/toast。
 fn retry_banner_spans(max_width: usize, props: &FooterProps) -> Option<Vec<Span<'static>>> {
     let (label, color) = match &props.retry {
         crate::retry_status::RetryState::Active(banner) => {
             let secs = props.retry.seconds_remaining().unwrap_or(0);
-            // Round to 1s — we redraw each frame anyway so the
-            // countdown ticks visually without us having to schedule
-            // anything extra.
+            // 四舍五入到 1 秒 — 我们无论如何每帧重绘，
+            // 所以倒计时在视觉上滴答作响，无需我们安排任何额外内容。
             (
                 format!("⟳ retry {} in {secs}s — {}", banner.attempt, banner.reason),
                 crate::palette::STATUS_WARNING,
@@ -545,10 +542,9 @@ impl Renderable for FooterWidget {
             .max(1);
 
         let left_spans = if let Some(banner) = retry_banner_spans(max_left_width, &self.props) {
-            // Retry banner takes precedence over toast and the regular
-            // status line so the user sees it loud and clear (#499).
-            // The banner clears automatically on success or on the next
-            // `TurnStarted` (engine emits the clear).
+            // 重试横幅优先于 toast 和常规状态行，
+            // 以便用户清晰看到它 (#499)。
+            // 横幅在成功或下一个 `TurnStarted` 时自动清除（引擎发出清除）。
             banner
         } else if let Some(toast) = self.props.toast.as_ref() {
             Self::toast_spans(toast, max_left_width)

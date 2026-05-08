@@ -1,14 +1,13 @@
 //! 大输出路由 — 将大工具输出路由到分页器。
 //!
-//! Any tool result whose estimated token count exceeds the configured threshold
-//! is intercepted here before it reaches the parent context. A lightweight
-//! V4-Flash synthesis sub-agent condenses the raw output; only the synthesis
-//! is returned to the parent. The raw content is stored in the workshop
-//! variable `last_tool_result` so the parent agent can call
-//! `promote_to_context` later if it needs the full text.
+//! 任何超过配置阈值的估计 token 数的工具结果在此处被拦截，
+//! 在到达父上下文之前进行处理。一个轻量级的 V4-Flash 合成子代理
+//! 压缩原始输出；只有合成结果返回给父上下文。原始内容存储在 workshop
+//! 变量 `last_tool_result` 中，以便父代理在稍后需要完整文本时可以
+//! 调用 `promote_to_context`。
 //!
-//! Per-tool thresholds can override the global default. Individual tool calls
-//! may pass `raw=true` to bypass routing entirely.
+//! 每个工具的阈值可以覆盖全局默认值。单个工具调用可以传递 `raw=true`
+//! 以完全绕过路由。
 
 use std::collections::HashMap;
 
@@ -18,13 +17,11 @@ use crate::tools::spec::ToolResult;
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
-/// Default token threshold above which a tool result is routed through the
-/// workshop. Matches the issue spec of 4 096 tokens.
+/// 默认 token 阈值，超过此值的工具结果将通过 workshop 路由。与 issue 规范的 4096 tokens 一致。
 pub const DEFAULT_LARGE_OUTPUT_THRESHOLD_TOKENS: usize = 4_096;
 
-/// Approximate characters-per-token ratio used for the heuristic estimate.
-/// We intentionally choose a conservative value (3 chars/token) so we err
-/// on the side of routing rather than dumping raw data into the parent.
+/// 用于启发式估算的近似每 token 字符数。
+/// 我们有意选择一个保守的值（3 字符/token），以便宁可路由也不将原始数据转储到父上下文中。
 const CHARS_PER_TOKEN_ESTIMATE: usize = 3;
 
 /// Workshop variable name where the raw tool output is stored.
