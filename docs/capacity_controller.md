@@ -1,43 +1,40 @@
-# Capacity Controller
+# 容量控制器
 
-`deepseek-tui` includes an opt-in capacity-aware context controller. In the
-default V4 path it is disabled, because its active interventions can rewrite
-the live prompt and break prefix-cache affinity. Treat it as telemetry or an
-experimental guardrail unless `capacity.enabled = true` is set explicitly.
+`deepseek-tui` 包含一个可选的容量感知上下文控制器。在默认的 V4 路径中它被禁用，因为其主动干预可能会重写实时提示并破坏前缀缓存亲和性。除非显式设置了 `capacity.enabled = true`，否则将其视为遥测或实验性护栏。
 
-## Policy Overview
+## 策略概览
 
-Each checkpoint computes:
+每个检查点计算：
 
-- `H_hat` (runtime pressure proxy)
-- `C_hat` (model capacity prior)
+- `H_hat`（运行时压力代理）
+- `C_hat`（模型容量先验）
 - `slack = C_hat - H_hat`
-- dynamic slack profile over last `N=8` observations
+- 最近 `N=8` 次观测的动态松弛度曲线
 
-### Runtime Pressure Proxy (`H_hat`)
+### 运行时压力代理（`H_hat`）
 
 - `action_complexity_bits = log2(1 + action_count_this_turn)`
 - `tool_complexity_bits = log2(1 + tool_calls_recent_window)`
 - `ref_complexity_bits = log2(1 + unique_reference_ids_recent_window)`
 - `context_pressure_bits = 6.0 * context_used_ratio`
 
-Formula:
+公式：
 
 `H_hat = 0.35*action_complexity_bits + 0.30*tool_complexity_bits + 0.20*ref_complexity_bits + 0.15*context_pressure_bits`
 
-### Capacity Prior (`C_hat`)
+### 容量先验（`C_hat`）
 
-Per-model priors:
+各模型先验值：
 
 - `deepseek_v3_2_chat = 3.9`
 - `deepseek_v3_2_reasoner = 4.1`
 - `deepseek_v4_pro = 3.5`
 - `deepseek_v4_flash = 4.2`
-- fallback `3.8` (used for other DeepSeek IDs, including future releases)
+- 回退值 `3.8`（用于其他 DeepSeek ID，包括未来版本）
 
-### Failure Probability
+### 失败概率
 
-Using rolling profile fields:
+使用滚动曲线字段：
 
 - `final_slack`
 - `min_slack`
@@ -45,104 +42,101 @@ Using rolling profile fields:
 - `slack_volatility`
 - `slack_drop`
 
-Formula:
+公式：
 
 `z = -1.65*final_slack -0.85*min_slack +1.35*violation_ratio +0.70*slack_volatility +0.28*slack_drop -0.12`
 
-`p_fail = sigmoid(z)` clamped to `[0,1]`.
+`p_fail = sigmoid(z)` 限制在 `[0,1]` 范围内。
 
-Risk bands:
+风险等级：
 
-- low: `p_fail <= low_risk_max`
-- medium: `p_fail <= medium_risk_max`
-- high: otherwise
+- 低：`p_fail <= low_risk_max`
+- 中：`p_fail <= medium_risk_max`
+- 高：其他
 
-Action mapping when the controller is explicitly enabled:
+当控制器显式启用时的动作映射：
 
-- low -> `NoIntervention`
-- medium -> `TargetedContextRefresh`
-- high + severe dynamics (`min_slack <= severe_min_slack` or `violation_ratio >= severe_violation_ratio`) -> `VerifyAndReplan`
-- otherwise high -> `VerifyWithToolReplay`
+- 低 -> `NoIntervention`（无干预）
+- 中 -> `TargetedContextRefresh`（定向上下文刷新）
+- 高 + 严重动态（`min_slack <= severe_min_slack` 或 `violation_ratio >= severe_violation_ratio`）-> `VerifyAndReplan`（验证并重新规划）
+- 其他高 -> `VerifyWithToolReplay`（工具重放验证）
 
-## Checkpoints
+## 检查点
 
-When enabled, the engine evaluates controller policy at:
+启用时，引擎在以下位置评估控制器策略：
 
-1. Pre-request checkpoint (before `MessageRequest` assembly).
-2. Post-tool checkpoint (after tool result append).
-3. Error-escalation checkpoint (tool error streak path).
+1. 预请求检查点（`MessageRequest` 组装之前）
+2. 工具后检查点（工具结果追加之后）
+3. 错误升级检查点（工具错误连续路径）
 
-## Interventions
+## 干预措施
 
-Interventions are not part of the default v0.7.5 V4 path. The default path is:
-append messages, preserve prefix-cache reuse, suggest manual `/compact` near
-real model pressure, and use overflow recovery only if the request would exceed
-the model input budget.
+干预措施不是默认 v0.7.5 V4 路径的一部分。默认路径是：追加消息、保留前缀缓存重用、在接近实际模型压力时建议手动 `/compact`，仅当请求会超过模型输入预算时使用溢出恢复。
 
-### `TargetedContextRefresh`
+### `TargetedContextRefresh`（定向上下文刷新）
 
-- Runs compaction (`compact_messages_safe`) when possible.
-- Falls back to local trim if compaction path fails.
-- Persists canonical state.
-- Replaces long-tail active context with compact canonical prompt + memory pointer.
+- 在可能时运行压缩（`compact_messages_safe`）
+- 压缩路径失败时回退到本地裁剪
+- 持久化规范状态
+- 用紧凑的规范提示 + 记忆指针替换长尾活动上下文
 
-### `VerifyWithToolReplay`
+### `VerifyWithToolReplay`（工具重放验证）
 
-- Replays one read-only critical tool call from recent turn context.
-- Appends verification note with pass/fail + diff summary.
-- On replay conflict/error, marks escalation candidate and disables replay for current turn.
+- 从最近轮次上下文中重放一个只读关键工具调用
+- 追加包含通过/失败 + diff 摘要的验证说明
+- 在重放冲突/错误时，标记升级候选并禁用当前轮次的重放
 
-### `VerifyAndReplan`
+### `VerifyAndReplan`（验证并重新规划）
 
-- Persists canonical snapshot.
-- Clears volatile prompt tail while preserving latest user ask and latest verification note.
-- Injects canonical replan instruction into system prompt.
-- Continues turn loop from compact canonical state.
+- 持久化规范快照
+- 清除易变提示尾部，同时保留最新的用户请求和最新的验证说明
+- 将规范重新规划指令注入系统提示
+- 从紧凑的规范状态继续轮次循环
 
-## Safety Controls
+## 安全控制
 
-- Max one intervention per turn.
-- Cooldowns for refresh and replan.
-- Replay budget per turn (`max_replay_per_turn`).
-- Fail-open behavior when controller inputs are unavailable.
-- Compaction/replay failures are logged; turn continues.
+- 每轮最多一次干预
+- 刷新和重新规划的冷却期
+- 每轮重放预算（`max_replay_per_turn`）
+- 控制器输入不可用时的故障开放行为
+- 压缩/重放失败会记入日志；轮次继续
 
-## Memory Store
+## 内存存储
 
-Path:
+路径：
 
-- `DEEPSEEK_CAPACITY_MEMORY_DIR` (if set)
-- otherwise `~/.deepseek/memory/<session_id>.jsonl`
-- fallback: `<workspace>/.deepseek/memory/<session_id>.jsonl` when home path is unavailable/unwritable
+- `DEEPSEEK_CAPACITY_MEMORY_DIR`（如果设置）
+- 否则为 `~/.deepseek/memory/<session_id>.jsonl`
+- 回退：当主目录不可用/不可写时，使用 `<workspace>/.deepseek/memory/<session_id>.jsonl`
 
-Record fields:
+记录字段：
 
-- `id`, `ts`, `turn_index`, `action_trigger`
-- `h_hat`, `c_hat`, `slack`, `risk_band`
+- `id`、`ts`、`turn_index`、`action_trigger`
+- `h_hat`、`c_hat`、`slack`、`risk_band`
 - `canonical_state`
 - `source_message_ids`
-- optional `replay_info`
+- 可选的 `replay_info`
 
-Loader utility supports fetching last `K` snapshots for rehydration.
+加载工具支持获取最后 `K` 个快照用于重新水合。
 
-## Configuration
+## 配置
 
-`[capacity]` keys:
+`[capacity]` 配置项：
 
-- `enabled` (default `false`)
-- `low_risk_max` (default `0.50`)
-- `medium_risk_max` (default `0.62`)
-- `severe_min_slack` (default `-0.25`)
-- `severe_violation_ratio` (default `0.40`)
-- `refresh_cooldown_turns` (default `6`)
-- `replan_cooldown_turns` (default `5`)
-- `max_replay_per_turn` (default `1`)
-- `min_turns_before_guardrail` (default `4`)
-- `profile_window` (default `8`)
-- `deepseek_v3_2_chat_prior` (default `3.9`)
-- `deepseek_v3_2_reasoner_prior` (default `4.1`)
-- `deepseek_v4_pro_prior` (default `3.5`)
-- `deepseek_v4_flash_prior` (default `4.2`)
-- `fallback_default_prior` (default `3.8`)
+- `enabled`（默认 `false`）
+- `low_risk_max`（默认 `0.50`）
+- `medium_risk_max`（默认 `0.62`）
+- `severe_min_slack`（默认 `-0.25`）
+- `severe_violation_ratio`（默认 `0.40`）
+- `refresh_cooldown_turns`（默认 `6`）
+- `replan_cooldown_turns`（默认 `5`）
+- `max_replay_per_turn`（默认 `1`）
+- `min_turns_before_guardrail`（默认 `4`）
+- `profile_window`（默认 `8`）
+- `deepseek_v3_2_chat_prior`（默认 `3.9`）
+- `deepseek_v3_2_reasoner_prior`（默认 `4.1`）
+- `deepseek_v4_pro_prior`（默认 `3.5`）
+- `deepseek_v4_flash_prior`（默认 `4.2`）
+- `fallback_default_prior`（默认 `3.8`）
 
-Equivalent environment overrides are available with `DEEPSEEK_CAPACITY_*`.
+可通过 `DEEPSEEK_CAPACITY_*` 形式的环境变量覆盖相应配置。

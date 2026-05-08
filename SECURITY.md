@@ -1,69 +1,69 @@
-# Security Policy
+# 安全策略
 
-DeepSeek TUI is a coding agent with direct access to file operations, shell execution, and the network. Security disclosures are taken seriously.
+DeepSeek TUI 是一个能够直接访问文件操作、shell 执行和网络的编程智能体。安全问题会被认真对待。
 
-## Supported Versions
+## 支持的版本
 
-Only the latest stable release receives security patches. No backports to older versions.
+只有最新的稳定版本会收到安全补丁。不会对旧版本进行向后移植。
 
-| Version | Supported |
+| 版本 | 支持情况 |
 |---|---|
-| latest stable | :white_check_mark: |
-| < latest | :x: |
+| 最新稳定版 | :white_check_mark: |
+| 低于最新版 | :x: |
 
-Check the [releases page](https://github.com/Hmbown/DeepSeek-TUI/releases) for the current version.
+查看[发布页面](https://github.com/Hmbown/DeepSeek-TUI/releases)以获取当前版本。
 
-## Reporting a Vulnerability
+## 报告漏洞
 
-**Do not open a public GitHub issue for security vulnerabilities.**
+**请勿为安全漏洞创建公开的 GitHub issue。**
 
-Report privately via one of:
+请通过以下方式之一私下报告：
 
-- **Email**: [hmbown.dev@gmail.com](mailto:hmbown.dev@gmail.com) — include `[SECURITY]` in the subject line
-- **GitHub private advisory**: [github.com/Hmbown/DeepSeek-TUI/security/advisories/new](https://github.com/Hmbown/DeepSeek-TUI/security/advisories/new)
+- **电子邮件**：[hmbown.dev@gmail.com](mailto:hmbown.dev@gmail.com) — 请在主题行中包含 `[SECURITY]`
+- **GitHub 私人安全公告**：[github.com/Hmbown/DeepSeek-TUI/security/advisories/new](https://github.com/Hmbown/DeepSeek-TUI/security/advisories/new)
 
-Include in your report:
+在报告中包含：
 
-- A description of the vulnerability and the impact if exploited
-- Steps to reproduce or a proof of concept
-- Affected versions and configuration details
-- Any suggested mitigation (optional)
+- 漏洞描述及利用后的影响
+- 重现步骤或概念验证
+- 受影响版本和配置详情
+- 任何建议的缓解措施（可选）
 
-## Response Timeline
+## 响应时间线
 
-| Phase | Target |
+| 阶段 | 目标时间 |
 |---|---|
-| Acknowledgment | Within 48 hours of receipt |
-| Assessment | Within 5 days — triage severity, scope, and fix approach |
-| Patch (critical) | Within 14 days from assessment |
-| Patch (moderate/low) | Next feature release or per-maintainer timeline |
-| Disclosure | After patch is shipped and users have had time to update |
+| 确认收到 | 48 小时内 |
+| 评估 | 5 天内——确定严重程度、影响范围和修复方案 |
+| 补丁（严重） | 评估后 14 天内 |
+| 补丁（中等/低） | 下一个功能发布或按维护者时间表 |
+| 公开披露 | 补丁发布后，给用户留出更新时间 |
 
-You will receive status updates at each phase. If the timeline slips, we will communicate the reason and the revised estimate.
+您将在每个阶段收到状态更新。如果时间线延迟，我们会通知您原因和修订后的预计时间。
 
-## Scope
+## 范围
 
-### In scope (what counts)
+### 在范围内（计入漏洞）
 
-- Remote code execution through crafted prompts or model responses
-- Sandbox escape — breaking out of the YOLO-mode workspace boundary or shell `cwd` confinement
-- Credential leak — exfiltration of API keys, tokens, or environment secrets
-- Arbitrary file read/write outside the intended workspace (`PathEscape` bypass)
-- SSRF via `fetch_url` or `web_search` against internal network endpoints
-- Unauthorised MCP server access or tool invocation
+- 通过精心构造的提示或模型响应实现远程代码执行
+- 沙箱逃逸——突破 YOLO 模式工作区边界或 shell `cwd` 限制
+- 凭据泄露——API 密钥、令牌或环境秘密的泄露
+- 在预期工作区之外的任意文件读/写（`PathEscape` 绕过）
+- 通过 `fetch_url` 或 `web_search` 对内网端点的 SSRF 攻击
+- 未授权的 MCP 服务器访问或工具调用
 
-### Out of scope
+### 不在范围内
 
-- Social engineering of the maintainer or contributors
-- Denial of service / rate-limit exhaustion against the DeepSeek API
-- Vulnerabilities in third-party dependencies (report to the upstream project)
-- Attacks requiring physical access to the victim's machine
-- Theoretical ML-model injection attacks not demonstrated in the DeepSeek TUI context
+- 针对维护者或贡献者的社会工程攻击
+- 对 DeepSeek API 的拒绝服务/速率限制耗尽
+- 第三方依赖中的漏洞（请向上游项目报告）
+- 需要物理接触受害者机器的攻击
+- 在 DeepSeek TUI 上下文中未演示的理论性 ML 模型注入攻击
 
-If you are unsure whether a bug is in scope, report it anyway. We will triage and respond.
+如果您不确定某个漏洞是否在范围内，仍然请报告。我们会进行分类和响应。
 
-## Hall of Fame
+## 名人堂
 
-We maintain a hall of fame for reporters who submit verified security vulnerabilities. To be credited, include your preferred name / handle in the report.
+我们为提交已验证安全漏洞的报告者维护了一个名人堂。要获得署名，请在报告中提供您偏好的名称/代号。
 
-*No entries yet — be the first.*
+*目前尚无条目——成为第一个。*
