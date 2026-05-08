@@ -1,14 +1,30 @@
 ---
-name: Feature request
-about: Suggest an idea or improvement
-labels: enhancement
+name: 功能请求
+about: 建议一个想法或改进
+
 ---
 
-## Problem
+## 问题描述
 
-## Proposed solution
+这个功能请求是否与一个问题相关？请清晰描述问题是什么。
 
-## Alternatives considered
+例如：当 [...] 时，我总是感到困扰。
 
-## Additional context
+## 期望的解决方案
 
+你希望发生什么？请清晰描述你想要的解决方案。
+
+## 考虑的替代方案
+
+你考虑过的任何替代解决方案或功能？
+
+## 使用场景
+
+请描述在什么情况下会使用此功能。:
+- 在什么工作流中？
+- 使用什么模型/提供方？
+- 期望的行为是什么？
+
+## 附加信息
+
+添加任何其他上下文或关于此功能请求的截图。

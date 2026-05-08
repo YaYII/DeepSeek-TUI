@@ -1,27 +1,41 @@
 ---
-name: Bug report
-about: Report a problem or regression
-labels: bug
+name: 报告 Bug
+about: 报告问题或回归缺陷
+
 ---
 
-## Description
+## 描述
 
-## Steps to reproduce
+清晰地描述这个 bug 是什么。
 
-1.
-2.
-3.
+## 复现步骤
 
-## Expected behavior
+1. 运行 '...'
+2. 输入 '....'
+3. 看到错误
 
-## Actual behavior
+## 预期行为
 
-## Environment
+你期望发生什么？
 
-- OS:
-- DeepSeek CLI version:
-- Model:
-- Shell:
+## 实际行为
 
-## Logs or screenshots
+实际发生了什么？
 
+## 环境信息
+
+- 操作系统及版本：
+- 终端模拟器：
+- Rust 版本（`rustc --version`）：
+- DeepSeek TUI 版本（`deepseek --version`）：
+- 提供方及模型：
+
+## 附加信息
+
+添加任何其他有关该问题的上下文。如有相关，请包含日志或截图。
+
+## 检查清单
+
+- [ ] 我已搜索现有 issue，未发现重复
+- [ ] 我正在运行最新的 DeepSeek TUI 版本
+- [ ] 我已包含 `deepseek doctor --json` 的输出（如相关）
