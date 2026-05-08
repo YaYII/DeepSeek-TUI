@@ -126,7 +126,7 @@ pub async fn run_stdio(config_path: Option<PathBuf>) -> Result<()> {
             Err(err) => {
                 let response = jsonrpc_error(
                     None,
-                    JsonRpcError::parse_error(format!("invalid json: {err}")),
+                    JsonRpcError::parse_error(format!("无效的 JSON: {err}")),
                 );
                 writer.write_all(response.to_string().as_bytes()).await?;
                 writer.write_all(b"\n").await?;
@@ -142,7 +142,7 @@ pub async fn run_stdio(config_path: Option<PathBuf>) -> Result<()> {
         {
             let response = jsonrpc_error(
                 request.id,
-                JsonRpcError::invalid_request("jsonrpc version must be 2.0"),
+                JsonRpcError::invalid_request("jsonrpc 版本必须是 2.0"),
             );
             writer.write_all(response.to_string().as_bytes()).await?;
             writer.write_all(b"\n").await?;
@@ -345,7 +345,7 @@ impl JsonRpcError {
     fn method_not_found(method: &str) -> Self {
         Self {
             code: -32601,
-            message: format!("unsupported method: {method}"),
+            message: format!("不支持的方法: {method}"),
             data: None,
         }
     }

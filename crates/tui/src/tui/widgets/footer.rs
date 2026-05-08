@@ -555,8 +555,8 @@ impl Renderable for FooterWidget {
         let left_width = span_width(&left_spans);
         let spacer_width = available_width.saturating_sub(left_width + right_width);
 
-        // When a turn is in flight, fill the gap with a thin animated water-
-        // spout strip; otherwise the gap stays as plain whitespace.
+        // 当轮次正在进行时，用细小的动画水柱条填充间隙；
+        // 否则间隙保持为纯空白。
         let spacer_span = match self.props.working_strip_frame {
             Some(frame) if spacer_width > 0 => Span::styled(
                 footer_working_strip_string(spacer_width, frame),

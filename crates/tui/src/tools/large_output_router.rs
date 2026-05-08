@@ -24,28 +24,27 @@ pub const DEFAULT_LARGE_OUTPUT_THRESHOLD_TOKENS: usize = 4_096;
 /// 我们有意选择一个保守的值（3 字符/token），以便宁可路由也不将原始数据转储到父上下文中。
 const CHARS_PER_TOKEN_ESTIMATE: usize = 3;
 
-/// Workshop variable name where the raw tool output is stored.
+/// workshop 变量名称，用于存储原始工具输出。
 pub const WORKSHOP_LAST_TOOL_RESULT_VAR: &str = "last_tool_result";
 
 // ── Configuration ─────────────────────────────────────────────────────────────
 
-/// `[workshop]` section in `config.toml`.
+/// `config.toml` 中的 `[workshop]` 配置节。
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct WorkshopConfig {
-    /// Token threshold above which tool results are routed through the workshop
-    /// synthesis sub-agent. Default: [`DEFAULT_LARGE_OUTPUT_THRESHOLD_TOKENS`].
+    /// Token 阈值，超过此值的工具结果将通过 workshop 合成子代理路由。
+    /// 默认值：[`DEFAULT_LARGE_OUTPUT_THRESHOLD_TOKENS`]。
     #[serde(default)]
     pub large_output_threshold_tokens: Option<usize>,
 
-    /// Per-tool threshold overrides (tool name → token limit). A tool whose
-    /// name appears here uses this limit instead of
-    /// `large_output_threshold_tokens`.
+    /// 每个工具的阈值覆盖（工具名称 → token 限制）。出现在此处的工具
+    /// 使用此限制而不是 `large_output_threshold_tokens`。
     #[serde(default)]
     pub per_tool_thresholds: Option<HashMap<String, usize>>,
 }
 
 impl WorkshopConfig {
-    /// Resolve the effective threshold for the given tool name.
+    /// 解析给定工具名称的有效阈值。
     #[must_use]
     pub fn threshold_for(&self, tool_name: &str) -> usize {
         if let Some(per_tool) = self.per_tool_thresholds.as_ref()

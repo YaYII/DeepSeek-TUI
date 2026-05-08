@@ -680,28 +680,28 @@ pub fn analyze_command(command: &str) -> SafetyAnalysis {
         return SafetyAnalysis::requires_approval(command, reasons);
     }
 
-    // Check for git push/force operations
+    // 检查 git push/force 操作
     if command_lower.contains("git push") {
         if command_lower.contains("--force") || command_lower.contains("-f") {
             return SafetyAnalysis::requires_approval(
                 command,
-                vec!["Force push can overwrite remote history".to_string()],
+                vec!["强制推送可能覆盖远程历史记录".to_string()],
             );
         }
         return SafetyAnalysis::requires_approval(
             command,
-            vec!["Push will modify remote repository".to_string()],
+            vec!["推送将修改远程仓库".to_string()],
         );
     }
 
-    // Default: requires approval for unknown commands
+    // 默认：未知命令需要批准
     SafetyAnalysis::requires_approval(
         command,
-        vec!["Unknown command - review before execution".to_string()],
+        vec!["未知命令 - 执行前请检查".to_string()],
     )
 }
 
-/// Check if a command is known to be safe
+/// 检查命令是否为已知安全
 fn is_safe_command(command: &str) -> bool {
     let command_lower = command.to_lowercase();
 
