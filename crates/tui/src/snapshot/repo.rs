@@ -1,16 +1,15 @@
 //! 工作区快照的侧 git 仓库包装器。
 //!
-//! `SnapshotRepo` shells out to the system `git` binary (we deliberately
-//! avoid `git2` to dodge its LGPL surface). The two paths that matter:
+//! `SnapshotRepo` 调用系统 `git` 二进制文件（我们有意避免使用 `git2`
+//! 以规避其 LGPL 许可证）。两个关键路径：
 //!
 //! - `git_dir`  → `~/.deepseek/snapshots/<project_hash>/<worktree_hash>/.git`
-//! - `work_tree` → the user's actual workspace
+//! - `work_tree` → 用户的实际工作区
 //!
-//! Every git invocation passes both `--git-dir` AND `--work-tree`. That is
-//! the single biggest safety mechanism: it guarantees we never accidentally
-//! mutate the user's own `.git` directory. If git can't find the side
-//! repo, the command fails fast instead of falling back to "current
-//! directory".
+//! 每次 git 调用都同时传递 `--git-dir` 和 `--work-tree`。
+//! 这是最重要的安全机制：它确保我们永远不会意外修改用户自己的
+//! `.git` 目录。如果 git 找不到侧仓库，命令会快速失败，
+//! 而不是回退到"当前目录"。
 
 use std::collections::HashSet;
 use std::io;
@@ -20,29 +19,29 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use super::paths::{ensure_snapshot_dir, snapshot_git_dir};
 
-/// Identifier for a snapshot — currently the underlying git commit SHA.
+/// 快照的标识符 — 当前为底层的 git commit SHA。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SnapshotId(pub String);
 
 impl SnapshotId {
-    /// Borrow the SHA as a string slice.
+    /// 将 SHA 作为字符串切片借用。
     pub fn as_str(&self) -> &str {
         &self.0
     }
 }
 
-/// A single snapshot record (one row in `git log`).
+/// 单个快照记录（`git log` 中的一行）。
 #[derive(Debug, Clone)]
 pub struct Snapshot {
-    /// Commit SHA inside the side repo.
+    /// 侧仓库内的 commit SHA。
     pub id: SnapshotId,
-    /// Subject line — the label passed to [`SnapshotRepo::snapshot`].
+    /// 主题行 — 传递给 [`SnapshotRepo::snapshot`] 的标签。
     pub label: String,
-    /// Author timestamp (Unix seconds).
+    /// 作者时间戳（Unix 秒）。
     pub timestamp: i64,
 }
 
-/// Wrapper around the per-workspace side-git repo.
+/// 每个工作区侧 git 仓库的包装器。
 pub struct SnapshotRepo {
     git_dir: PathBuf,
     work_tree: PathBuf,

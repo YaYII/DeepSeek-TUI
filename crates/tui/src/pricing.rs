@@ -6,7 +6,7 @@ use chrono::{DateTime, TimeZone, Utc};
 
 use crate::models::Usage;
 
-/// Cost display currency.
+/// 成本显示货币。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CostCurrency {
     Usd,
@@ -30,7 +30,7 @@ impl CostCurrency {
     }
 }
 
-/// Cost estimate in the two official DeepSeek pricing currencies.
+/// 以 DeepSeek 官方定价的两种货币表示的成本估算。
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct CostEstimate {
     pub usd: f64,
@@ -55,7 +55,7 @@ impl CostEstimate {
     }
 }
 
-/// Per-million-token pricing for a model.
+/// 模型的每百万令牌定价。
 #[derive(Debug, Clone, Copy)]
 struct CurrencyPricing {
     input_cache_hit_per_million: f64,

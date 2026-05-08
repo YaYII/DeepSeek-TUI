@@ -1,22 +1,20 @@
 //! Linux Landlock 沙箱实现。
 //!
-//! Landlock is a security mechanism introduced in Linux kernel 5.13 that allows
-//! processes to restrict their own access rights. Unlike Seatbelt on macOS which
-//! uses an external sandbox-exec wrapper, Landlock applies restrictions directly
-//! to the current process.
+//! Landlock 是 Linux 内核 5.13 中引入的一种安全机制，允许进程限制自身的访问权限。
+//! 与 macOS 上使用外部 sandbox-exec 包装器的 Seatbelt 不同，Landlock 直接将限制应用于当前进程。
 //!
-//! # Requirements
+//! # 要求
 //!
-//! - Linux kernel 5.13 or later with Landlock enabled
-//! - The kernel must be compiled with `CONFIG_SECURITY_LANDLOCK=y`
+//! - 启用了 Landlock 的 Linux 内核 5.13 或更高版本
+//! - 内核必须使用 `CONFIG_SECURITY_LANDLOCK=y` 编译
 //!
-//! # How it works
+//! # 工作原理
 //!
-//! 1. Create a landlock ruleset with desired restrictions
-//! 2. Add rules to allow specific file paths
-//! 3. Restrict the process using the ruleset
+//! 1. 创建包含所需限制的 landlock 规则集
+//! 2. 添加规则以允许特定的文件路径
+//! 3. 使用规则集限制进程
 //!
-//! Note: Once restricted, the process cannot gain more privileges.
+//! 注意：一旦受到限制，进程无法获得更多权限。
 
 use super::{CommandSpec, SandboxPolicy};
 use std::ffi::CString;

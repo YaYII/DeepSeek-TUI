@@ -1,8 +1,8 @@
 //! DeepSeek 代理工作的持久化后台任务管理器。
 //!
-//! Tasks are durable across restarts and execute with a bounded worker pool.
-//! Execution stays DeepSeek-only and now links every task to runtime
-//! thread/turn records for unified timelines.
+//! 任务在重启之间持久化，并使用有界工作池执行。
+//! 执行保持仅限 DeepSeek，现在将每个任务链接到运行时
+//! 线程/轮次记录以实现统一的 timelines。
 
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs;
@@ -39,7 +39,7 @@ const fn default_task_schema_version() -> u32 {
     CURRENT_TASK_SCHEMA_VERSION
 }
 
-/// Durable task status.
+/// 持久化任务状态。
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum TaskStatus {
@@ -58,7 +58,7 @@ impl TaskStatus {
     }
 }
 
-/// Durable tool-call status within a task timeline.
+/// 任务时间线中的持久化工具调用状态。
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum TaskToolStatus {
@@ -68,7 +68,7 @@ pub enum TaskToolStatus {
     Canceled,
 }
 
-/// Timeline entry for a task execution.
+/// 任务执行的时间线条目。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TaskTimelineEntry {
     pub timestamp: DateTime<Utc>,

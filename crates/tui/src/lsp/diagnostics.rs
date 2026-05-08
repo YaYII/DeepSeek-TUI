@@ -10,13 +10,13 @@
 //! </diagnostics>
 //! ```
 //!
-//! Lines are 1-based. Columns are 1-based. We trim each diagnostic message
-//! to a single line so the block stays compact.
+//! 行号从 1 开始。列号从 1 开始。我们将每条诊断消息修剪为
+//! 一行，使代码块保持紧凑。
 
 use std::path::PathBuf;
 
-/// Severity bucket used in the rendered block. Mirrors the LSP severity
-/// codes (1 = Error, 2 = Warning, 3 = Information, 4 = Hint).
+/// 渲染块中使用的严重性桶。镜像 LSP 严重性代码
+///（1 = Error, 2 = Warning, 3 = Information, 4 = Hint）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Severity {
     Error,
@@ -26,8 +26,8 @@ pub enum Severity {
 }
 
 impl Severity {
-    /// Decode the LSP integer severity. Returns `None` when the integer is
-    /// missing or unrecognized — callers default to `Error` to err on the
+    /// 解码 LSP 整型严重性。当整数缺失或无法识别时返回 `None`——
+    /// 调用者默认使用 `Error` 以确保安全。
     /// side of surfacing the issue.
     #[must_use]
     pub fn from_lsp(code: Option<i64>) -> Option<Self> {

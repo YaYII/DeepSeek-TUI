@@ -1,20 +1,18 @@
 //! 长生命周期 Python REPL 运行时。
 //!
-//! One `python3 -u` subprocess lives for the duration of an RLM turn (or an
-//! inline `repl` block sequence in the agent loop). Code blocks are sent
-//! over stdin framed by `__RLM_RUN__`/`__RLM_END__` sentinels; the bootstrap
-//! `exec()`s them into the same global namespace so variables, imports,
-//! and even open file handles persist naturally across rounds.
+//! 一个 `python3 -u` 子进程在 RLM 轮次（或代理循环中的内联 `repl` 块序列）期间保持运行。
+//! 代码块通过 stdin 发送，由 `__RLM_RUN__`/`__RLM_END__` 哨兵分隔；
+//! 引导程序通过 `exec()` 将它们执行到同一个全局命名空间中，
+//! 因此变量、导入甚至打开的文件句柄可以在各轮次之间自然持久化。
 //!
-//! Sub-LLM helpers (`llm_query`, `llm_query_batched`, `rlm_query`,
-//! `rlm_query_batched`) are wired through a stdin/stdout RPC protocol:
-//! Python emits `__RLM_REQ_<sid>__::{json}` on stdout, Rust dispatches the
-//! request and writes `__RLM_RESP_<sid>__::{json}` back on stdin. No HTTP
-//! sidecar, no temp ports — the same pipes carry both control and data.
+//! 子 LLM 辅助函数（`llm_query`、`llm_query_batched`、`rlm_query`、
+//! `rlm_query_batched`）通过 stdin/stdout RPC 协议连接：
+//! Python 在 stdout 上发出 `__RLM_REQ_<sid>__::{json}`，Rust 调度
+//! 请求并在 stdin 上写回 `__RLM_RESP_<sid>__::{json}`。无需 HTTP
+//! 侧车，无需临时端口——同一管道同时承载控制和数据。
 //!
-//! The session id (`<sid>`) is a UUID generated per spawn, so user output
-//! that happens to contain "REQ" or "FINAL" can't be confused with control
-//! messages.
+//! 会话 id（`<sid>`）是每次衍生时生成的 UUID，
+//! 因此恰好包含"REQ"或"FINAL"的用户输出不会被误认为是控制消息。
 
 use std::path::{Path, PathBuf};
 use std::process::Stdio;

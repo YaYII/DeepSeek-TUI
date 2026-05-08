@@ -1,44 +1,40 @@
 //! 长时间运行会话的检查点重启周期管理（问题 #124）。
 //!
-//! ## Why
+//! ## 为什么需要周期管理
 //!
-//! DeepSeek V4's empirical retrieval degradation begins around the 256K band
-//! (paper Figure 9: 8K/0.90, 64K/0.87, 128K/0.85, 256K/0.76,
-//! 512K/0.66, 1M/0.59). Lossy
-//! summarization compaction creates a "Frankenstein" context — half verbatim,
-//! half paraphrased — that the model cannot tell apart, so it treats the
-//! summary as if it were verbatim and confabulates around the gaps.
+//! DeepSeek V4 的经验检索退化在大约 256K 附近开始
+//!（论文图 9：8K/0.90、64K/0.87、128K/0.85、256K/0.76、
+//! 512K/0.66、1M/0.59）。有损摘要压缩创建了"弗兰肯斯坦"上下文
+//! — 一半逐字、一半转述 — 模型无法区分，
+//! 因此它将摘要视为逐字内容并在间隙处虚构。
 //!
-//! Checkpoint-restart fixes this by giving every cycle a *homogeneous* fresh
-//! context: original system prompt, structured state (todos / plan / working
-//! set / sub-agent handles), and a model-curated free-form briefing of at
-//! most ~3,000 tokens. The previous cycle is archived to disk in JSONL form
-//! so a future `recall_archive` tool (issue #127) can search it on demand.
+//! 检查点重启通过为每个周期提供*同质化*的全新上下文来解决此问题：
+//! 原始系统提示词、结构化状态（待办事项/计划/工作集/子代理句柄）
+//! 以及模型策划的自由形式简报（最多约 3,000 令牌）。
+//! 上一个周期以 JSONL 格式归档到磁盘，以便未来的 `recall_archive` 工具
+//!（问题 #127）可以按需搜索它。
 //!
-//! ## Layers of carry-forward
+//! ## 延续层级
 //!
-//! 1. **Auto-preserved** (deterministic, no agent judgment): the original
-//!    system prompt, `SharedTodoList`, `SharedPlanState`, working-set paths,
-//!    open sub-agent snapshots, mode / workspace / cwd, and the user's most
-//!    recent unsent message.
-//! 2. **Free-form briefing** (model-curated, wrapped as `<carry_forward>`):
-//!    decisions made + why, constraints discovered, hypotheses being tested,
-//!    approaches that failed, open questions. Tool output bytes, file
-//!    contents, and step-by-step recaps explicitly do NOT belong here —
-//!    they're either in the archive or recoverable from disk.
+//! 1. **自动保留**（确定性，无需代理判断）：原始系统提示词、
+//!    `SharedTodoList`、`SharedPlanState`、工作集路径、
+//!    打开的子代理快照、模式/工作区/cwd，以及用户最近的未发送消息。
+//! 2. **自由形式简报**（模型策划，包装为 `<carry_forward>`）：
+//!    已做的决策及原因、发现的约束、正在测试的假设、
+//!    已失败的方法、未解决的问题。工具输出字节、文件内容和逐步回顾
+//!    明确不属于此 — 它们要么在归档中，要么可从磁盘恢复。
 //!
-//! ## Trigger
+//! ## 触发条件
 //!
-//! - Token threshold: **768K** active input by default (~75% of the 1M window).
-//!   This is a rare overflow safety net. The trigger is based on the next
-//!   request's live input estimate, not lifetime summed API usage, with
-//!   assistant-output and safety headroom considered against the model window.
-//!   Optional soft seams at 192K/384K/576K are controlled by the opt-in layered
-//!   context manager (#159).
-//! - Phase guard: callers only invoke `should_advance_cycle` at clean turn
-//!   boundaries (no in-flight tool, no streaming, no approval modal).
-//! - Per-model overrides: `[cycle.per_model]` in config.toml lets operators
-//!   tune the threshold separately for `deepseek-v4-pro` vs. `-flash`.
+//! - 令牌阈值：默认**768K** 活跃输入（约 1M 窗口的 75%）。
+//!   这是罕见的溢出安全网。触发基于下一个请求的实时输入估计，
+//!   而非生命周期累计 API 使用量，同时考虑助手输出和安全余量
+//!   与模型窗口进行对比。可选的软接缝（192K/384K/576K）由
+//!   选择加入的分层上下文管理器控制（#159）。
+//! - 阶段守卫：调用者仅在干净的轮次边界调用 `should_advance_cycle`
+//!   （无进行中的工具、无流式处理、无审批弹窗）。
+//! - 每模型覆盖：config.toml 中的 `[cycle.per_model]` 让操作员
+//!   分别为 `deepseek-v4-pro` 和 `-flash` 调整阈值。
 
 use std::collections::HashMap;
 use std::fs::{File, OpenOptions};
@@ -59,29 +55,29 @@ use crate::tools::subagent::{SharedSubAgentManager, SubAgentResult, SubAgentStat
 use crate::tools::todo::{SharedTodoList, TodoListSnapshot};
 use crate::working_set::WorkingSet;
 
-/// JSONL header record emitted as the first line of an archived cycle file.
+/// 作为归档周期文件第一行发出的 JSONL 头部记录。
 const CYCLE_ARCHIVE_SCHEMA_VERSION: u32 = 1;
 
-/// Default token threshold at which a cycle boundary fires.
+/// 触发周期边界的默认令牌阈值。
 ///
-/// Bumped from 110K to 768K (~75% of 1M window). The layered context manager
-/// (#159) can add opt-in soft seams at 192K/384K/576K; the hard cycle remains
-/// a near-wall safety net.
+/// 从 110K 提升到 768K（约 1M 窗口的 75%）。分层上下文管理器
+///（#159）可以添加可选的软接缝（192K/384K/576K）；硬周期仍然是
+/// 接近墙的安全网。
 pub const DEFAULT_CYCLE_THRESHOLD_TOKENS: usize = 768_000;
 
-/// Default cap on the model-curated briefing block.
+/// 模型策划简报块的默认上限。
 pub const DEFAULT_BRIEFING_MAX_TOKENS: usize = 3_000;
 
-/// Conservative chars-per-token used to bound the briefing length to the
-/// configured token cap. Matches `compaction::estimate_tokens` (~4 chars/token).
+/// 用于将简报长度限制在配置的令牌上限内的保守字符/令牌比率。
+/// 与 `compaction::estimate_tokens`（~4 字符/令牌）匹配。
 const APPROX_CHARS_PER_TOKEN: usize = 4;
 
-/// Per-model cycle tuning. Loaded from `[cycle.per_model.<model>]`.
+/// 每模型周期调优。从 `[cycle.per_model.<model>]` 加载。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModelCycleConfig {
-    /// Token threshold above which a cycle boundary fires.
+    /// 超过此令牌阈值时触发周期边界。
     pub threshold_tokens: usize,
-    /// Cap on the model-curated `<carry_forward>` briefing.
+    /// 模型策划的 `<carry_forward>` 简报的上限。
     pub briefing_max_tokens: usize,
 }
 

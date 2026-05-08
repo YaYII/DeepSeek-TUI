@@ -18,34 +18,34 @@ const CONTEXT_WARNING_THRESHOLD_PERCENT: f64 = 85.0;
 const CONTEXT_CRITICAL_THRESHOLD_PERCENT: f64 = 95.0;
 const CONTEXT_SIGNAL_WIDTH: usize = 4;
 
-/// Data required to render the header bar.
+/// 渲染页眉栏所需的数据。
 pub struct HeaderData<'a> {
     pub model: &'a str,
     pub workspace_name: &'a str,
     pub mode: AppMode,
     pub is_streaming: bool,
     pub background: ratatui::style::Color,
-    /// Total tokens used in this session (cumulative, for display).
+    /// 此会话中使用的总令牌数（累积，用于显示）。
     pub total_tokens: u32,
-    /// Context window size for the model (if known).
+    /// 模型的上下文窗口大小（如果已知）。
     pub context_window: Option<u32>,
-    /// Accumulated session cost in the active display currency.
+    /// 以活动显示货币计算的累积会话成本。
     pub session_cost: f64,
-    /// Active context input tokens used for context utilization. Callers should
-    /// pass a sanitized live-context estimate, not cumulative API usage.
+    /// 用于上下文利用的活动上下文输入令牌。调用方应
+    /// 传递经过清理的实时上下文估算值，而非累积的 API 用量。
     pub last_prompt_tokens: Option<u32>,
-    /// Short label for the current reasoning-effort tier (e.g. "max", "high",
-    /// "off"). Rendered as a chip when space allows.
+    /// 当前推理努力级别的简短标签（例如 "max"、"high"、
+    /// "off"）。空间允许时渲染为芯片。
     pub reasoning_effort_label: Option<&'a str>,
-    /// Short label for the active provider (e.g. "NIM"). When `None` (the
-    /// default-DeepSeek case), no provider chip is rendered. Surfaces the
-    /// fact that requests are going somewhere other than DeepSeek's API so
-    /// it's visible at a glance after a `/provider nvidia-nim`.
+    /// 当前活动提供商的简短标签（例如 "NIM"）。为 `None` 时
+    ///（默认 DeepSeek 情况），不渲染提供商芯片。显示请求
+    /// 发往 DeepSeek API 之外的地方的信息，
+    /// 以便在 `/provider nvidia-nim` 后一目了然。
     pub provider_label: Option<&'a str>,
 }
 
 impl<'a> HeaderData<'a> {
-    /// Create header data from common app fields.
+    /// 从常见应用字段创建页眉数据。
     #[must_use]
     pub fn new(
         mode: AppMode,
@@ -69,22 +69,22 @@ impl<'a> HeaderData<'a> {
         }
     }
 
-    /// Attach a short reasoning-effort label for the header chip.
+    /// 为页眉芯片附加一个简短的推理努力标签。
     #[must_use]
     pub fn with_reasoning_effort(mut self, label: Option<&'a str>) -> Self {
         self.reasoning_effort_label = label;
         self
     }
 
-    /// Attach a short provider label for the header chip. Pass `None` when on
-    /// the default DeepSeek provider so the chip is hidden.
+    /// 为页眉芯片附加一个简短提供商标签。使用默认 DeepSeek 提供商时
+    /// 传递 `None`，以便隐藏芯片。
     #[must_use]
     pub fn with_provider(mut self, label: Option<&'a str>) -> Self {
         self.provider_label = label;
         self
     }
 
-    /// Set token/cost fields.
+    /// 设置令牌/成本字段。
     #[must_use]
     pub fn with_usage(
         mut self,
@@ -101,7 +101,7 @@ impl<'a> HeaderData<'a> {
     }
 }
 
-/// Header bar widget (1 line height).
+/// 页眉栏小部件（1 行高度）。
 pub struct HeaderWidget<'a> {
     data: HeaderData<'a>,
 }

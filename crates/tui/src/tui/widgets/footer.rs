@@ -2,9 +2,9 @@
 //!
 //! `FooterWidget` 是 [`FooterProps`] 结构体的纯渲染：所有内容
 //!（标签、颜色、span 簇）在每次重绘时在更高层计算一次，
-//! 然后 `FooterWidget::new(props).render(area, buf)` 绘制
-//! result. The widget owns no `App` knowledge; this mirrors the layout used
-//! by `HeaderWidget` (and Codex's `bottom_pane::footer::Footer`).
+//! 然后 `FooterWidget::new(props).render(area, buf)` 绘制结果。
+//! 该小部件不拥有任何 `App` 知识；这镜像了 `HeaderWidget`
+//!（以及 Codex 的 `bottom_pane::footer::Footer`）使用的布局。
 
 use ratatui::{
     buffer::Buffer,
@@ -21,64 +21,61 @@ use crate::tui::app::{App, AppMode};
 
 use super::Renderable;
 
-/// Pre-computed data the footer needs to render.
+/// 页脚渲染所需的预计算数据。
 ///
-/// All fields are owned `String` / `Vec<Span<'static>>` values so the props
-/// can be built once per redraw and then handed to a borrow-free widget.
+/// 所有字段都是拥有的 `String` / `Vec<Span<'static>>` 值，
+/// 因此 props 可以在每次重绘时构建一次，然后交给无借用的小部件。
 #[derive(Debug, Clone)]
 pub struct FooterProps {
-    /// The current model identifier shown after the mode chip.
+    /// 模式芯片后显示的当前模型标识符。
     pub model: String,
-    /// `"agent"` / `"yolo"` / `"plan"` — the canonical setting label.
+    /// `"agent"` / `"yolo"` / `"plan"` — 规范设置标签。
     pub mode_label: &'static str,
-    /// Color used for the mode chip.
+    /// 模式芯片使用的颜色。
     pub mode_color: Color,
-    /// Color used for small separators between chips.
+    /// 芯片之间小分隔符的颜色。
     pub text_dim_color: Color,
-    /// Color used for the model label.
+    /// 模型标签的颜色。
     pub text_hint_color: Color,
-    /// Color used for steady secondary chips such as cost.
+    /// 稳定辅助芯片（如成本）的颜色。
     pub text_muted_color: Color,
-    /// Background color for the full footer/status bar row.
+    /// 整个页脚/状态栏行的背景色。
     pub footer_bg: Color,
-    /// Status label like `"ready"`, `"thinking ⌫"`, `"working"`. When the
-    /// label equals `"ready"` the footer hides the status segment entirely.
+    /// 状态标签，如 `"ready"`、`"thinking ⌫"`、`"working"`。
+    /// 当标签等于 `"ready"` 时，页脚完全隐藏状态段。
     pub state_label: String,
-    /// Color used for the status label.
+    /// 状态标签的颜色。
     pub state_color: Color,
-    /// Coherence chip spans (empty when no active intervention).
+    /// 一致性芯片跨度（无活动干预时为空）。
     pub coherence: Vec<Span<'static>>,
-    /// Sub-agent count chip spans (empty when zero in-flight).
+    /// 子代理计数芯片跨度（零个在运行时为空）。
     pub agents: Vec<Span<'static>>,
-    /// Reasoning-replay chip spans (empty when zero / not applicable).
+    /// 推理回放芯片跨度（为零/不适用时为空）。
     pub reasoning_replay: Vec<Span<'static>>,
-    /// Cache-hit-rate chip spans (empty when no usage reported).
+    /// 缓存命中率芯片跨度（未报告使用情况时为空）。
     pub cache: Vec<Span<'static>>,
-    /// MCP server health chip spans (empty when no MCP servers configured).
-    /// Populated lazily — see [`footer_mcp_chip`]. (#502)
+    /// MCP 服务器健康芯片跨度（未配置 MCP 服务器时为空）。
+    /// 惰性填充 — 请参见 [`footer_mcp_chip`]。(#502)
     pub mcp: Vec<Span<'static>>,
-    /// Cumulative model-work chip spans ("worked 3h 12m"). Sums the
-    /// elapsed time of completed turns (from `App::cumulative_turn_duration`),
-    /// **not** wall-clock since launch — an idle TUI shouldn't claim
-    /// it's been "working." Empty until cumulative turn time crosses
-    /// 60s. Populated by [`footer_worked_chip`]. (#448)
+    /// 累积模型工作芯片跨度（"worked 3h 12m"）。对已完成轮次
+    /// 的经过时间求和（来自 `App::cumulative_turn_duration`），
+    /// **不是**自启动以来的挂钟时间 — 空闲的 TUI 不应声称它一直在"工作"。
+    /// 在累积轮次时间超过 60 秒之前为空。由 [`footer_worked_chip`] 填充。(#448)
     pub worked: Vec<Span<'static>>,
-    /// Snapshot of the global retry-status surface (#499). Sampled once
-    /// at props-build time and rendered as a foreground banner on the
-    /// left of the footer when active. Captured here (rather than read
-    /// from `retry_status` at render time) so tests can pin a
-    /// deterministic state without racing the parallel runner.
+    /// 全局重试状态表面的快照 (#499)。在 props 构建时采样一次，
+    /// 在活动时作为前景横幅渲染在页脚左侧。在此处捕获
+    ///（而不是在渲染时从 `retry_status` 读取），以便测试可以固定
+    /// 确定性状态，而无需与并行运行器竞争。
     pub retry: crate::retry_status::RetryState,
-    /// Session-cost chip spans (empty when below the display threshold).
-    /// Rendered in the left cluster (after the model name) — cost is steady
-    /// info, not a transient signal, so it lives with mode and model.
+    /// 会话成本芯片跨度（低于显示阈值时为空）。
+    /// 在左侧簇中渲染（在模型名称之后）— 成本是稳定信息，
+    /// 而非瞬态信号，因此它与模式和模型一起存在。
     pub cost: Vec<Span<'static>>,
-    /// Optional toast that, when present, replaces the left status line.
+    /// 可选的 toast，当存在时替换左侧状态行。
     pub toast: Option<FooterToast>,
-    /// When `Some(frame_idx)`, the gap between the left status line and the
-    /// right-hand chips is filled with an animated water-spout strip keyed
-    /// off `frame_idx` (deterministic given the frame). `None` keeps the gap
-    /// as plain whitespace, which is the idle/ready state.
+    /// 当为 `Some(frame_idx)` 时，左侧状态行和右侧芯片之间的间隙
+    /// 填充了基于 `frame_idx` 的动画水柱条（给定帧确定）。
+    /// `None` 保持间隙为纯空白，即空闲/就绪状态。
     pub working_strip_frame: Option<u64>,
 }
 
@@ -93,16 +90,15 @@ const WAVE_GLYPHS: [char; 8] = [
     '\u{2588}', // █
 ];
 
-/// One frame of the footer's live-work wave animation. `col` is the cell
-/// index inside the strip, `width` the strip's total width, `frame` the raw
-/// millisecond counter. Returns the glyph that should appear in that cell on
-/// that frame.
+/// 页脚实时工作波动画的一帧。`col` 是条内的单元格索引，
+/// `width` 是条的总宽度，`frame` 是原始毫秒计数器。
+/// 返回该帧中该单元格应出现的字形。
 ///
-/// Visual: a full-width phase-shifted wave made from one-cell block-height
-/// glyphs. The earlier crest-pair animation only changed when rounded crest
-/// positions crossed a terminal cell boundary; at an 80 ms repaint cadence it
-/// read as visible hops. Sampling a few moving sine components gives every
-/// repaint a new surface while keeping the math deterministic for tests.
+/// 视觉效果：由单单元格块高度字形组成的全宽相移波。
+/// 早期的波峰对动画仅在四舍五入的波峰位置跨越终端单元格边界时更改；
+/// 在 80 毫秒的重绘节奏下，它显示为可见的跳动。
+/// 采样几个移动的正弦分量使每次重绘都有新外观，
+/// 同时保持数学确定性以便测试。
 #[must_use]
 pub fn footer_working_strip_glyph_at(col: usize, width: usize, frame: u64) -> char {
     if width == 0 {
@@ -121,10 +117,10 @@ pub fn footer_working_strip_glyph_at(col: usize, width: usize, frame: u64) -> ch
     WAVE_GLYPHS[idx.min(WAVE_GLYPHS.len() - 1)]
 }
 
-/// Build the per-frame live-work wave string of `width` characters. Empty string
-/// when width is 0. The result is the same visual width as requested (one
-/// char per column for the selected block-height glyphs) and is safe to drop
-/// into a `Span` between the footer's left and right segments.
+/// 构建每帧实时工作波动画字符串，宽度为 `width` 个字符。
+/// 当宽度为 0 时返回空字符串。结果与请求的视觉宽度相同
+///（所选块高度字形每列一个字符），并且可以安全地放入
+/// 页脚左右段之间的 `Span` 中。
 #[must_use]
 pub fn footer_working_strip_string(width: usize, frame: u64) -> String {
     let mut out = String::with_capacity(width * 4);
@@ -134,12 +130,11 @@ pub fn footer_working_strip_string(width: usize, frame: u64) -> String {
     out
 }
 
-/// Pulse the localized "working" label through 0–3 trailing ASCII dots
-/// keyed off `frame`. The cycle period is 4 frames (matching the four
-/// states), so adjacent ticks visibly differ. Dots stay ASCII regardless
-/// of locale so the animation reads identically across scripts. Returns a
-/// `String` so callers can drop it into a `Span::styled` without lifetime
-/// gymnastics.
+/// 将本地化的 "working" 标签脉冲式地通过 0-3 个尾部 ASCII 点，
+/// 基于 `frame` 按键。周期为 4 帧（匹配四个状态），
+/// 因此相邻的滴答声明显不同。点保持 ASCII 不管语言环境如何，
+/// 以便动画在不同脚本中读取相同。返回 `String`，
+/// 以便调用方可以将其放入 `Span::styled` 中，无需生命周期技巧。
 #[must_use]
 pub fn footer_working_label(frame: u64, locale: Locale) -> String {
     let dots = (frame % 4) as usize;
@@ -152,11 +147,10 @@ pub fn footer_working_label(frame: u64, locale: Locale) -> String {
     out
 }
 
-/// Build a "N agents" chip span list when there are sub-agents in flight.
-/// Empty list when N == 0 hides the chip entirely. Singular for N == 1
-/// reads naturally; plural otherwise. The pluralization template lives in
-/// the locale registry so CJK locales can render the count without the
-/// English plural-`s` artefact.
+/// 当有子代理在运行时构建 "N agents" 芯片跨度列表。
+/// N == 0 时为空列表，完全隐藏芯片。N == 1 时使用单数形式，
+/// 自然阅读；其他情况使用复数。复数模板存在于语言环境注册表中，
+/// 以便 CJK 语言环境可以在没有英语复数 `s` 的情况下渲染计数。
 #[must_use]
 pub fn footer_agents_chip(running: usize, locale: Locale) -> Vec<Span<'static>> {
     if running == 0 {
@@ -173,12 +167,11 @@ pub fn footer_agents_chip(running: usize, locale: Locale) -> Vec<Span<'static>> 
     )]
 }
 
-/// Build the cumulative-elapsed chip ("worked 3h 12m") for the
-/// footer's right cluster (#448). Hidden during the first minute of
-/// a session so a fresh launch doesn't render a noisy `worked 5s`
-/// indicator that immediately starts ticking. Above the threshold,
-/// reuses [`crate::tui::notifications::humanize_duration`] for
-/// consistent w/d/h/m formatting.
+/// 为页脚右侧簇构建累积经过时间芯片 ("worked 3h 12m") (#448)。
+/// 在会话的前一分钟内隐藏，以便新启动不会渲染一个立即开始
+/// 计时的嘈杂 `worked 5s` 指示器。超过阈值后，
+/// 重用 [`crate::tui::notifications::humanize_duration`] 实现
+/// 一致的 w/d/h/m 格式。
 #[must_use]
 pub fn footer_worked_chip(elapsed: std::time::Duration) -> Vec<Span<'static>> {
     if elapsed < std::time::Duration::from_secs(60) {
@@ -194,16 +187,15 @@ pub fn footer_worked_chip(elapsed: std::time::Duration) -> Vec<Span<'static>> {
     )]
 }
 
-/// Build the "MCP M/N" health chip (#502) from the user's stored
-/// snapshot. `connected` is the number of servers currently reachable;
-/// `configured` is the number declared in the user's MCP config. When
-/// `configured` is zero the chip is hidden entirely.
+/// 从用户存储的快照构建 "MCP M/N" 健康芯片 (#502)。
+/// `connected` 是当前可达的服务器数；`configured` 是用户 MCP 配置中声明的数量。
+/// 当 `configured` 为零时，芯片完全隐藏。
 ///
-/// Colour-codes the count by health:
-/// - all reachable → success
-/// - some reachable → warning
-/// - none reachable but at least one configured → error
-/// - configured but no live snapshot yet → muted (count only)
+/// 按健康状况对计数进行颜色编码：
+/// - 全部可达 → 成功
+/// - 部分可达 → 警告
+/// - 无可达但至少配置了一个 → 错误
+/// - 已配置但尚无实时快照 → 静音（仅计数）
 #[must_use]
 pub fn footer_mcp_chip(connected: Option<usize>, configured: usize) -> Vec<Span<'static>> {
     if configured == 0 {
@@ -218,7 +210,7 @@ pub fn footer_mcp_chip(connected: Option<usize>, configured: usize) -> Vec<Span<
     vec![Span::styled(label, Style::default().fg(color))]
 }
 
-/// A status toast routed to the footer's left segment for a short time.
+/// 短时间路由到页脚左段的状态 toast。
 #[derive(Debug, Clone)]
 pub struct FooterToast {
     pub text: String,
@@ -226,14 +218,13 @@ pub struct FooterToast {
 }
 
 impl FooterProps {
-    /// Build footer props from common app state. Helpers in `tui/ui.rs`
-    /// (e.g. `footer_state_label`, `footer_coherence_spans`) supply the
-    /// pre-styled spans and labels — this constructor just bundles them.
+    /// 从通用应用状态构建页脚 props。`tui/ui.rs` 中的辅助函数
+    ///（例如 `footer_state_label`、`footer_coherence_spans`）提供
+    /// 预样式化的 span 和标签 — 此构造函数只是捆绑它们。
     ///
-    /// Argument fan-out is intentional: each input maps 1:1 to a piece of
-    /// pre-computed footer content the caller resolved from `App`. Forcing
-    /// these into a builder would obscure the call site without making the
-    /// data flow any clearer.
+    /// 参数展开是有意的：每个输入一对一映射到调用方从 `App` 解析的
+    /// 一段预计算页脚内容。强制将这些放入构建器会模糊调用点，
+    /// 而不会使数据流更清晰。
     #[must_use]
     #[allow(clippy::too_many_arguments)]
     pub fn from_app(
@@ -248,20 +239,19 @@ impl FooterProps {
         cost: Vec<Span<'static>>,
     ) -> Self {
         let (mode_label, mode_color) = mode_style(app);
-        // MCP chip (#502) — passive, derived from the user's existing
-        // snapshot. `connected` is `None` until the user runs `/mcp`,
-        // which is the same trigger the issue spec accepts for now.
+        // MCP 芯片 (#502) — 被动，派生自用户现有的快照。
+        // `connected` 为 `None`，直到用户运行 `/mcp`，
+        // 这与问题规范目前接受的触发器相同。
         let mcp_configured = app.mcp_configured_count;
         let mcp_connected = app
             .mcp_snapshot
             .as_ref()
             .map(|s| s.servers.iter().filter(|server| server.connected).count());
         let mcp = footer_mcp_chip(mcp_connected, mcp_configured);
-        // #448: cumulative work-time chip. Sums actual turn durations
-        // (set on `TurnComplete`) rather than wall-clock uptime — a TUI
-        // that's been open and idle for 4 minutes shouldn't claim
-        // "worked 4m". The chip stays empty until enough turns add up
-        // to cross the 60s threshold inside `footer_worked_chip`.
+        // #448: 累积工作时间芯片。对实际轮次持续时间求和
+        //（在 `TurnComplete` 上设置），而不是挂钟运行时间 —
+        // 已经打开并空闲了 4 分钟的 TUI 不应声称 "worked 4m"。
+        // 芯片保持为空，直到足够的轮次累积到超过 `footer_worked_chip` 中的 60 秒阈值。
         let worked = footer_worked_chip(app.cumulative_turn_duration);
         Self {
             model: app.model_display_label(),
@@ -301,7 +291,7 @@ fn mode_style(app: &App) -> (&'static str, Color) {
     (label, color)
 }
 
-/// Pure-render footer. Build once per frame, then `render(area, buf)`.
+/// 纯渲染页脚。每帧构建一次，然后 `render(area, buf)`。
 pub struct FooterWidget {
     props: FooterProps,
 }

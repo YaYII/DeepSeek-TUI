@@ -1,9 +1,8 @@
 //! REPL 围栏提取工具。
 //!
-//! The agent's main loop scans assistant text for ` ```repl ` fenced blocks
-//! and feeds them to a [`crate::repl::runtime::PythonRuntime`]. Capturing
-//! `FINAL(...)` and routing sub-LLM RPCs are handled inside the runtime via
-//! a stdin/stdout protocol — no scraping required here.
+//! 代理的主循环扫描助手文本中的 ` ```repl ` 围栏代码块，并将其馈送给
+//! [`crate::repl::runtime::PythonRuntime`]。捕获 `FINAL(...)` 和路由子 LLM RPC
+//! 在运行时内部通过 stdin/stdout 协议处理——此处无需解析。
 
 /// Check if a string contains a `` ```repl `` fenced code block.
 pub fn has_repl_block(text: &str) -> bool {

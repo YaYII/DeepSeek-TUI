@@ -2,22 +2,19 @@
 
 //! Shell 执行的命令安全分析
 //!
-//! This module provides pre-execution analysis of shell commands to detect
-//! potentially dangerous patterns and prevent accidental damage.
+//! 本模块提供 shell 命令的执行前分析，以检测潜在危险模式并防止意外损害。
 //!
-//! ## Command prefix classification
+//! ## 命令前缀分类
 //!
-//! [`classify_command`] maps a token slice to its canonical command prefix.
-//! The prefix is the portion of the command that identifies *what action* is
-//! being taken, stripped of flags and extra positional arguments.
+//! [`classify_command`] 将令牌切片映射到其规范命令前缀。
+//! 前缀是命令中标识*正在执行什么操作*的部分，去除了标志和额外的位置参数。
 //!
-//! The arity dictionary [`COMMAND_ARITY`] encodes, for each known prefix, how
-//! many *positional* (non-flag) words after the base command word form the
-//! prefix.  Flags (tokens that start with `-`) never count toward arity.
+//! 元数字典 [`COMMAND_ARITY`] 为每个已知前缀编码了基本命令词之后有多少个
+//! *位置*（非标志）词组成前缀。标志（以 `-` 开头的令牌）不计入元数。
 //!
-//! ### Examples
+//! ### 示例
 //!
-//! | Input tokens                          | Arity | Canonical prefix  |
+//! | 输入令牌                           | 元数 | 规范前缀         |
 //! |---------------------------------------|-------|-------------------|
 //! | `["git", "status", "-s"]`             | 1     | `"git status"`    |
 //! | `["git", "checkout", "main"]`         | 2     | `"git checkout"`  |
@@ -25,19 +22,18 @@
 //! | `["docker", "compose", "up"]`         | 2     | `"docker compose"`|
 //! | `["cargo", "check", "--workspace"]`   | 1     | `"cargo check"`   |
 //!
-//! Ported from opencode `packages/opencode/src/permission/arity.ts`.
+//! 移植自 opencode `packages/opencode/src/permission/arity.ts`。
 
 // ── Arity dictionary ──────────────────────────────────────────────────────────
 
-/// Arity dictionary: maps a command prefix (space-separated, lowercase) to the
-/// number of positional (non-flag) words, *including the base command word*,
-/// that form the canonical prefix.
+/// 元数字典：将命令前缀（空格分隔，小写）映射到形成规范前缀的位置（非标志）词的数量，
+/// *包括基本命令词*。
 ///
-/// Flags (tokens starting with `-`) are **never** counted toward arity — that
-/// is the central invariant: `auto_allow = ["git status"]` must match
-/// `git status -s`, `git status --porcelain`, etc., but not `git push`.
+/// 标志（以 `-` 开头的令牌）**从不**计入元数 — 这是核心不变约束：
+/// `auto_allow = ["git status"]` 必须匹配 `git status -s`、`git status --porcelain` 等，
+/// 但不匹配 `git push`。
 ///
-/// Ported from opencode `packages/opencode/src/permission/arity.ts` (163 LOC).
+/// 移植自 opencode `packages/opencode/src/permission/arity.ts`（163 行）。
 pub static COMMAND_ARITY: &[(&str, u8)] = &[
     // ── git ──────────────────────────────────────────────────────────────────
     ("git add", 2),
@@ -243,19 +239,16 @@ pub static COMMAND_ARITY: &[(&str, u8)] = &[
     ("npx", 2),
 ];
 
-/// Return the canonical command prefix for a slice of command tokens.
+/// 返回命令令牌切片的规范前缀。
 ///
-/// The prefix is determined by the [`COMMAND_ARITY`] dictionary:
+/// 前缀由 [`COMMAND_ARITY`] 字典决定：
 ///
-/// 1. Tokens that start with `-` are treated as flags and **skipped** — they
-///    never contribute to arity.
-/// 2. The arity value `n` means that `n` positional words (including the base
-///    command name) form the canonical prefix.
-/// 3. The longest matching dictionary entry wins (greedy).
-/// 4. If no dictionary entry matches, the single base command word is returned
-///    as the prefix.
+/// 1. 以 `-` 开头的令牌被视为标志并**跳过** — 它们从不贡献元数。
+/// 2. 元数值 `n` 表示 `n` 个位置词（包括基本命令名）组成规范前缀。
+/// 3. 最长的匹配字典条目获胜（贪婪匹配）。
+/// 4. 如果没有字典条目匹配，则返回单个基本命令词作为前缀。
 ///
-/// # Examples
+/// # 示例
 ///
 /// ```
 /// # use deepseek_tui::command_safety::classify_command;
@@ -299,24 +292,21 @@ pub fn classify_command(tokens: &[&str]) -> String {
     positional[0].clone()
 }
 
-/// Return `true` when an allow-rule `pattern` (a command-prefix string such
-/// as `"git status"`) matches the concrete `command` string using the
-/// arity-aware prefix classification from [`classify_command`].
+/// 当允许规则 `pattern`（命令前缀字符串，如 `"git status"`）使用
+/// [`classify_command`] 的元数感知前缀分类匹配具体的 `command` 字符串时返回 `true`。
 ///
-/// This is the canonical entry point for config `allow` / `auto_allow` rule
-/// evaluation.  It correctly handles:
+/// 这是配置 `allow` / `auto_allow` 规则评估的规范入口点。它正确处理：
 ///
-/// * `"git status"` → matches `git status -s`, `git status --porcelain`;
-///   does **not** match `git push origin main`.
-/// * `"npm run dev"` → matches only `npm run dev`, not `npm run build`.
-/// * `"cargo check"` → matches `cargo check --workspace`.
-/// * `"make"` → matches `make all`, `make clean` (arity 1).
+/// * `"git status"` → 匹配 `git status -s`、`git status --porcelain`；
+///   **不**匹配 `git push origin main`。
+/// * `"npm run dev"` → 仅匹配 `npm run dev`，不匹配 `npm run build`。
+/// * `"cargo check"` → 匹配 `cargo check --workspace`。
+/// * `"make"` → 匹配 `make all`、`make clean`（元数 1）。
 ///
-/// For allow rules that contain wildcards (`*`) or regex metacharacters, the
-/// caller should additionally invoke the pattern-matching path from
-/// `crate::execpolicy::matcher::pattern_matches`.
+/// 对于包含通配符（`*`）或正则元字符的允许规则，调用者应额外调用
+/// `crate::execpolicy::matcher::pattern_matches` 的模式匹配路径。
 ///
-/// # Examples
+/// # 示例
 ///
 /// ```
 /// # use deepseek_tui::command_safety::prefix_allow_matches;
@@ -357,20 +347,20 @@ pub fn prefix_allow_matches(pattern: &str, command: &str) -> bool {
     command_norm == pattern_norm || command_norm.starts_with(&format!("{pattern_norm} "))
 }
 
-/// Safety classification of a command
+/// 命令的安全分类
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SafetyLevel {
-    /// Command is known to be safe (read-only operations)
+    /// 命令已知安全（只读操作）
     Safe,
-    /// Command is safe within the workspace but may modify files
+    /// 命令在工作区内安全但可能修改文件
     WorkspaceSafe,
-    /// Command may have system-wide effects and requires approval
+    /// 命令可能有系统级影响，需要批准
     RequiresApproval,
-    /// Command is potentially dangerous and should be blocked
+    /// 命令可能有危险，应被阻止
     Dangerous,
 }
 
-/// Result of analyzing a command
+/// 命令分析的结果
 #[derive(Debug, Clone)]
 pub struct SafetyAnalysis {
     pub level: SafetyLevel,
@@ -384,7 +374,7 @@ impl SafetyAnalysis {
         Self {
             level: SafetyLevel::Safe,
             command: command.to_string(),
-            reasons: vec!["Command is read-only".to_string()],
+            reasons: vec!["命令是只读的".to_string()],
             suggestions: vec![],
         }
     }
@@ -417,7 +407,7 @@ impl SafetyAnalysis {
     }
 }
 
-/// Known safe commands that only read data
+/// 已知安全的只读命令
 const SAFE_COMMANDS: &[&str] = &[
     "ls",
     "dir",
@@ -492,7 +482,7 @@ const SAFE_COMMANDS: &[&str] = &[
     "info",
 ];
 
-/// Commands that are safe within workspace but modify files
+/// 在工作区内安全但会修改文件的命令
 const WORKSPACE_SAFE_COMMANDS: &[&str] = &[
     "mkdir",
     "touch",
@@ -521,31 +511,29 @@ const WORKSPACE_SAFE_COMMANDS: &[&str] = &[
     "ninja",
 ];
 
-/// Dangerous command patterns that should be blocked or warned.
+/// 应被阻止或警告的危险命令模式。
 ///
-/// Codex flags only explicit `rm -f*` / `rm -rf` patterns. We match
-/// that restraint — aggressive patterns for shutdown, reboot, killall,
-/// docker rm, chown, etc. have been removed because they generate
-/// unnecessary approval prompts for routine operations the user can
-/// still veto via the approval dialog.
+/// Codex 仅标记明确的 `rm -f*` / `rm -rf` 模式。我们遵循同样的克制 —
+/// 针对 shutdown、reboot、killall、docker rm、chown 等的激进模式已被移除，
+/// 因为它们会对用户仍可通过批准对话框否决的常规操作生成不必要的批准提示。
 const DANGEROUS_PATTERNS: &[(&str, &str)] = &[
-    ("rm -rf /", "Attempts to recursively delete root filesystem"),
+    ("rm -rf /", "尝试递归删除根文件系统"),
     (
         "rm -rf /*",
-        "Attempts to recursively delete all root directories",
+        "尝试递归删除所有根目录",
     ),
-    ("rm -rf ~", "Attempts to recursively delete home directory"),
+    ("rm -rf ~", "尝试递归删除家目录"),
     (
         "rm -rf $HOME",
-        "Attempts to recursively delete home directory",
+        "尝试递归删除家目录",
     ),
-    (":(){ :|:& };:", "Fork bomb — will crash the system"),
+    (":(){ :|:& };:", "Fork 炸弹 — 将导致系统崩溃"),
 ];
 
-/// Commands that require elevated privileges
+/// 需要提升权限的命令
 const PRIVILEGED_PATTERNS: &[&str] = &["sudo", "su ", "doas", "pkexec", "gksudo", "kdesudo"];
 
-/// Network-related commands
+/// 网络相关命令
 const NETWORK_COMMANDS: &[&str] = &[
     "curl",
     "wget",
@@ -569,7 +557,7 @@ const NETWORK_COMMANDS: &[&str] = &[
     "wireshark",
 ];
 
-/// Analyze a shell command for safety
+/// 分析 shell 命令的安全性
 pub fn analyze_command(command: &str) -> SafetyAnalysis {
     let command_lower = command.to_lowercase();
     let command_trimmed = command.trim();
@@ -577,37 +565,34 @@ pub fn analyze_command(command: &str) -> SafetyAnalysis {
     if command.contains('\n') || command.contains('\r') {
         return SafetyAnalysis::dangerous(
             command,
-            vec!["Command contains multiple lines".to_string()],
-            vec!["Run one command at a time".to_string()],
+            vec!["命令包含多行".to_string()],
+            vec!["一次只运行一条命令".to_string()],
         );
     }
 
     if command.contains('\0') {
         return SafetyAnalysis::dangerous(
             command,
-            vec!["Command contains a null byte".to_string()],
-            vec!["Strip embedded null bytes before retrying".to_string()],
+            vec!["命令包含空字节".to_string()],
+            vec!["重试前请去除嵌入的空字节".to_string()],
         );
     }
 
     if command.contains("&&") || command.contains("||") || command.contains(';') {
-        // Chains of known-safe commands (cargo/git/zig/npm/etc.) are
-        // routine for build+test workflows. Instead of hard-blocking,
-        // escalate to RequiresApproval so the user can still deny in
-        // non-trusted modes. YOLO/auto-approve flows pass through.
+        // 已知安全命令链（cargo/git/zig/npm 等）在构建+测试工作流中很常见。
+        // 不直接阻止，而是升级到 RequiresApproval，这样用户在非信任模式下仍可拒绝。
+        // YOLO/auto-approve 流程直接通过。
         if all_segments_known_safe(command) {
             return SafetyAnalysis::requires_approval(
                 command,
-                vec!["Command chains known-safe segments (cargo/git/etc.)".to_string()],
+                vec!["命令串联了已知安全段（cargo/git 等）".to_string()],
             );
         }
-        // Unknown chains escalate to RequiresApproval instead of
-        // Dangerous — the user can still deny them. Codex only blocks
-        // explicit `rm -rf` patterns (above) and lets the user decide
-        // on everything else.
+        // 未知命令链升级到 RequiresApproval 而非 Dangerous — 用户仍可拒绝。
+        // Codex 仅阻止显式的 `rm -rf` 模式（见上）并让用户决定其他一切。
         return SafetyAnalysis::requires_approval(
             command,
-            vec!["Command chaining detected".to_string()],
+            vec!["检测到命令链".to_string()],
         );
     }
 

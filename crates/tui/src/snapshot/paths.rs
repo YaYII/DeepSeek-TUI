@@ -1,30 +1,28 @@
 //! 每个工作区快照侧仓库的路径解析。
 //!
-//! Snapshots live in `~/.deepseek/snapshots/<project_hash>/<worktree_hash>/`.
-//! The two-level hash split lets us snapshot multiple worktrees of the same
-//! project independently — `git worktree list` users won't get cross-talk
-//! between feature branches.
+//! 快照存放在 `~/.deepseek/snapshots/<project_hash>/<worktree_hash>/`。
+//! 两级哈希拆分使我们能够独立快照同一项目的多个工作树 —
+//! `git worktree list` 用户不会在功能分支之间产生串扰。
 
 use std::io;
 use std::path::{Path, PathBuf};
 
-/// Compute the snapshot directory for a given workspace path.
+/// 计算给定工作区路径的快照目录。
 ///
-/// Returns `~/.deepseek/snapshots/<project_hash>/<worktree_hash>/`. The
-/// caller is responsible for creating it on disk; we purposefully don't
-/// touch the filesystem here so this is cheap to call repeatedly.
+/// 返回 `~/.deepseek/snapshots/<project_hash>/<worktree_hash>/`。
+/// 调用者负责在磁盘上创建它；我们特意不在此处接触文件系统，
+/// 因此重复调用此函数成本低廉。
 ///
-/// The `project_hash` is derived from the canonicalized workspace path
-/// after stripping any `.worktrees/<name>` suffix — multiple worktrees
-/// of the same repo share the same `project_hash` so users can browse
-/// snapshots cross-worktree if they want, but the `worktree_hash` keeps
-/// commits isolated by default.
+/// `project_hash` 派生自规范化后的工作区路径，去除任何
+/// `.worktrees/<name>` 后缀 — 同一仓库的多个工作树共享相同的
+/// `project_hash`，因此用户可以在需要时跨工作树浏览快照，
+/// 但 `worktree_hash` 默认保持提交隔离。
 pub fn snapshot_dir_for(workspace: &Path) -> PathBuf {
     snapshot_dir_with_home(workspace, dirs::home_dir())
 }
 
-/// Same as [`snapshot_dir_for`] but with an injectable home directory.
-/// Used by tests so we never touch the user's real `~/.deepseek/`.
+/// 与 [`snapshot_dir_for`] 相同，但带有可注入的家目录。
+/// 由测试使用，以便我们从不接触用户真实的 `~/.deepseek/`。
 pub fn snapshot_dir_with_home(workspace: &Path, home: Option<PathBuf>) -> PathBuf {
     let home = home.unwrap_or_else(|| PathBuf::from("."));
     let canonical = workspace
@@ -39,21 +37,20 @@ pub fn snapshot_dir_with_home(workspace: &Path, home: Option<PathBuf>) -> PathBu
         .join(worktree_hash)
 }
 
-/// Resolve the `.git` directory inside the snapshot dir.
+/// 解析快照目录内的 `.git` 目录。
 pub fn snapshot_git_dir(workspace: &Path) -> PathBuf {
     snapshot_dir_for(workspace).join(".git")
 }
 
-/// Ensure the snapshot dir exists on disk and return its path.
+/// 确保快照目录在磁盘上存在并返回其路径。
 pub fn ensure_snapshot_dir(workspace: &Path) -> io::Result<PathBuf> {
     let dir = snapshot_dir_for(workspace);
     std::fs::create_dir_all(&dir)?;
     Ok(dir)
 }
 
-/// Strip a trailing `.worktrees/<name>` segment so all worktrees of the
-/// same checkout share a `project_hash`. If the path doesn't look like a
-/// worktree it's returned unchanged.
+/// 去除尾部的 `.worktrees/<name>` 段，使同一检出的所有工作树
+/// 共享一个 `project_hash`。如果路径看起来不像工作树，则原样返回。
 fn strip_worktree_suffix(path: &Path) -> PathBuf {
     let mut components: Vec<_> = path.components().collect();
     if components.len() >= 2

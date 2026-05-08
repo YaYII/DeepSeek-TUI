@@ -51,7 +51,7 @@ impl ToolSpec for DiagnosticsTool {
     }
 
     fn description(&self) -> &'static str {
-        "Report workspace info, git detection, sandbox availability, and Rust toolchain versions."
+        "报告工作区信息、git 检测、沙箱可用性和 Rust 工具链版本。"
     }
 
     fn input_schema(&self) -> Value {

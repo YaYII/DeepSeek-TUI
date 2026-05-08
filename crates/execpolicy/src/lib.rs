@@ -7,8 +7,8 @@ use bash_arity::BashArityDict;
 use deepseek_protocol::{NetworkPolicyAmendment, NetworkPolicyRuleAction};
 use serde::{Deserialize, Serialize};
 
-/// Priority layer for a permission ruleset. Higher ordinal = higher priority.
-/// On conflict, the highest-priority layer's longest matching prefix wins.
+/// 权限规则集的优先级层级。序号越高优先级越高。
+/// 冲突时，最高优先级层级的最长匹配前缀获胜。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RulesetLayer {
@@ -17,7 +17,7 @@ pub enum RulesetLayer {
     User = 2,
 }
 
-/// A named set of allow/deny prefix rules at a given priority layer.
+/// 在给定优先级层级上的一组命名允许/拒绝前缀规则。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Ruleset {
     pub layer: RulesetLayer,
@@ -89,7 +89,7 @@ pub enum ExecApprovalRequirement {
 impl ExecApprovalRequirement {
     pub fn reason(&self) -> &str {
         match self {
-            ExecApprovalRequirement::Skip { .. } => "Execution allowed by policy.",
+            ExecApprovalRequirement::Skip { .. } => "策略允许执行。",
             ExecApprovalRequirement::NeedsApproval { reason, .. } => reason,
             ExecApprovalRequirement::Forbidden { reason } => reason,
         }
@@ -128,19 +128,18 @@ pub struct ExecPolicyContext<'a> {
 
 #[derive(Debug, Clone, Default)]
 pub struct ExecPolicyEngine {
-    /// Layered rulesets (builtin → agent → user). When non-empty, takes precedence
-    /// over the legacy flat lists below.
+    /// 分层规则集（内置 → 代理 → 用户）。非空时优先于下面的旧式平面列表。
     rulesets: Vec<Ruleset>,
-    /// Legacy flat lists kept for backward compatibility with `new()`.
+    /// 为向后兼容 `new()` 保留的旧式平面列表。
     trusted_prefixes: Vec<String>,
     denied_prefixes: Vec<String>,
     approved_for_session: HashSet<String>,
-    /// Arity dictionary for command-prefix allow-rule matching.
+    /// 用于命令前缀允许规则匹配的参数词典。
     arity_dict: BashArityDict,
 }
 
 impl ExecPolicyEngine {
-    /// Legacy constructor: wraps the two vecs into a User-layer ruleset.
+    /// 旧式构造函数：将两个 vec 包装为 User 层级规则集。
     pub fn new(trusted_prefixes: Vec<String>, denied_prefixes: Vec<String>) -> Self {
         Self {
             rulesets: vec![],
@@ -151,8 +150,8 @@ impl ExecPolicyEngine {
         }
     }
 
-    /// Build an engine from explicit layered rulesets.
-    /// Rulesets are sorted by layer priority on construction.
+    /// 从显式的分层规则集构建引擎。
+    /// 构造时按层级优先级排序。
     pub fn with_rulesets(mut rulesets: Vec<Ruleset>) -> Self {
         rulesets.sort_by_key(|r| r.layer);
         Self {
@@ -164,31 +163,31 @@ impl ExecPolicyEngine {
         }
     }
 
-    /// Add a ruleset layer (re-sorts internally).
+    /// 添加一个规则集层级（内部会重新排序）。
     pub fn add_ruleset(&mut self, ruleset: Ruleset) {
         self.rulesets.push(ruleset);
         self.rulesets.sort_by_key(|r| r.layer);
     }
 
-    /// Resolve the effective trusted/denied prefix sets by merging all rulesets.
+    /// 通过合并所有规则集来解析有效的受信任/拒绝前缀集合。
     ///
-    /// Collects all prefixes from every layer (builtin → agent → user) into flat
-    /// trusted/denied lists. The `check()` method then applies deny-always-wins
-    /// semantics: any matching deny prefix blocks the command regardless of layer.
-    /// Trusted rules are only consulted after deny checks pass.
+    /// 将每个层级（内置 → 代理 → 用户）的所有前缀收集到平面
+    /// 受信任/拒绝列表中。然后 `check()` 方法应用拒绝始终优先的语义：
+    /// 任何匹配的拒绝前缀都会阻止该命令，无论层级如何。
+    /// 只有在拒绝检查通过后才查询受信任规则。
     fn resolve_prefixes(&self) -> (Vec<String>, Vec<String>) {
         if self.rulesets.is_empty() {
             return (self.trusted_prefixes.clone(), self.denied_prefixes.clone());
         }
-        // Collect all trusted/denied across all layers, highest-priority last so they
-        // shadow lower-priority entries with the same prefix.
+        // 收集所有层级的 trusted/denied，最高优先级最后，使它们遮盖
+        // 具有相同前缀的低优先级条目。
         let mut trusted: Vec<String> = vec![];
         let mut denied: Vec<String> = vec![];
         for rs in &self.rulesets {
             trusted.extend(rs.trusted_prefixes.iter().cloned());
             denied.extend(rs.denied_prefixes.iter().cloned());
         }
-        // Also merge legacy flat lists as user-layer.
+        // 同时合并旧式平面列表作为用户层级。
         trusted.extend(self.trusted_prefixes.iter().cloned());
         denied.extend(self.denied_prefixes.iter().cloned());
         (trusted, denied)
@@ -205,7 +204,7 @@ impl ExecPolicyEngine {
     pub fn check(&self, ctx: ExecPolicyContext<'_>) -> Result<ExecPolicyDecision> {
         let normalized = normalize_command(ctx.command);
         let (trusted_prefixes, denied_prefixes) = self.resolve_prefixes();
-        // Deny rules use simple prefix matching (no arity semantics needed).
+        // 拒绝规则使用简单前缀匹配（无需 arity 语义）。
         if let Some(rule) = denied_prefixes
             .iter()
             .find(|rule| normalized.starts_with(&normalize_command(rule)))
@@ -215,14 +214,14 @@ impl ExecPolicyEngine {
                 requires_approval: false,
                 matched_rule: Some(rule.clone()),
                 requirement: ExecApprovalRequirement::Forbidden {
-                    reason: format!("Command blocked by denied prefix rule '{rule}'"),
+                    reason: format!("命令被拒绝前缀规则 '{rule}' 阻止"),
                 },
             });
         }
 
-        // Allow (trusted) rules use arity-aware prefix matching so that
-        // `auto_allow = ["git status"]` matches `git status -s` but NOT
-        // `git push origin main`.
+        // 允许（受信任）规则使用 arity 感知的前缀匹配，以便
+        // `auto_allow = ["git status"]` 匹配 `git status -s` 但
+        // 不匹配 `git push origin main`。
         let trusted_rule = trusted_prefixes
             .iter()
             .find(|rule| self.arity_dict.allow_rule_matches(rule, ctx.command))
@@ -243,13 +242,13 @@ impl ExecPolicyEngine {
                 proposed_execpolicy_amendment: None,
             },
             AskForApproval::Reject { rules, .. } if rules => ExecApprovalRequirement::Forbidden {
-                reason: "Policy is configured to reject rule-exceptions.".to_string(),
+                reason: "策略配置为拒绝规则例外。".to_string(),
             },
             _ => ExecApprovalRequirement::NeedsApproval {
                 reason: if is_trusted {
-                    "Approval requested by policy mode.".to_string()
+                    "策略模式请求审批。".to_string()
                 } else {
-                    "Unmatched command prefix requires approval.".to_string()
+                    "未匹配的命令前缀需要审批。".to_string()
                 },
                 proposed_execpolicy_amendment: if is_trusted {
                     None

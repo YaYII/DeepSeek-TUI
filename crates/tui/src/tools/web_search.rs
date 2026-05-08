@@ -115,7 +115,7 @@ impl ToolSpec for WebSearchTool {
     }
 
     fn description(&self) -> &'static str {
-        "Search the web using DuckDuckGo or Bing and return structured results with URLs and snippets."
+        "使用 DuckDuckGo 或 Bing 搜索网络，返回带有 URL 和摘要的结构化结果。"
     }
 
     fn input_schema(&self) -> Value {
@@ -124,31 +124,31 @@ impl ToolSpec for WebSearchTool {
             "properties": {
                 "query": {
                     "type": "string",
-                    "description": "Search query. Compatibility aliases: q, or search_query[0].q."
+                    "description": "搜索查询。兼容别名：q 或 search_query[0].q。"
                 },
                 "q": {
                     "type": "string",
-                    "description": "Search query."
+                    "description": "搜索查询。"
                 },
                 "search_query": {
                     "type": "array",
-                    "description": "Array form for advanced queries: [{\"q\":\"...\", \"max_results\": 5}]",
+                    "description": "高级查询的数组形式：[{\"q\":\"...\", \"max_results\": 5}]",
                     "items": {
                         "type": "object",
                         "properties": {
-                            "q": { "type": "string" },
-                            "query": { "type": "string" },
-                            "max_results": { "type": "integer" }
+                            "q": { "type": "string", "description": "搜索查询" },
+                            "query": { "type": "string", "description": "搜索查询" },
+                            "max_results": { "type": "integer", "description": "最大结果数" }
                         }
                     }
                 },
                 "max_results": {
                     "type": "integer",
-                    "description": "Maximum number of results to return (default: 5, max: 10)"
+                    "description": "返回的最大结果数（默认：5，最大：10）"
                 },
                 "timeout_ms": {
                     "type": "integer",
-                    "description": "Timeout in milliseconds (default: 15000, max: 60000)"
+                    "description": "超时时间（毫秒）（默认：15000，最大：60000）"
                 }
             }
         })

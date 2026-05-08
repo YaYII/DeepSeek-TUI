@@ -1,7 +1,7 @@
 //! 离线评估工具，用于演练代表性工具循环。
 //!
-//! This module is intentionally self-contained so it can be wired into a CLI
-//! command later without calling the network or any LLM endpoints.
+//! 本模块有意保持自包含，以便日后可接入 CLI 命令，
+//! 无需调用网络或任何 LLM 端点。
 
 use anyhow::{Context, Result, anyhow};
 use ignore::WalkBuilder;
@@ -15,7 +15,7 @@ use std::process::Command;
 use std::time::{Duration, Instant};
 use tempfile::TempDir;
 
-/// Representative tool steps covered by the evaluation harness.
+/// 评估框架涵盖的代表性工具步骤。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 pub enum ScenarioStepKind {
     List,
@@ -27,7 +27,7 @@ pub enum ScenarioStepKind {
 }
 
 impl ScenarioStepKind {
-    /// Tool name associated with this step.
+    /// 与此步骤关联的工具名称。
     pub fn tool_name(self) -> &'static str {
         match self {
             ScenarioStepKind::List => "list_dir",
@@ -39,7 +39,7 @@ impl ScenarioStepKind {
         }
     }
 
-    /// Parse a step kind from CLI-friendly strings.
+    /// 从 CLI 友好字符串解析步骤类型。
     pub fn parse(value: &str) -> Option<Self> {
         match value.trim().to_lowercase().as_str() {
             "list" | "list_dir" => Some(Self::List),
@@ -53,7 +53,7 @@ impl ScenarioStepKind {
     }
 }
 
-/// Aggregate statistics for a single tool kind.
+/// 单个工具类型的聚合统计。
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 pub struct ToolStats {
     pub invocations: usize,

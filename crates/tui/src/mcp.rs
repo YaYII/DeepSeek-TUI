@@ -3,7 +3,7 @@
 //! 本模块为 MCP 服务器提供完整的异步支持，包括：
 //! - 连接池以复用服务器
 //! - 通过 `tools/list` 自动发现工具
-//! - Configurable timeouts per-server and globally
+//! - 可配置的每服务器和全局超时
 
 use std::collections::HashMap;
 use std::fs;
@@ -19,15 +19,15 @@ use tokio::process::{Child, ChildStdin, ChildStdout};
 use crate::network_policy::{Decision, NetworkPolicyDecider, host_from_url};
 use crate::utils::write_atomic;
 
-// === Error diagnostics helpers (#71) ===
+// === 错误诊断辅助函数（#71） ===
 
-/// Bytes of a non-2xx response body to surface in connection errors.
+/// 在连接错误中显示的非 2xx 响应体的字节数。
 const ERROR_BODY_PREVIEW_BYTES: usize = 200;
 
-/// Mask a URL so any embedded credentials in the userinfo portion (e.g.
-/// `https://user:secret@host`) are replaced with `***`. Failures fall back to
-/// the original string so we don't lose context — we never want masking to
-/// produce an empty error.
+/// 对 URL 进行脱敏处理，使用户信息部分中的任何嵌入凭据
+///（例如 `https://user:secret@host`）被替换为 `***`。
+/// 失败时回退到原始字符串，以免丢失上下文 — 我们绝不想让
+/// 脱敏产生空错误。
 fn mask_url_secrets(url: &str) -> String {
     if let Ok(parsed) = reqwest::Url::parse(url) {
         let mut clone = parsed.clone();
@@ -40,8 +40,8 @@ fn mask_url_secrets(url: &str) -> String {
     url.to_string()
 }
 
-/// Mask any obvious token-like substrings in a body excerpt before surfacing
-/// it. Conservative: replaces `Bearer <token>` and `api_key=...` shapes.
+/// 在呈现之前，对正文摘录中任何明显的令牌样子字符串进行脱敏。
+/// 保守处理：替换 `Bearer <token>` 和 `api_key=...` 等形式。
 fn redact_body_preview(body: &str) -> String {
     let mut out = body.to_string();
     if let Some(idx) = out.to_lowercase().find("bearer ") {

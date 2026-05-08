@@ -10,36 +10,36 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::sync::RwLock;
 
-/// Capabilities that a tool may have or require.
+/// 工具可能拥有或需要的功能。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ToolCapability {
-    /// Tool only reads data, never modifies state.
+    /// 工具只读取数据，从不修改状态。
     ReadOnly,
-    /// Tool writes to the filesystem.
+    /// 工具写入文件系统。
     WritesFiles,
-    /// Tool executes arbitrary shell commands.
+    /// 工具执行任意 shell 命令。
     ExecutesCode,
-    /// Tool makes network requests.
+    /// 工具发起网络请求。
     Network,
-    /// Tool can be run in a sandbox.
+    /// 工具可以在沙箱中运行。
     Sandboxable,
-    /// Tool requires user approval before execution.
+    /// 工具需要用户批准才能执行。
     RequiresApproval,
 }
 
-/// Approval requirement for a tool.
+/// 工具的审批要求。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ApprovalRequirement {
-    /// Never needs approval: safe read-only operations.
+    /// 永远无需审批：安全的只读操作。
     #[default]
     Auto,
-    /// Suggest approval but allow user to skip.
+    /// 建议审批但允许用户跳过。
     Suggest,
-    /// Always require explicit user approval.
+    /// 始终需要明确的用户批准。
     Required,
 }
 
-/// Errors that can occur during tool execution.
+/// 工具执行期间可能发生的错误。
 #[derive(Debug, Clone)]
 pub enum ToolError {
     InvalidInput { message: String },
@@ -55,35 +55,35 @@ impl std::fmt::Display for ToolError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::InvalidInput { message } => {
-                write!(f, "Failed to validate input: {message}")
+                write!(f, "输入验证失败: {message}")
             }
             Self::MissingField { field } => {
                 write!(
                     f,
-                    "Failed to validate input: missing required field '{field}'"
+                    "输入验证失败: 缺少必填字段 '{field}'"
                 )
             }
             Self::PathEscape { path } => {
                 write!(
                     f,
-                    "Failed to resolve path '{}': path escapes workspace",
+                    "路径解析失败 '{}': 路径超出工作区范围",
                     path.display()
                 )
             }
             Self::ExecutionFailed { message } => {
-                write!(f, "Failed to execute tool: {message}")
+                write!(f, "工具执行失败: {message}")
             }
             Self::Timeout { seconds } => {
                 write!(
                     f,
-                    "Failed to execute tool: operation timed out after {seconds}s"
+                    "工具执行失败: 操作在 {seconds} 秒后超时"
                 )
             }
             Self::NotAvailable { message } => {
-                write!(f, "Failed to locate tool: {message}")
+                write!(f, "找不到工具: {message}")
             }
             Self::PermissionDenied { message } => {
-                write!(f, "Failed to authorize tool execution: {message}")
+                write!(f, "工具执行授权失败: {message}")
             }
         }
     }
@@ -133,20 +133,20 @@ impl ToolError {
     }
 }
 
-/// Result of a tool execution.
+/// 工具执行的结果。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolResult {
-    /// The output content, which may be JSON or plain text.
+    /// 输出内容，可以是 JSON 或纯文本。
     pub content: String,
-    /// Whether the execution was successful.
+    /// 执行是否成功。
     pub success: bool,
-    /// Optional structured metadata.
+    /// 可选的结构化元数据。
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<Value>,
 }
 
 impl ToolResult {
-    /// Create a successful result with content.
+    /// 创建包含内容的成功结果。
     #[must_use]
     pub fn success(content: impl Into<String>) -> Self {
         Self {
@@ -156,7 +156,7 @@ impl ToolResult {
         }
     }
 
-    /// Create an error result with message.
+    /// 创建包含消息的错误结果。
     #[must_use]
     pub fn error(message: impl Into<String>) -> Self {
         Self {
@@ -166,7 +166,7 @@ impl ToolResult {
         }
     }
 
-    /// Create a successful result from JSON.
+    /// 从 JSON 创建成功结果。
     pub fn json<T: Serialize>(value: &T) -> std::result::Result<Self, serde_json::Error> {
         Ok(Self {
             content: serde_json::to_string_pretty(value)?,
@@ -175,7 +175,7 @@ impl ToolResult {
         })
     }
 
-    /// Add metadata to the result.
+    /// 为结果添加元数据。
     #[must_use]
     pub fn with_metadata(mut self, metadata: Value) -> Self {
         self.metadata = Some(metadata);
@@ -183,11 +183,10 @@ impl ToolResult {
     }
 }
 
-/// Helper to extract a required string field from JSON input.
+/// 从 JSON 输入中提取必填字符串字段的辅助函数。
 pub fn required_str<'a>(input: &'a Value, field: &str) -> std::result::Result<&'a str, ToolError> {
     input.get(field).and_then(Value::as_str).ok_or_else(|| {
-        // When the field is missing, list the fields the caller *did*
-        // supply so the model can spot the mismatch without a retry.
+        // 当字段缺失时，列出调用方实际提供的字段，以便模型无需重试即可发现不匹配。
         let provided: Vec<&str> = input
             .as_object()
             .map(|obj| obj.keys().map(|k| k.as_str()).collect())
@@ -196,7 +195,7 @@ pub fn required_str<'a>(input: &'a Value, field: &str) -> std::result::Result<&'
             ToolError::missing_field(field)
         } else {
             let hint = format!(
-                "missing required field '{field}'. Input provided: {}",
+                "缺少必填字段 '{field}'。提供的输入: {}",
                 provided.join(", ")
             );
             ToolError::invalid_input(hint)
@@ -204,13 +203,13 @@ pub fn required_str<'a>(input: &'a Value, field: &str) -> std::result::Result<&'
     })
 }
 
-/// Helper to extract an optional string field from JSON input.
+/// 从 JSON 输入中提取可选字符串字段的辅助函数。
 #[must_use]
 pub fn optional_str<'a>(input: &'a Value, field: &str) -> Option<&'a str> {
     input.get(field).and_then(Value::as_str)
 }
 
-/// Helper to extract a required u64 field from JSON input.
+/// 从 JSON 输入中提取必填 u64 字段的辅助函数。
 pub fn required_u64(input: &Value, field: &str) -> std::result::Result<u64, ToolError> {
     input
         .get(field)
@@ -218,13 +217,13 @@ pub fn required_u64(input: &Value, field: &str) -> std::result::Result<u64, Tool
         .ok_or_else(|| ToolError::missing_field(field))
 }
 
-/// Helper to extract an optional u64 field with default.
+/// 从 JSON 输入中提取带默认值的可选 u64 字段的辅助函数。
 #[must_use]
 pub fn optional_u64(input: &Value, field: &str, default: u64) -> u64 {
     input.get(field).and_then(Value::as_u64).unwrap_or(default)
 }
 
-/// Helper to extract an optional bool field with default.
+/// 从 JSON 输入中提取带默认值的可选 bool 字段的辅助函数。
 #[must_use]
 pub fn optional_bool(input: &Value, field: &str, default: bool) -> bool {
     input.get(field).and_then(Value::as_bool).unwrap_or(default)
@@ -452,8 +451,8 @@ mod tests {
         let input = json!({"path": "src/lib.rs", "content": "new body"});
         let err = required_str(&input, "replace").expect_err("replace is missing");
         let message = err.to_string();
-        assert!(message.contains("missing required field 'replace'"));
-        assert!(message.contains("Input provided:"));
+        assert!(message.contains("缺少必填字段 'replace'"));
+        assert!(message.contains("提供的输入:"));
         assert!(message.contains("path"));
         assert!(message.contains("content"));
     }
@@ -463,7 +462,7 @@ mod tests {
         let err = ToolError::missing_field("path");
         assert_eq!(
             err.to_string(),
-            "Failed to validate input: missing required field 'path'"
+            "输入验证失败: 缺少必填字段 'path'"
         );
     }
 }

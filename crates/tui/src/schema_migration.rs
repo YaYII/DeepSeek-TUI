@@ -1,16 +1,14 @@
 //! `~/.deepseek/` 持久化记录的 Schema 迁移框架。
 //!
-//! Every persistence layer in `crates/tui/src/` (sessions, threads,
-//! tasks, automations, offline queue) gates `schema_version > CURRENT_*`
-//! to prevent silent truncation when an older binary tries to load a
-//! record from a newer one. What was missing — and what this module
-//! fixes — is the **upgrade path**: when `schema_version < CURRENT_*`,
-//! the load function should run forward migrations rather than loading
-//! a partially-correct record.
+//! `crates/tui/src/` 中的每个持久化层（会话、线程、任务、自动化、
+//! 离线队列）都会检查 `schema_version > CURRENT_*` 以防止旧版二进制文件
+//! 尝试加载新版记录时的静默截断。本模块修复的缺失部分是**升级路径**：
+//! 当 `schema_version < CURRENT_*` 时，加载函数应运行前向迁移，
+//! 而不是加载部分正确的记录。
 //!
-//! ## Domain registration
+//! ## 域注册
 //!
-//! Each persistence type implements [`SchemaMigration`]:
+//! 每个持久化类型实现 [`SchemaMigration`]：
 //!
 //! ```ignore
 //! pub struct SessionMigration;
@@ -19,15 +17,15 @@
 //!     const CURRENT_VERSION: u32 = 1;
 //!     const DOMAIN: &'static str = "session";
 //!     const MIGRATIONS: &'static [MigrationFn] = &[
-//!         // index i migrates from version (i+1) to (i+2)
+//!         // 索引 i 从版本 (i+1) 迁移到 (i+2)
 //!         migrate_session_v1_to_v2,
 //!     ];
 //! }
 //! ```
 //!
-//! ## Load-site usage
+//! ## 加载点使用
 //!
-//! Inside the load function, after deserialization:
+//! 在加载函数内部，反序列化之后：
 //!
 //! ```ignore
 //! if record.schema_version < SessionMigration::CURRENT_VERSION {
@@ -38,22 +36,20 @@
 //!     )?;
 //!     backup_before_migrate(&path, SessionMigration::DOMAIN);
 //!     write_atomic(&path, serde_json::to_string_pretty(&value)?.as_bytes())?;
-//!     // Re-deserialize with the migrated value into the up-to-date struct.
+//!     // 使用迁移后的值重新反序列化为最新的结构体。
 //!     record = serde_json::from_value(value)?;
 //! }
 //! ```
 //!
-//! ## Migration step contract
+//! ## 迁移步骤约定
 //!
-//! Each step takes a mutable JSON value at version `N` and mutates it
-//! into version `N+1`. Steps must be idempotent in the sense that a
-//! re-run of the migration on an already-migrated value should be a
-//! no-op (because `serde_json::Value` is cheap to introspect, this
-//! usually means "if field already exists with the new shape, skip").
+//! 每个步骤接收版本 `N` 的可变 JSON 值并将其转变为版本 `N+1`。
+//! 步骤必须是幂等的，即在已迁移的值上重新运行迁移应为空操作
+//!（由于 `serde_json::Value` 内省成本低廉，这通常意味着"如果字段
+//! 已存在且具有新形状，则跳过"）。
 //!
-//! Steps must NOT call `write_atomic` themselves — the framework writes
-//! once at the end. They must NOT log credentials or other sensitive
-//! material from the value being migrated.
+//! 步骤不得自行调用 `write_atomic` — 框架在最后一次性写入。
+//! 步骤不得记录凭据或正在迁移的值中的其他敏感材料。
 
 use std::fs;
 use std::path::{Path, PathBuf};

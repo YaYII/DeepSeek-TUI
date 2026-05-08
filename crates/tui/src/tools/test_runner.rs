@@ -36,7 +36,7 @@ impl ToolSpec for RunTestsTool {
     }
 
     fn description(&self) -> &'static str {
-        "Run `cargo test` in the workspace root with optional extra arguments."
+        "在工作区根目录运行 `cargo test`，支持可选额外参数。"
     }
 
     fn input_schema(&self) -> Value {
@@ -45,11 +45,11 @@ impl ToolSpec for RunTestsTool {
             "properties": {
                 "args": {
                     "type": "string",
-                    "description": "Optional extra arguments to pass to `cargo test` (shell-style)."
+                    "description": "传递给 `cargo test` 的可选额外参数（shell 风格）。"
                 },
                 "all_features": {
                     "type": "boolean",
-                    "description": "When true, include `--all-features`."
+                    "description": "为 true 时，包含 `--all-features`。"
                 }
             },
             "additionalProperties": false

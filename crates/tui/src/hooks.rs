@@ -4,13 +4,13 @@
 //! - 会话开始/结束
 //! - 工具调用前/后
 
-//! - Mode changes
-//! - Message submission
-//! - Error events
+//! - 模式变更
+//! - 消息提交
+//! - 错误事件
 //!
-//! Configuration is done via `[[hooks.hooks]]` in config.toml.
+//! 通过 config.toml 中的 `[[hooks.hooks]]` 进行配置。
 
-// Note: anyhow is available if needed for future error handling
+// 注意：anyhow 可用于未来的错误处理
 #[allow(unused_imports)]
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
@@ -21,36 +21,34 @@ use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 use wait_timeout::ChildExt;
 
-/// Events that can trigger hook execution
+/// 可触发钩子执行的事件
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum HookEvent {
-    /// Triggered when a new session starts
+    /// 新会话开始时触发
     SessionStart,
-    /// Triggered when a session ends (quit, Ctrl+C)
+    /// 会话结束时触发（退出、Ctrl+C）
     SessionEnd,
-    /// Triggered before a user message is sent to the LLM
+    /// 用户消息发送到 LLM 前触发
     MessageSubmit,
-    /// Triggered before a tool is executed
+    /// 工具执行前触发
     ToolCallBefore,
-    /// Triggered after a tool completes (success or failure)
+    /// 工具完成后触发（成功或失败）
     ToolCallAfter,
-    /// Triggered when the user changes modes (Plan, Agent, Yolo)
+    /// 用户更改模式时触发（Plan、Agent、Yolo）
     ModeChange,
-    /// Triggered when an error occurs
+    /// 发生错误时触发
     OnError,
-    /// Triggered immediately before each `exec_shell` invocation. The hook's
-    /// stdout is parsed as `KEY=VALUE\n` lines and merged on top of the
-    /// shell command's environment — useful for ephemeral credentials,
-    /// per-skill PATH adjustments, or short-lived tokens (#456). Hooks that
-    /// fail or time out are logged but do *not* abort the shell call; they
-    /// simply contribute no env vars.
+    /// 在每次 `exec_shell` 调用之前立即触发。钩子的 stdout 被解析为
+    /// `KEY=VALUE\n` 行并合并到 shell 命令的环境中 — 适用于临时凭据、
+    /// 按技能调整 PATH 或短期令牌（#456）。失败或超时的钩子会被记录，
+    /// 但*不会*中止 shell 调用；它们只是不贡献环境变量。
     ShellEnv,
 }
 
 impl HookEvent {
-    /// Get string representation for environment variable
-    #[allow(dead_code)] // Used in tests and future hook dispatch
+    /// 获取环境变量的字符串表示
+    #[allow(dead_code)] // 用于测试和未来的钩子调度
     pub fn as_str(self) -> &'static str {
         match self {
             HookEvent::SessionStart => "session_start",
@@ -65,17 +63,17 @@ impl HookEvent {
     }
 }
 
-/// Condition for when a hook should run
+/// 钩子应在何时运行的条件
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 #[derive(Default)]
 pub enum HookCondition {
-    /// Always run this hook
+    /// 始终运行此钩子
     #[default]
     Always,
-    /// Only run for specific tool names
+    /// 仅对特定工具名称运行
     ToolName {
-        /// Tool name to match (e.g., "`exec_shell`", "`write_file`")
+        /// 要匹配的工具名称（例如 "`exec_shell`"、"`write_file`"）
         name: String,
     },
     /// Only run for specific tool categories

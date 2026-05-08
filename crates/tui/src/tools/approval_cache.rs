@@ -1,63 +1,60 @@
 #![allow(dead_code)]
 //! 审批缓存 — 缓存工具审批决策。
 //!
-//! Instead of caching by tool name alone (which would let an approved
-//! `exec_shell "cat foo"` silently pass `exec_shell "rm -rf /"`), the
-//! cache keys off a **call fingerprint** — a digest of the tool name and
-//! the semantically‑relevant portion of its arguments.
+//! 不是仅按工具名称缓存（那样会让已批准的 `exec_shell "cat foo"` 静默通过
+//! `exec_shell "rm -rf /"`），而是使用**调用指纹**作为缓存键——即工具名称
+//! 及其参数的语义相关部分的摘要。
 //!
-//! ## Fingerprint shape
+//! ## 指纹形状
 //!
-//! | Tool           | Key                                      |
+//! | 工具           | 键                                        |
 //! |---------------|------------------------------------------|
-//! | `apply_patch`  | `patch:<hash of file paths>`             |
-//! | `exec_shell`   | `shell:<command prefix (first 3 tokens)>` |
-//! | `fetch_url`    | `net:<hostname>`                         |
-//! | everything else| `tool:<tool_name>`                       |
+//! | `apply_patch`  | `patch:<文件路径的哈希>`                    |
+//! | `exec_shell`   | `shell:<命令前缀（前 3 个令牌）>`           |
+//! | `fetch_url`    | `net:<主机名>`                            |
+//! | 其他           | `tool:<工具名称>`                         |
 //!
-//! The cache is **session‑keyed**: entries carry an
-//! `ApprovedForSession` flag. When true, the approval is reused for the
-//! remainder of the session; when false, it is a one‑shot grant (future
-//! calls with the same fingerprint still prompt).
+//! 缓存是**会话键控的**：条目带有一个 `ApprovedForSession` 标志。当为 true 时，
+//! 该批准将在会话的剩余时间内重用；当为 false 时，是一次性授权（后续具有相同
+//! 指纹的调用仍会提示）。
 
 use std::collections::HashMap;
 use std::time::Instant;
 
 use crate::command_safety::classify_command;
 
-/// The fingerprint of a tool call — stable enough to match repeated
-/// calls but specific enough to avoid privilege confusion.
+/// 工具调用的指纹——足够稳定以匹配重复调用，但又足够具体以避免权限混淆。
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ApprovalKey(pub String);
 
-/// Status of a previously‑rendered approval decision.
+/// 先前作出的批准决策的状态。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ApprovalCacheStatus {
-    /// Call fingerprint matched and the session‑level flag says reuse.
+    /// 调用指纹匹配且会话级标志指示可重用。
     Approved,
-    /// Call fingerprint matched but the grant was one‑shot (already consumed).
+    /// 调用指纹匹配但授权是一次性的（已消耗）。
     Denied,
-    /// No match — requires fresh approval.
+    /// 不匹配——需要重新批准。
     Unknown,
 }
 
-/// A single cache entry.
+/// 单个缓存条目。
 #[derive(Debug, Clone)]
 struct ApprovalCacheEntry {
-    /// When this entry was created.
+    /// 此条目创建的时间。
     created: Instant,
-    /// Whether the approval should be reused across the session.
+    /// 批准是否应在整个会话中重用。
     approved_for_session: bool,
 }
 
-/// An approval cache backed by tool‑call fingerprints.
+/// 一个由工具调用指纹支持的批准缓存。
 #[derive(Debug, Default)]
 pub struct ApprovalCache {
     entries: HashMap<ApprovalKey, ApprovalCacheEntry>,
 }
 
 impl ApprovalCache {
-    /// Construct an empty cache.
+    /// 构造一个空缓存。
     #[must_use]
     pub fn new() -> Self {
         Self {
@@ -65,7 +62,7 @@ impl ApprovalCache {
         }
     }
 
-    /// Look up a previously‑rendered approval decision.
+    /// 查找先前作出的批准决策。
     pub fn check(&self, key: &ApprovalKey) -> ApprovalCacheStatus {
         let Some(entry) = self.entries.get(key) else {
             return ApprovalCacheStatus::Unknown;
@@ -77,10 +74,10 @@ impl ApprovalCache {
         }
     }
 
-    /// Record an approval decision under the given fingerprint.
+    /// 在给定指纹下记录批准决策。
     ///
-    /// When `approved_for_session` is true, subsequent calls with the
-    /// same key will auto‑approve for the remainder of the session.
+    /// 当 `approved_for_session` 为 true 时，后续具有相同键的调用将
+    /// 在会话的剩余时间内自动批准。
     pub fn insert(&mut self, key: ApprovalKey, approved_for_session: bool) {
         self.entries.insert(
             key,
@@ -91,18 +88,18 @@ impl ApprovalCache {
         );
     }
 
-    /// Clear all entries.
+    /// 清除所有条目。
     pub fn clear(&mut self) {
         self.entries.clear();
     }
 
-    /// Number of cached entries.
+    /// 缓存条目数量。
     #[allow(dead_code)]
     pub fn len(&self) -> usize {
         self.entries.len()
     }
 
-    /// Whether the cache is empty.
+    /// 缓存是否为空。
     #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
@@ -111,12 +108,11 @@ impl ApprovalCache {
 
 // ── Fingerprint helpers ────────────────────────────────────────────
 
-/// Build the approval‑cache key for a tool call.
+/// 构建工具调用的批准缓存键。
 ///
-/// The key incorporates the tool name and a lossy digest of the
-/// arguments so that the cache can distinguish `exec_shell "ls"`
-/// from `exec_shell "rm -rf /"` while still recognising repeated
-/// invocations of the same harmless command.
+/// 该键包含工具名称和参数的有损摘要，使缓存能够区分
+/// `exec_shell "ls"` 和 `exec_shell "rm -rf /"`，同时仍然识别
+/// 相同无害命令的重复调用。
 #[must_use]
 pub fn build_approval_key(tool_name: &str, input: &serde_json::Value) -> ApprovalKey {
     let fingerprint = match tool_name {
@@ -141,11 +137,10 @@ pub fn build_approval_key(tool_name: &str, input: &serde_json::Value) -> Approva
     ApprovalKey(fingerprint)
 }
 
-/// Return the canonical command prefix for the shell command in `input`.
+/// 返回 `input` 中 shell 命令的规范命令前缀。
 ///
-/// Uses [`classify_command`] from the arity dictionary so that
-/// `auto_allow = ["git status"]` correctly matches `git status -s` and
-/// `git status --porcelain` without also matching `git push`.
+/// 使用 arity 字典中的 [`classify_command`]，以便 `auto_allow = ["git status"]`
+/// 正确匹配 `git status -s` 和 `git status --porcelain`，但不匹配 `git push`。
 fn command_prefix(input: &serde_json::Value) -> String {
     let cmd = input.get("command").and_then(|v| v.as_str()).unwrap_or("");
     let tokens: Vec<&str> = cmd.split_whitespace().collect();
@@ -155,7 +150,7 @@ fn command_prefix(input: &serde_json::Value) -> String {
     classify_command(&tokens)
 }
 
-/// Hash the sorted set of file paths referenced by a patch input.
+/// 对补丁输入中引用的排序后的文件路径集合进行哈希。
 fn hash_patch_paths(input: &serde_json::Value) -> String {
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};
@@ -190,7 +185,7 @@ fn hash_patch_paths(input: &serde_json::Value) -> String {
     format!("{:x}", hasher.finish())
 }
 
-/// Parse the host portion from a URL input.
+/// 从 URL 输入中解析主机部分。
 fn parse_host(input: &serde_json::Value) -> String {
     let url = input.get("url").and_then(|v| v.as_str()).unwrap_or("");
 

@@ -81,7 +81,7 @@ impl HookSink for JsonlHookSink {
     async fn emit(&self, event: &HookEvent) -> Result<()> {
         if let Some(parent) = self.path.parent() {
             tokio::fs::create_dir_all(parent).await.with_context(|| {
-                format!("failed to create hook log directory {}", parent.display())
+                format!("无法创建钩子日志目录 {}", parent.display())
             })?;
         }
         let mut file = tokio::fs::OpenOptions::new()
@@ -89,18 +89,18 @@ impl HookSink for JsonlHookSink {
             .append(true)
             .open(&self.path)
             .await
-            .with_context(|| format!("failed to open hook log {}", self.path.display()))?;
+            .with_context(|| format!("无法打开钩子日志 {}", self.path.display()))?;
         let payload = json!({
             "at": Utc::now().to_rfc3339(),
             "event": event
         });
-        let encoded = serde_json::to_string(&payload).context("failed to encode hook event")?;
+        let encoded = serde_json::to_string(&payload).context("无法编码钩子事件")?;
         file.write_all(encoded.as_bytes())
             .await
-            .context("failed to write hook event")?;
+            .context("无法写入钩子事件")?;
         file.write_all(b"\n")
             .await
-            .context("failed to write hook event newline")?;
+            .context("无法写入钩子事件换行符")?;
         Ok(())
     }
 }
@@ -137,12 +137,12 @@ impl HookSink for WebhookHookSink {
                 Ok(response) if response.status().is_success() => return Ok(()),
                 Ok(response) => {
                     if retries >= 2 {
-                        anyhow::bail!("webhook returned non-success status {}", response.status());
+                        anyhow::bail!("webhook 返回非成功状态码 {}", response.status());
                     }
                 }
                 Err(err) => {
                     if retries >= 2 {
-                        return Err(err).context("webhook request failed");
+                        return Err(err).context("webhook 请求失败");
                     }
                 }
             }

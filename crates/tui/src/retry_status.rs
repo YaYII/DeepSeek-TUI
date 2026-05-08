@@ -1,46 +1,43 @@
 //! 进程级重试状态界面（#499）。
 //!
-//! The HTTP retry path in `client::send_with_retry` already times its
-//! waits and knows the error category. This module gives the TUI a way
-//! to observe that state — `start`, `succeeded`, and `failed` flip a
-//! global `RetryState` that the footer / status panel reads each frame.
+//! `client::send_with_retry` 中的 HTTP 重试路径已经计时其等待
+//! 并知道错误类别。本模块为 TUI 提供观察该状态的方式 —
+//! `start`、`succeeded` 和 `failed` 翻转全局 `RetryState`，
+//! 底部/状态面板每帧读取该状态。
 //!
-//! Why a process-wide global: the user-facing TUI runs as one engine
-//! per process, and the only retry state we want to surface is the one
-//! the user is staring at. Sub-agent retries in background tasks
-//! deliberately do **not** light up the foreground banner — they're
-//! supposed to be invisible. If a future feature ever needs per-engine
-//! retry surfaces, swap this for an `Arc<RwLock<...>>` carried on the
-//! `EngineHandle`; the public API stays the same.
+//! 为什么是进程级全局：面向用户的 TUI 每个进程运行一个引擎，
+//! 我们想要呈现的唯一重试状态是用户正在关注的那个。
+//! 后台任务中的子代理重试有意**不**点亮前台横幅 —
+//! 它们应该是不可见的。如果未来的功能需要每引擎重试显示，
+//! 将此替换为 `EngineHandle` 上携带的 `Arc<RwLock<...>>`；
+//! 公共 API 保持不变。
 
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
-/// One in-flight retry attempt. `deadline` is the wall-clock time the
-/// next request will fire — the UI subtracts `Instant::now()` from it
-/// to render a live countdown.
+/// 一个正在进行的重试尝试。`deadline` 是下一个请求将触发
+/// 的挂钟时间 — UI 从中减去 `Instant::now()` 以渲染实时倒计时。
 #[derive(Debug, Clone)]
 pub struct RetryBanner {
-    /// 1-indexed retry attempt number (the first retry is attempt 1).
+    /// 从 1 开始索引的重试尝试编号（第一次重试为尝试 1）。
     pub attempt: u32,
-    /// Time at which the next request will be sent.
+    /// 下一个请求将发送的时间。
     pub deadline: Instant,
-    /// Short human-readable reason ("rate limited", "server error", …).
+    /// 简短的可读原因（"rate limited"、"server error"等）。
     pub reason: String,
 }
 
-/// Snapshot of the retry surface for the UI to render.
+/// 供 UI 渲染的重试界面快照。
 #[derive(Debug, Clone, Default)]
 pub enum RetryState {
-    /// No retry in flight. Banner hidden.
+    /// 没有正在进行的重试。横幅隐藏。
     #[default]
     Idle,
-    /// A request is sleeping before retrying. Show countdown banner.
+    /// 请求在重试前等待。显示倒计时横幅。
     Active(RetryBanner),
-    /// All retries exhausted; show failure row until the next turn
-    /// starts. `since` records when the row was set so a future polish
-    /// pass can age it out automatically; today the engine clears it on
-    /// `TurnStarted`.
+    /// 所有重试已耗尽；显示失败行直到下一轮次开始。
+    /// `since` 记录行设置的时间，以便未来的优化可以自动过期；
+    /// 目前引擎在 `TurnStarted` 时清除它。
     Failed {
         reason: String,
         #[allow(dead_code)]

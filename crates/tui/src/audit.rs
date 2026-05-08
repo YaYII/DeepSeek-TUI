@@ -8,10 +8,9 @@ use serde_json::{Value, json};
 
 use crate::utils::{flush_and_sync, open_append};
 
-/// Append an audit event to `~/.deepseek/audit.log`.
+/// 将审计事件追加到 `~/.deepseek/audit.log`。
 ///
-/// This helper is best-effort by design: callers should not fail critical flows
-/// if audit persistence fails.
+/// 此辅助函数设计为尽力而为：如果审计持久化失败，调用者不应使关键流程失败。
 pub fn log_sensitive_event(event: &str, details: Value) {
     if let Err(err) = append_event(event, details) {
         crate::logging::warn(format!("audit log write failed: {err}"));
@@ -24,8 +23,8 @@ fn append_event(event: &str, details: Value) -> anyhow::Result<()> {
     if let Some(ref parent) = parent {
         fs::create_dir_all(parent)?;
     }
-    // Open for append with a BufWriter for buffered I/O, then flush + fsync
-    // after each event so the record is durably on disk.
+    // 使用 BufWriter 打开进行追加写入以实现缓冲 I/O，然后在每个事件后
+    // 执行 flush + fsync，确保记录持久保存到磁盘。
     let mut writer = open_append(&path)?;
     let record = json!({
         "ts": Utc::now().to_rfc3339(),

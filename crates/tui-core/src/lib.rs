@@ -55,7 +55,7 @@ impl Default for UiState {
             pending_tasks: 0,
             active_jobs: 0,
             pending_approvals: 0,
-            status_line: "ready".to_string(),
+            status_line: "就绪".to_string(),
         }
     }
 }
@@ -85,7 +85,7 @@ impl UiState {
             }
             UiEvent::PromptSubmitted(_) => {
                 self.pending_tasks = self.pending_tasks.saturating_add(1);
-                self.status_line = "prompt submitted".to_string();
+                self.status_line = "提示已提交".to_string();
                 vec![
                     UiEffect::Render,
                     UiEffect::PersistCheckpoint,
@@ -94,7 +94,7 @@ impl UiState {
             }
             UiEvent::ResponseDelta(delta) => {
                 self.last_response_delta = Some(delta);
-                self.status_line = "streaming response".to_string();
+                self.status_line = "正在流式响应".to_string();
                 vec![
                     UiEffect::Render,
                     UiEffect::EmitStatusLine(self.status_line.clone()),
@@ -102,7 +102,7 @@ impl UiState {
             }
             UiEvent::ToolStarted(name) => {
                 self.active_tool = Some(name.clone());
-                self.status_line = format!("tool running: {name}");
+                self.status_line = format!("工具执行中: {name}");
                 vec![
                     UiEffect::Render,
                     UiEffect::EmitStatusLine(self.status_line.clone()),
@@ -111,7 +111,7 @@ impl UiState {
             UiEvent::ToolFinished(name) => {
                 self.active_tool = None;
                 self.pending_tasks = self.pending_tasks.saturating_sub(1);
-                self.status_line = format!("tool finished: {name}");
+                self.status_line = format!("工具已完成: {name}");
                 vec![
                     UiEffect::Render,
                     UiEffect::PersistCheckpoint,
@@ -120,11 +120,11 @@ impl UiState {
             }
             UiEvent::JobQueued(_) => {
                 self.active_jobs = self.active_jobs.saturating_add(1);
-                self.status_line = "job queued".to_string();
+                self.status_line = "任务已排队".to_string();
                 vec![UiEffect::Render, UiEffect::PersistCheckpoint]
             }
             UiEvent::JobProgress { progress, .. } => {
-                self.status_line = format!("job progress: {}%", progress.min(100));
+                self.status_line = format!("任务进度: {}%", progress.min(100));
                 vec![
                     UiEffect::Render,
                     UiEffect::EmitStatusLine(self.status_line.clone()),
@@ -132,7 +132,7 @@ impl UiState {
             }
             UiEvent::JobCompleted(_) => {
                 self.active_jobs = self.active_jobs.saturating_sub(1);
-                self.status_line = "job completed".to_string();
+                self.status_line = "任务已完成".to_string();
                 vec![
                     UiEffect::Render,
                     UiEffect::PersistCheckpoint,
@@ -141,7 +141,7 @@ impl UiState {
             }
             UiEvent::ApprovalRequested(_) => {
                 self.pending_approvals = self.pending_approvals.saturating_add(1);
-                self.status_line = "approval requested".to_string();
+                self.status_line = "请求审批中".to_string();
                 vec![
                     UiEffect::Render,
                     UiEffect::EmitStatusLine(self.status_line.clone()),
@@ -149,7 +149,7 @@ impl UiState {
             }
             UiEvent::ApprovalResolved(_) => {
                 self.pending_approvals = self.pending_approvals.saturating_sub(1);
-                self.status_line = "approval resolved".to_string();
+                self.status_line = "审批已完成".to_string();
                 vec![
                     UiEffect::Render,
                     UiEffect::PersistCheckpoint,
@@ -158,7 +158,7 @@ impl UiState {
             }
             UiEvent::PauseRequested => {
                 self.paused = true;
-                self.status_line = "paused".to_string();
+                self.status_line = "已暂停".to_string();
                 vec![
                     UiEffect::Render,
                     UiEffect::EmitStatusLine(self.status_line.clone()),
@@ -166,7 +166,7 @@ impl UiState {
             }
             UiEvent::ResumeRequested => {
                 self.paused = false;
-                self.status_line = "resumed".to_string();
+                self.status_line = "已恢复".to_string();
                 vec![
                     UiEffect::Render,
                     UiEffect::EmitStatusLine(self.status_line.clone()),

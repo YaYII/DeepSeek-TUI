@@ -342,7 +342,7 @@ impl StreamingState {
         if text.is_empty() {
             return Vec::new();
         }
-        // Re-render the text through the same path the collector used.
+        // 通过收集器使用的相同路径重新渲染文本。
         let style = if self
             .blocks
             .get(index)
@@ -423,36 +423,32 @@ impl StreamingState {
         lines
     }
 
-    /// Finalize a block and get remaining raw text. Drains the full pipeline
-    /// in upstream-to-downstream order:
+    /// 结束一个块并获取剩余的原始文本。按上游到下游的顺序排空整个管道：
     ///
-    /// 1. [`LineBuffer::flush`] returns any post-newline tail held by the gate.
-    ///    For gated blocks this is critical — without it, a final partial
-    ///    line (e.g. text the model emitted without a trailing newline before
-    ///    the turn ended) would otherwise be stranded in the gate.
-    /// 2. The collector's `finalize_text` releases any partial line it still
-    ///    holds (relevant for the bypass path where the collector receives
-    ///    raw deltas directly).
-    /// 3. The chunker's `drain_remaining` releases queued whole-line text
-    ///    that the policy hadn't yet committed.
+    /// 1. [`LineBuffer::flush`] 返回门控持有的任何换行符后尾部。
+    ///    对于有门控的块，这很关键 — 没有它，最终的不完整行
+    ///    （例如模型在轮次结束前发出的没有尾部换行符的文本）
+    ///    将会被困在门控中。
+    /// 2. 收集器的 `finalize_text` 释放它仍然持有的任何不完整行
+    ///    （与收集器直接接收原始数据块的绕过路径相关）。
+    /// 3. 分块器的 `drain_remaining` 释放策略尚未提交的排队整行文本。
     pub fn finalize_block_text(&mut self, index: usize) -> String {
         if let Some(Some(block)) = self.blocks.get_mut(index) {
-            // Flush the gate first so any held tail rejoins the stream
-            // before the collector/chunker drain. For thinking blocks the
-            // gate is unused, so this is a no-op.
+            // 先刷新门控，以便任何保留的尾部在收集器/分块器排空前重新加入流。
+            // 对于思考块，门控未使用，因此这是无操作。
             let gate_tail = block.line_buffer.flush();
             if !gate_tail.is_empty() {
                 block.collector.push(&gate_tail);
             }
-            // Any newly committable text after the gate flush feeds the
-            // chunker so drain order remains "queued-lines, then partial-tail".
+            // 门控刷新后的任何新可提交文本会送入分块器，
+            // 以便排空顺序保持"排队行，然后部分尾部"。
             let post_flush = block.collector.commit_complete_text();
             if !post_flush.is_empty() {
                 block.chunker.push_delta(&post_flush);
             }
-            // Any unterminated tail still in the collector is returned raw.
+            // 收集器中任何未终止的尾部会被原样返回。
             let tail = block.collector.finalize_text();
-            // Any whole-line text held by the chunker is safe to emit now.
+            // 分块器持有的任何整行文本现在可以安全地发出。
             let mut out = block.chunker.drain_remaining();
             if !tail.is_empty() {
                 out.push_str(&tail);
@@ -464,7 +460,7 @@ impl StreamingState {
         }
     }
 
-    /// Finalize all blocks
+    /// 结束所有块
     pub fn finalize_all(&mut self) -> Vec<(usize, Vec<Line<'static>>)> {
         let mut result = Vec::new();
         let len = self.blocks.len();
@@ -478,16 +474,16 @@ impl StreamingState {
         result
     }
 
-    /// Propagate the low-motion flag to every block's chunking policy.
-    /// When true, all policies stay in `Smooth` regardless of queue pressure,
-    /// preventing CatchUp burst drains that would create sudden visual jumps.
+    /// 将低动态标志传播到每个块的分块策略。
+    /// 为 true 时，所有策略都保持在 `Smooth`，无论队列压力如何，
+    /// 防止会创建突然视觉跳动的 CatchUp 突发排空。
     pub fn set_low_motion(&mut self, low_motion: bool) {
         for block in self.blocks.iter_mut().flatten() {
             block.policy.set_low_motion(low_motion);
         }
     }
 
-    /// Check if any stream is still active
+    /// 检查是否有任何流仍处于活动状态
     fn check_active(&mut self) {
         self.is_active = self.blocks.iter().any(|b| {
             b.as_ref()
@@ -495,14 +491,14 @@ impl StreamingState {
         });
     }
 
-    /// Ensure capacity for the given index
+    /// 确保给定索引的容量
     fn ensure_capacity(&mut self, index: usize) {
         while self.blocks.len() <= index {
             self.blocks.push(None);
         }
     }
 
-    /// Reset the streaming state
+    /// 重置流状态
     pub fn reset(&mut self) {
         self.blocks.clear();
         self.is_active = false;
@@ -519,22 +515,22 @@ mod tests {
     fn test_commit_complete_lines() {
         let mut collector = MarkdownStreamCollector::new(Some(80), false);
 
-        // Push incomplete line
+        // 推送不完整行
         collector.push("Hello ");
         let lines = collector.commit_complete_lines();
-        assert!(lines.is_empty()); // No complete lines yet
+        assert!(lines.is_empty()); // 还没有完整行
 
-        // Complete the line
+        // 完成该行
         collector.push("World\n");
         let lines = collector.commit_complete_lines();
-        assert_eq!(lines.len(), 2); // "Hello World" + empty line from trailing \n
+        assert_eq!(lines.len(), 2); // "Hello World" + 尾部 \n 产生的空行
 
-        // Push more content
+        // 推送更多内容
         collector.push("Second line");
         let lines = collector.commit_complete_lines();
-        assert!(lines.is_empty()); // No new complete lines
+        assert!(lines.is_empty()); // 没有新的完整行
 
-        // Finalize
+        // 结束
         let lines = collector.finalize();
         assert_eq!(lines.len(), 1); // "Second line"
     }

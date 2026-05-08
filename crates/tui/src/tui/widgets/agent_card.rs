@@ -2,16 +2,14 @@
 //!
 //! 两张卡片消费 #130 邮箱流并在聊天转录本中实时渲染：
 //!
-//! - [`DelegateCard`] — single `agent_spawn` invocation. Live tree of the
-//!   last 3 actions plus a header with status / glyph / role.
-//! - [`FanoutCard`] — `rlm` fanout (or any future multi-child dispatch).
-//!   Dot-grid of worker slots (`●` filled, `○` pending) plus an aggregate
-//!   counts line.
+//! - [`DelegateCard`] — 单个 `agent_spawn` 调用。最近 3 个操作
+//!   的实时树，以及包含状态/字形/角色的标题。
+//! - [`FanoutCard`] — `rlm` 扇出（或任何未来的多子分发）。
+//!   工作槽的点阵（`●` 已填充，`○` 待处理）以及聚合计数行。
 //!
-//! Both cards are state machines updated by [`apply_to_delegate`] /
-//! [`apply_to_fanout`]. The sidebar (see `tui/sidebar.rs`) defers detail
-//! to whichever card is active in the transcript, so these are the
-//! primary status surface.
+//! 两张卡片都是由 [`apply_to_delegate`] / [`apply_to_fanout`] 更新的状态机。
+//! 侧边栏（见 `tui/sidebar.rs`）将详细信息委托给转录本中处于活动状态的卡片，
+//! 因此这些是主要的状态呈现面。
 
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
@@ -20,11 +18,11 @@ use crate::palette;
 use crate::tools::subagent::MailboxMessage;
 use crate::tui::widgets::tool_card::{ToolFamily, family_glyph, family_label};
 
-/// Maximum number of recent actions kept on a `DelegateCard`. Older entries
-/// are dropped from the head; an ellipsis row signals truncation.
+/// `DelegateCard` 上保留的最大最近操作数。旧条目从头部丢弃；
+/// 省略号行表示截断。
 pub const DELEGATE_MAX_ACTIONS: usize = 3;
 
-/// Lifecycle of a delegated / fanned-out agent.
+/// 委托/扇出代理的生命周期。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AgentLifecycle {
     Pending,
@@ -60,10 +58,10 @@ impl AgentLifecycle {
     }
 }
 
-/// Card for a single delegated `agent_spawn` invocation.
+/// 单个委托的 `agent_spawn` 调用的卡片。
 ///
-/// Stores the last [`DELEGATE_MAX_ACTIONS`] action lines; older entries are
-/// truncated and a single ellipsis row is rendered above the visible tail.
+/// 存储最近 [`DELEGATE_MAX_ACTIONS`] 个操作行；旧条目被截断，
+/// 在可见尾部上方渲染一个省略号行。
 #[derive(Debug, Clone)]
 pub struct DelegateCard {
     pub agent_id: String,
@@ -90,8 +88,8 @@ impl DelegateCard {
     pub fn push_action(&mut self, action: impl Into<String>) {
         self.actions.push(action.into());
         if self.actions.len() > DELEGATE_MAX_ACTIONS {
-            // Drop one head entry per overflow so steady-state is exactly
-            // DELEGATE_MAX_ACTIONS lines; the ellipsis row signals the rest.
+            // 每次溢出丢弃一个头部条目，使稳定状态恰好为
+            // DELEGATE_MAX_ACTIONS 行；省略号行表示其余部分。
             self.actions.remove(0);
             self.truncated = true;
         }
@@ -135,15 +133,14 @@ impl DelegateCard {
         lines
     }
 
-    /// Number of actions held — exposed for tests; bounded at
-    /// `DELEGATE_MAX_ACTIONS`.
+    /// 持有的操作数 — 为测试暴露；上限为 `DELEGATE_MAX_ACTIONS`。
     #[must_use]
     #[cfg(test)]
     pub fn action_count(&self) -> usize {
         self.actions.len()
     }
 
-    /// Whether the head was truncated (older actions dropped).
+    /// 头部是否被截断（旧操作已丢弃）。
     #[must_use]
     #[cfg(test)]
     pub fn truncated(&self) -> bool {
@@ -151,13 +148,12 @@ impl DelegateCard {
     }
 }
 
-/// One worker slot in a fanout group.
+/// 扇出组中的工作槽。
 #[derive(Debug, Clone)]
 pub struct WorkerSlot {
-    /// Stable logical worker key. Stays tied to the worker slot even after a
-    /// concrete sub-agent id exists.
+    /// 稳定的逻辑工作键。即使在具体的子代理 ID 存在后仍与工作槽绑定。
     pub worker_id: String,
-    /// Concrete agent id once spawned; placeholders use the worker id.
+    /// 生成后的具体代理 ID；占位符使用工作 ID。
     pub agent_id: String,
     pub status: AgentLifecycle,
 }
@@ -174,13 +170,10 @@ impl WorkerSlot {
     }
 }
 
-/// Card for `rlm` (or any multi-child dispatch) fanout: dot-grid +
-/// aggregate counts.
+/// `rlm`（或任何多子分发）扇出的卡片：点阵 + 聚合计数。
 ///
-/// Slots are added as `ChildSpawned` envelopes arrive (or pre-allocated by
-/// the engine when the worker count is known up front); each slot
-/// transitions independently as its `Completed` / `Failed` / `Cancelled`
-/// envelope is observed.
+/// 槽在 `ChildSpawned` 信封到达时添加（或当工作计数预先已知时由引擎预先分配）；
+/// 每个槽在观察到其 `Completed` / `Failed` / `Cancelled` 信封时独立转换。
 #[derive(Debug, Clone)]
 pub struct FanoutCard {
     pub kind: String,
@@ -196,7 +189,7 @@ impl FanoutCard {
         }
     }
 
-    /// Pre-seed worker slots when the fanout size is known up front.
+    /// 当扇出大小预先已知时预填充工作槽。
     #[allow(dead_code)]
     pub fn with_workers<I, S>(mut self, ids: I) -> Self
     where
@@ -210,7 +203,7 @@ impl FanoutCard {
         self
     }
 
-    /// Update or insert a worker by id.
+    /// 按 ID 更新或插入工作槽。
     pub fn upsert_worker(&mut self, agent_id: &str, status: AgentLifecycle) {
         if let Some(slot) = self
             .workers
@@ -224,10 +217,9 @@ impl FanoutCard {
         }
     }
 
-    /// Attach a real agent id to the first pending placeholder slot. Fanout
-    /// cards are seeded from task ids before child agents exist; when a child
-    /// starts, this keeps the dot count stable instead of appending a second
-    /// circle for the same unit of work.
+    /// 将真实的代理 ID 附加到第一个待处理的占位槽。扇出卡片
+    /// 在子代理存在之前从任务 ID 播种；当子代理启动时，
+    /// 这保持点数稳定，而不是为同一个工作单元附加第二个圆圈。
     pub fn claim_pending_worker(&mut self, agent_id: &str, status: AgentLifecycle) {
         if let Some(slot) = self.workers.iter_mut().find(|s| s.agent_id == agent_id) {
             slot.status = status;
@@ -323,7 +315,7 @@ impl FanoutCard {
         }
     }
 
-    /// Worker count (slots seeded or observed via mailbox).
+    /// 工作计数（通过邮箱播种或观察到的槽）。
     #[must_use]
     pub fn worker_count(&self) -> usize {
         self.workers.len()
@@ -375,9 +367,8 @@ fn truncate_action(text: &str, max: usize) -> String {
     }
 }
 
-/// Apply a mailbox envelope to a `DelegateCard`. Returns `true` if the
-/// state changed (UI may want to redraw); `false` if the envelope was for
-/// a different `agent_id`.
+/// 将邮箱信封应用于 `DelegateCard`。如果状态更改则返回 `true`（UI 可能需要重绘）；
+/// 如果信封是针对不同的 `agent_id`，则返回 `false`。
 pub fn apply_to_delegate(card: &mut DelegateCard, msg: &MailboxMessage) -> bool {
     if msg.agent_id() != card.agent_id {
         return false;
@@ -410,14 +401,12 @@ pub fn apply_to_delegate(card: &mut DelegateCard, msg: &MailboxMessage) -> bool 
             card.status = AgentLifecycle::Cancelled;
         }
         MailboxMessage::ChildSpawned { .. } => {
-            // Delegate cards represent a single agent; child spawns belong
-            // to a sibling fanout card, not this one.
+            // 委托卡片代表单个代理；子生成属于兄弟扇出卡片，而非此卡片。
             return false;
         }
         MailboxMessage::TokenUsage { .. } => {
-            // Cost accumulation happens in handle_subagent_mailbox (ui.rs)
-            // before this apply function is called; TokenUsage never reaches
-            // this arm in practice.
+            // 成本累积在调用此 apply 函数之前发生在 handle_subagent_mailbox (ui.rs) 中；
+            // TokenUsage 在实践中永远不会到达此分支。
             return false;
         }
     }
@@ -431,8 +420,8 @@ fn is_low_signal_progress(status: &str) -> bool {
         || (status.starts_with("step ") && status.contains(": complete"))
 }
 
-/// Apply a mailbox envelope to a `FanoutCard`. Updates per-worker state
-/// based on which child the envelope is about. Returns `true` on change.
+/// 将邮箱信封应用于 `FanoutCard`。根据信封所涉及的子代理更新每个工作槽的状态。
+/// 发生更改时返回 `true`。
 pub fn apply_to_fanout(card: &mut FanoutCard, msg: &MailboxMessage) -> bool {
     let id = msg.agent_id();
     match msg {
@@ -462,9 +451,8 @@ pub fn apply_to_fanout(card: &mut FanoutCard, msg: &MailboxMessage) -> bool {
             true
         }
         MailboxMessage::TokenUsage { .. } => {
-            // Cost accumulation happens in handle_subagent_mailbox (ui.rs)
-            // before this apply function is called; TokenUsage never reaches
-            // this arm in practice.
+            // 成本累积在调用此 apply 函数之前发生在 handle_subagent_mailbox (ui.rs) 中；
+            // TokenUsage 在实践中永远不会到达此分支。
             true
         }
     }
@@ -492,40 +480,40 @@ mod tests {
         card.push_action("read README.md");
         card.push_action("grep TODO");
         card.push_action("edit src/lib.rs");
-        // Up to the limit — no truncation yet.
+        // 未达到限制 — 尚未截断。
         assert!(!card.truncated());
         assert_eq!(card.action_count(), DELEGATE_MAX_ACTIONS);
 
         card.push_action("write tests");
         card.push_action("run cargo test");
-        assert!(card.truncated(), "truncation flag flips on overflow");
+        assert!(card.truncated(), "溢出时截断标志翻转");
         assert_eq!(
             card.action_count(),
             DELEGATE_MAX_ACTIONS,
-            "stable steady-state size"
+            "稳定的稳态大小"
         );
 
         let rendered = render_to_strings(&card.render_lines(80));
         assert!(
             rendered.iter().any(|line| line.contains('\u{2026}')),
-            "ellipsis indicator must render: got {rendered:?}"
+            "省略号指示符必须渲染：{rendered:?}"
         );
-        // The oldest two actions ("read README.md", "grep TODO") were dropped.
+        // 最旧的两个操作 ("read README.md", "grep TODO") 已被丢弃。
         assert!(
             !rendered.iter().any(|line| line.contains("read README.md")),
-            "oldest action evicted: got {rendered:?}"
+            "最旧操作已被驱逐：{rendered:?}"
         );
         assert!(
             rendered.iter().any(|line| line.contains("run cargo test")),
-            "newest action retained: got {rendered:?}"
+            "最新操作已保留：{rendered:?}"
         );
         assert!(
             rendered.iter().any(|line| line.contains("write tests")),
-            "second-newest retained: got {rendered:?}"
+            "次新操作已保留：{rendered:?}"
         );
         assert!(
             rendered.iter().any(|line| line.contains("edit src/lib.rs")),
-            "third-newest retained: got {rendered:?}"
+            "第三新操作已保留：{rendered:?}"
         );
     }
 
@@ -544,7 +532,7 @@ mod tests {
             rendered
                 .iter()
                 .any(|line| line.contains("scanned 42 files")),
-            "summary row renders on terminal status: got {rendered:?}"
+            "总结行在终端状态上渲染：{rendered:?}"
         );
     }
 
@@ -558,7 +546,7 @@ mod tests {
         assert_eq!(
             card.action_count(),
             0,
-            "scheduler progress should not become a stale transcript row"
+            "调度器进度不应成为过时的转录本行"
         );
 
         let rendered = render_to_strings(&card.render_lines(80)).join("\n");
@@ -595,7 +583,7 @@ mod tests {
         assert!(rendered.contains("read_file"), "{rendered}");
         assert!(
             !rendered.contains("[7]"),
-            "internal loop step numbers are not useful in the live card: {rendered}"
+            "内部循环步骤号在实时卡片中没有用：{rendered}"
         );
     }
 
@@ -615,9 +603,9 @@ mod tests {
         card.upsert_worker("w_2", AgentLifecycle::Completed);
         card.upsert_worker("w_3", AgentLifecycle::Running);
         card.upsert_worker("w_4", AgentLifecycle::Failed);
-        // 5/6/7 stay Pending.
+        // 5/6/7 保持 Pending。
 
-        // Completed fills; running and failed are distinct; pending stays open.
+        // 已完成填充；运行中和失败是不同的；待处理保持开放。
         assert_eq!(
             card.dot_grid(),
             "\u{25CF}\u{25CF}\u{25D0}\u{00D7}\u{25CB}\u{25CB}\u{25CB}"
@@ -632,19 +620,18 @@ mod tests {
         card.upsert_worker("w_3", AgentLifecycle::Completed);
         card.upsert_worker("w_4", AgentLifecycle::Failed);
         let rendered = render_to_strings(&card.render_lines(80));
-        // The stats row is the one carrying "running" too; the header may
-        // mention "done" alone via the lifecycle status badge.
+        // 统计行也携带 "running"；标题可能通过生命周期状态徽章单独提到 "done"。
         let stats = rendered
             .iter()
             .find(|line| line.contains("running") && line.contains("pending"))
             .expect("counts line present");
-        assert!(stats.contains("3 done"), "completed count: {stats}");
+        assert!(stats.contains("3 done"), "已完成计数：{stats}");
         assert!(
             stats.contains("1 failed"),
-            "failed/cancelled fold into the same bucket: {stats}"
+            "失败/取消合并到同一个桶中：{stats}"
         );
-        assert!(stats.contains("0 running"), "no running: {stats}");
-        assert!(stats.contains("0 pending"), "no pending: {stats}");
+        assert!(stats.contains("0 running"), "无运行中：{stats}");
+        assert!(stats.contains("0 pending"), "无待处理：{stats}");
     }
 
     #[test]
@@ -692,8 +679,7 @@ mod tests {
 
     #[test]
     fn fanout_dot_grid_arithmetic_for_various_n() {
-        // Spot-check several fanout sizes with a mix of states; this is the
-        // arithmetic snapshot the issue acceptance calls out.
+        // 抽查几种扇出大小及其状态组合；这是问题验收中提到的算术快照。
         let cases: &[(usize, usize, &str)] = &[
             (1, 0, "\u{25CB}"),
             (1, 1, "\u{25CF}"),
@@ -713,7 +699,7 @@ mod tests {
             assert_eq!(
                 card.dot_grid(),
                 *expected,
-                "fanout dot-grid for total={total} done={done}",
+                "扇出点阵在 total={total} done={done} 时",
             );
         }
     }

@@ -1,14 +1,12 @@
-//! Windows sandbox helper contract.
+//! Windows 沙箱辅助契约。
 //!
-//! Current status: DeepSeek TUI does not advertise an in-process Windows
-//! sandbox. Future Windows support must run commands through a dedicated
-//! helper that provides process-tree containment with a Job Object and
-//! `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`.
+//! 当前状态：DeepSeek TUI 不提供进程内的 Windows 沙箱。
+//! 未来的 Windows 支持必须通过专用的辅助程序运行命令，
+//! 该辅助程序使用作业对象和 `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` 提供进程树隔离。
 //!
-//! The first Windows helper slice is process containment only. It must not
-//! claim read-only filesystem isolation, workspace-write enforcement, network
-//! blocking, registry isolation, or AppContainer-level isolation until those
-//! guarantees are implemented and tested separately.
+//! 第一个 Windows 辅助程序仅提供进程隔离。在单独实现和测试以下保证之前，
+//! 它不得声称提供只读文件系统隔离、工作区写入强制执行、网络阻塞、
+//! 注册表隔离或 AppContainer 级别的隔离。
 
 use std::path::Path;
 

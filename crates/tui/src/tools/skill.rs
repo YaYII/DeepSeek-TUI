@@ -1,5 +1,5 @@
 //! 技能工具 — 加载和执行技能。
-//! list into the model's context (#434).
+//! 将模型上下文中列出的技能加载进来 (#434)。
 //!
 //! ## Why a tool when skills already surface in the system prompt?
 //!

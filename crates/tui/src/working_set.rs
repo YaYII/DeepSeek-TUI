@@ -1,10 +1,9 @@
-//! Repo-aware working set tracking and prompt context packing.
+//! 仓库感知的工作集跟踪和提示上下文打包。
 //!
-//! The goal of this module is to keep a small, high-signal list of
-//! "active" paths that the assistant should prioritize. It observes
-//! user messages and tool calls, extracts likely paths, and produces:
-//! - a compact working-set summary block for the system prompt
-//! - pinned message indices that compaction should preserve
+//! 本模块的目标是维护一个体积小、信号强的"活跃"路径列表，
+//! 供助手优先处理。它观察用户消息和工具调用，提取可能的路径，并生成：
+//! - 系统提示的紧凑工作集摘要块
+//! - 压缩应保留的固定消息索引
 
 use crate::models::{ContentBlock, Message};
 use ignore::WalkBuilder;
@@ -17,13 +16,13 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
-/// Repo-aware resolver for `@`-mentions and file pickers.
+/// 仓库感知的 `@`-mention 和文件选择器解析器。
 ///
-/// `cwd` is captured at construction; if the host's current directory changes
-/// during a session, build a fresh `Workspace`. Fuzzy lookups are backed by a
-/// lazy basename → paths index built once on first miss and reused for the
-/// rest of the session — without it, every mis-typed mention triggered a full
-/// `WalkBuilder` traversal up to depth 6 (Gemini code-review feedback).
+/// `cwd` 在构造时捕获；如果宿主当前目录在会话期间发生变化，
+/// 请构建一个新的 `Workspace`。模糊查找由惰性 basename → 路径索引支持，
+/// 该索引在首次未命中时构建一次，并在会话的剩余时间内复用——
+/// 没有它，每次错误输入的 mention 都会触发完整的 `WalkBuilder` 遍历，
+/// 深度达 6 层（Gemini 代码审查反馈）。
 #[derive(Debug)]
 pub struct Workspace {
     pub root: PathBuf,

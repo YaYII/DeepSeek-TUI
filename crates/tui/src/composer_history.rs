@@ -1,22 +1,19 @@
 //! 跨会话的编辑器输入历史（#366）。
 //!
-//! Persists user-typed prompts to `~/.deepseek/composer_history.txt` so
-//! pressing Up-arrow at the composer recalls submissions from previous
-//! sessions, not just the current one. One entry per line, oldest first,
-//! capped at [`MAX_HISTORY_ENTRIES`] entries (older entries are pruned
-//! at append time).
+//! 将用户输入的提示持久化到 `~/.deepseek/composer_history.txt`，
+//! 以便在编辑器中按上箭头键时不仅回忆当前会话，还能回忆之前会话的提交内容。
+//! 每行一条记录，最旧的在前，上限为 [`MAX_HISTORY_ENTRIES`] 条
+//!（追加时会修剪较旧的条目）。
 //!
-//! Entries that begin with `/` (slash commands) are NOT stored — they
-//! pollute the recall stream and the fuzzy slash-menu already covers
-//! them. Empty / whitespace-only inputs are also skipped.
+//! 以 `/` 开头的条目（斜杠命令）不会被存储 — 它们会污染回忆流，
+//! 而且模糊斜杠菜单已经覆盖了它们。空输入/仅空白输入也会被跳过。
 
 use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 
-/// Hard cap on persisted history. Keeps the file small (typical entries
-/// are < 200 chars, so 1000 entries ≈ 200 KB) and bounds startup load
-/// time.
+/// 持久化历史的硬上限。保持文件较小（典型条目 < 200 字符，
+/// 因此 1000 条 ≈ 200 KB）并限制启动加载时间。
 pub const MAX_HISTORY_ENTRIES: usize = 1000;
 
 const HISTORY_FILE_NAME: &str = "composer_history.txt";
@@ -25,8 +22,8 @@ fn default_history_path() -> Option<PathBuf> {
     dirs::home_dir().map(|home| home.join(".deepseek").join(HISTORY_FILE_NAME))
 }
 
-/// Read the persisted history into memory. Returns an empty vec if the
-/// file doesn't exist or can't be parsed — this is best-effort.
+/// 将持久化的历史记录读取到内存中。如果文件不存在或无法解析，
+/// 返回空 vec — 这是尽力而为的操作。
 #[must_use]
 pub fn load_history() -> Vec<String> {
     let Some(path) = default_history_path() else {
@@ -46,12 +43,12 @@ fn load_history_from(path: &Path) -> Vec<String> {
         .collect()
 }
 
-/// Append an entry to the persisted history, pruning old entries to
-/// stay within [`MAX_HISTORY_ENTRIES`]. Slash-commands and empty input
-/// are skipped — those don't help recall.
+/// 将条目追加到持久化历史记录中，修剪旧条目以保持在
+/// [`MAX_HISTORY_ENTRIES`] 以内。斜杠命令和空输入
+/// 会被跳过 — 这些对回忆没有帮助。
 ///
-/// Best-effort — failures are logged via `tracing` but not propagated
-/// because composer history is a UX nicety, not a correctness concern.
+/// 尽力而为 — 失败通过 `tracing` 记录但不传播，
+/// 因为编辑器历史是 UX 优化项，不是正确性问题。
 pub fn append_history(entry: &str) {
     let Some(path) = default_history_path() else {
         return;
@@ -68,18 +65,17 @@ fn append_history_to(path: &Path, entry: &str) {
         && let Err(err) = fs::create_dir_all(parent)
     {
         tracing::warn!(
-            "Failed to create composer history dir {}: {err}",
+            "创建编辑器历史目录 {} 失败：{err}",
             parent.display()
         );
         return;
     }
 
-    // Read existing entries, append the new one, prune from the front
-    // until under the cap, then atomically rewrite.
+    // 读取现有条目，追加新条目，从前面修剪直到低于上限
+    // 直到低于上限，然后原子化重写。
     let mut entries = load_history_from(path);
     if entries.last().map(String::as_str) == Some(trimmed) {
-        // De-dupe consecutive duplicates — repeated submission of the
-        // same prompt shouldn't bloat the file.
+        // 去重连续重复项 — 重复提交相同提示不应使文件膨胀。
         return;
     }
     entries.push(trimmed.to_string());
@@ -91,7 +87,7 @@ fn append_history_to(path: &Path, entry: &str) {
     let payload = entries.join("\n") + "\n";
     if let Err(err) = crate::utils::write_atomic(path, payload.as_bytes()) {
         tracing::warn!(
-            "Failed to persist composer history at {}: {err}",
+            "持久化编辑器历史到 {} 失败：{err}",
             path.display()
         );
     }
@@ -101,11 +97,10 @@ fn append_history_to(path: &Path, entry: &str) {
 mod tests {
     use super::*;
 
-    /// Tests use the path-injecting `*_from` / `*_to` helpers so they
-    /// don't have to mutate `HOME` (which is not honored by
-    /// `dirs::home_dir()` on Windows — it reads `USERPROFILE` /
-    /// `SHGetKnownFolderPath` instead). This makes the suite portable
-    /// across all three CI runners without per-platform env juggling.
+    /// 测试使用路径注入的 `*_from` / `*_to` 辅助函数，这样它们
+    /// 就不必修改 `HOME`（在 Windows 上 `dirs::home_dir()` 不读取
+    /// `HOME` — 它读取 `USERPROFILE` / `SHGetKnownFolderPath`）。这使测试套件在
+    /// 所有三个 CI 运行器上都能移植，无需每个平台的环境变量设置。
     fn temp_history_path() -> (tempfile::TempDir, PathBuf) {
         let tmp = tempfile::tempdir().expect("tempdir");
         let path = tmp.path().join(HISTORY_FILE_NAME);
@@ -159,7 +154,7 @@ mod tests {
         }
         let history = load_history_from(&path);
         assert_eq!(history.len(), MAX_HISTORY_ENTRIES);
-        // Newest entries survive; oldest 50 were pruned.
+        // 最新的条目保留；最旧的 50 条被修剪。
         assert_eq!(history.first().map(String::as_str), Some("entry 50"));
         assert_eq!(
             history.last().map(String::as_str),

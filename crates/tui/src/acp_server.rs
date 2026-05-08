@@ -1,9 +1,8 @@
 //! 最小化 Agent Client Protocol stdio 适配器。
 //!
-//! This intentionally starts with the ACP baseline: initialize, new session,
-//! prompt, and cancel. It keeps stdout protocol-clean for editor clients and
-//! routes prompts through the same configured DeepSeek client as one-shot CLI
-//! mode.
+//! 这有意从 ACP 基线开始：初始化、新会话、提示和取消。它保持 stdout
+//! 对编辑器客户端协议干净，并通过与一次性 CLI 模式相同的已配置
+//! DeepSeek 客户端路由提示。
 
 use std::collections::HashMap;
 use std::path::PathBuf;

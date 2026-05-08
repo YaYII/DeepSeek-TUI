@@ -1,8 +1,8 @@
 //! 持久化自动化记录和调度器支持。
 //!
-//! Automations are local-first recurring jobs that enqueue standard background
-//! tasks. This module stores automation definitions and run history under
-//! `~/.deepseek/automations` (or `DEEPSEEK_AUTOMATIONS_DIR` override).
+//! 自动化是本地的定期重复任务，将标准后台任务加入队列。
+//! 本模块将自动化定义和运行历史存储在 `~/.deepseek/automations`
+//!（或 `DEEPSEEK_AUTOMATIONS_DIR` 覆盖）。
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -146,8 +146,8 @@ impl AutomationSchedule {
         let freq = match parts.get("FREQ").map(String::as_str) {
             Some("HOURLY") => AutomationFrequency::Hourly,
             Some("WEEKLY") => AutomationFrequency::Weekly,
-            Some(other) => bail!("Unsupported RRULE FREQ '{other}'. Supported: HOURLY and WEEKLY"),
-            None => bail!("RRULE must include FREQ"),
+            Some(other) => bail!("不支持的 RRULE FREQ '{other}'。支持：HOURLY 和 WEEKLY"),
+            None => bail!("RRULE 必须包含 FREQ"),
         };
 
         match freq {
@@ -155,7 +155,7 @@ impl AutomationSchedule {
                 for key in parts.keys() {
                     if key != "FREQ" && key != "INTERVAL" && key != "BYDAY" {
                         bail!(
-                            "Unsupported RRULE field '{key}' for HOURLY. Allowed: FREQ,INTERVAL,BYDAY"
+                            "不支持的 HOURLY RRULE 字段 '{key}'。允许：FREQ,INTERVAL,BYDAY"
                         );
                     }
                 }
@@ -163,10 +163,10 @@ impl AutomationSchedule {
                     .get("INTERVAL")
                     .map(|v| v.parse::<u32>())
                     .transpose()
-                    .context("Failed to parse INTERVAL")?
+                    .context("解析 INTERVAL 失败")?
                     .unwrap_or(1);
                 if interval_hours == 0 {
-                    bail!("INTERVAL must be >= 1 for HOURLY schedules");
+                    bail!("HOURLY 计划的 INTERVAL 必须 >= 1");
                 }
                 let byday = parts
                     .get("BYDAY")
@@ -181,33 +181,33 @@ impl AutomationSchedule {
                 for key in parts.keys() {
                     if key != "FREQ" && key != "BYDAY" && key != "BYHOUR" && key != "BYMINUTE" {
                         bail!(
-                            "Unsupported RRULE field '{key}' for WEEKLY. Allowed: FREQ,BYDAY,BYHOUR,BYMINUTE"
+                            "不支持的 WEEKLY RRULE 字段 '{key}'。允许：FREQ,BYDAY,BYHOUR,BYMINUTE"
                         );
                     }
                 }
                 let byday_raw = parts
                     .get("BYDAY")
-                    .ok_or_else(|| anyhow::anyhow!("WEEKLY schedules require BYDAY"))?;
+                    .ok_or_else(|| anyhow::anyhow!("WEEKLY 计划需要 BYDAY"))?;
                 let byday = parse_byday(byday_raw)?;
                 if byday.is_empty() {
-                    bail!("BYDAY cannot be empty for WEEKLY schedules");
+                    bail!("WEEKLY 计划的 BYDAY 不能为空");
                 }
                 let byhour = parts
                     .get("BYHOUR")
-                    .ok_or_else(|| anyhow::anyhow!("WEEKLY schedules require BYHOUR"))?
+                    .ok_or_else(|| anyhow::anyhow!("WEEKLY 计划需要 BYHOUR"))?
                     .parse::<u32>()
-                    .context("Failed to parse BYHOUR")?;
+                    .context("解析 BYHOUR 失败")?;
                 let byminute = parts
                     .get("BYMINUTE")
-                    .ok_or_else(|| anyhow::anyhow!("WEEKLY schedules require BYMINUTE"))?
+                    .ok_or_else(|| anyhow::anyhow!("WEEKLY 计划需要 BYMINUTE"))?
                     .parse::<u32>()
-                    .context("Failed to parse BYMINUTE")?;
+                    .context("解析 BYMINUTE 失败")?;
 
                 if byhour > 23 {
-                    bail!("BYHOUR must be between 0 and 23");
+                    bail!("BYHOUR 必须在 0 到 23 之间");
                 }
                 if byminute > 59 {
-                    bail!("BYMINUTE must be between 0 and 59");
+                    bail!("BYMINUTE 必须在 0 到 59 之间");
                 }
 
                 Ok(Self::Weekly {
@@ -237,7 +237,7 @@ impl AutomationSchedule {
                         }
                         candidate += Duration::hours(i64::from(*interval_hours));
                     }
-                    bail!("Unable to compute next HOURLY run for BYDAY filter");
+                    bail!("无法为 BYDAY 过滤器计算下一次 HOURLY 运行");
                 }
 
                 Ok(candidate.with_timezone(&Utc))
@@ -261,7 +261,7 @@ impl AutomationSchedule {
                         return Ok(candidate.with_timezone(&Utc));
                     }
                 }
-                bail!("Unable to compute next WEEKLY run");
+                bail!("无法计算下一次 WEEKLY 运行");
             }
         }
     }
@@ -286,7 +286,7 @@ fn parse_byday(value: &str) -> Result<Vec<Weekday>> {
             "FR" => Weekday::Fri,
             "SA" => Weekday::Sat,
             "SU" => Weekday::Sun,
-            other => bail!("Invalid BYDAY value '{other}'"),
+            other => bail!("无效的 BYDAY 值 '{other}'"),
         };
         if !days.contains(&day) {
             days.push(day);
@@ -417,13 +417,13 @@ impl AutomationManager {
 
         if let Some(name) = req.name {
             if name.trim().is_empty() {
-                bail!("Automation name cannot be empty");
+                bail!("自动化名称不能为空");
             }
             existing.name = name.trim().to_string();
         }
         if let Some(prompt) = req.prompt {
             if prompt.trim().is_empty() {
-                bail!("Automation prompt cannot be empty");
+                bail!("自动化提示不能为空");
             }
             existing.prompt = prompt.trim().to_string();
         }
@@ -761,10 +761,10 @@ impl AutomationManager {
 
 fn validate_name_and_prompt(name: &str, prompt: &str) -> Result<()> {
     if name.trim().is_empty() {
-        bail!("Automation name is required");
+        bail!("自动化名称是必填项");
     }
     if prompt.trim().is_empty() {
-        bail!("Automation prompt is required");
+        bail!("自动化提示是必填项");
     }
     Ok(())
 }

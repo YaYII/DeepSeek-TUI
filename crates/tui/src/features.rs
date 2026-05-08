@@ -7,7 +7,7 @@ use std::fmt::{self, Write as _};
 
 use serde::{Deserialize, Serialize};
 
-/// Lifecycle stage for a feature flag.
+/// 功能标志的生命周期阶段。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Stage {
     Experimental,
@@ -29,20 +29,20 @@ impl Stage {
     }
 }
 
-/// Unique features toggled via configuration.
+/// 通过配置切换的独特功能。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Feature {
-    /// Enable the default shell tool.
+    /// 启用默认的 shell 工具。
     ShellTool,
-    /// Enable background sub-agent tooling.
+    /// 启用后台子代理工具。
     Subagents,
-    /// Enable web search tool.
+    /// 启用网络搜索工具。
     WebSearch,
-    /// Enable apply_patch tool.
+    /// 启用 apply_patch 工具。
     ApplyPatch,
-    /// Enable MCP tools.
+    /// 启用 MCP 工具。
     Mcp,
-    /// Enable execpolicy integration/tooling.
+    /// 启用执行策略集成/工具。
     ExecPolicy,
 }
 

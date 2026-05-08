@@ -4,7 +4,7 @@ use std::fmt;
 use crate::llm_client::LlmError;
 use crate::tools::spec::ToolError;
 
-/// Broad category for typed error handling and policy decisions.
+/// 用于类型化错误处理和策略决策的广泛类别。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ErrorCategory {
@@ -20,7 +20,7 @@ pub enum ErrorCategory {
     Internal,
 }
 
-/// Severity hint for UI and logs.
+/// 用于 UI 和日志的严重性提示。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ErrorSeverity {
@@ -30,7 +30,7 @@ pub enum ErrorSeverity {
     Critical,
 }
 
-/// Unified envelope used when crossing subsystem boundaries.
+/// 跨越子系统边界时使用的统一信封。
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ErrorEnvelope {
     pub category: ErrorCategory,

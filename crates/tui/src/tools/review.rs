@@ -190,7 +190,7 @@ impl ToolSpec for ReviewTool {
     async fn execute(&self, input: Value, context: &ToolContext) -> Result<ToolResult, ToolError> {
         let Some(client) = self.client.clone() else {
             return Err(ToolError::not_available(
-                "Review tool requires an active DeepSeek client".to_string(),
+                "审查工具需要一个活跃的 DeepSeek 客户端".to_string(),
             ));
         };
 

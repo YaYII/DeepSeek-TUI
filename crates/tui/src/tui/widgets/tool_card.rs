@@ -1,61 +1,53 @@
 //! 工具卡片 — 渲染工具调用状态和输出。
 //!
-//! Tool cards are the boxes that appear when the agent runs `read_file`,
-//! `exec_shell`, `apply_patch`, etc. The visual vocabulary is intentionally
-//! sparse: a single verb glyph identifies the family, a left rail anchors
-//! the card to the timeline, and the spinner cadence (720 ms/step) reuses
-//! the existing tool-status animation.
+//! 工具卡片是当代理运行 `read_file`、`exec_shell`、`apply_patch` 等时
+//! 出现的方框。视觉词汇有意保持简洁：一个动词字形标识家族，一个左侧轨道
+//! 将卡片锚定到时间线上，旋转动画频率（720 毫秒/步）复用了现有的工具状态动画。
 //!
-//! This module owns:
+//! 此模块拥有：
 //!
-//! - [`ToolFamily`] — the seven canonical families plus a `Generic`
-//!   fallback for anything we don't have a family for yet.
-//! - [`tool_family_for_title`] — maps the legacy `render_tool_header` title
-//!   string (`"Shell"`, `"Patch"`, `"Workspace"`, etc.) to a family. Lets
-//!   the existing call sites drop in family glyphs without re-architecting
-//!   each cell.
-//! - [`family_glyph`] / [`family_label`] — the verb glyph + label per
-//!   family. Glyphs are single graphemes; labels are short verbs.
-//! - [`CardRail`] / [`rail_glyph`] — the `╭ │ ╰` rail anchored to the
-//!   left margin so the eye can group multi-line cards.
+//! - [`ToolFamily`] — 七个规范家族加上一个 `Generic` 回退，
+//!   用于尚未分配家族的任何内容。
+//! - [`tool_family_for_title`] — 将旧的 `render_tool_header` 标题字符串
+//!   （`"Shell"`、`"Patch"`、`"Workspace"` 等）映射到家族。允许
+//!   现有调用点直接使用家族字形，无需重新架构每个单元。
+//! - [`family_glyph`] / [`family_label`] — 每个家族的动词字形 + 标签。
+//!   字形是单个字素；标签是简短动词。
+//! - [`CardRail`] / [`rail_glyph`] — 锚定到左边距的 `╭ │ ╰` 轨道，
+//!   便于视觉上对多行卡片进行分组。
 //!
-//! The actual line composition still happens inside `history.rs`; this
-//! module is the vocabulary, not the layout engine. Keeping it small means
-//! a future visual refresh only has to touch the constants here.
+//! 实际的行组合仍在 `history.rs` 内部完成；此模块是词汇表，而非布局引擎。
+//! 保持小巧意味着未来的视觉刷新只需修改此处的常量。
 
-/// Tool family — the verb the agent is performing. Used to pick a glyph
-/// and label for the card header.
+/// 工具家族 — 代理正在执行的动词。用于为卡片标题选择字形和标签。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ToolFamily {
-    /// Reads, listings, exploration. `▷ read`.
+    /// 读取、列出、探索。`▷ read`。
     Read,
-    /// Edits, patches, writes. `◆ patch`.
+    /// 编辑、补丁、写入。`◆ patch`。
     Patch,
-    /// Shell, child processes. `▶ run`.
+    /// Shell、子进程。`▶ run`。
     Run,
-    /// Grep, fuzzy file search, web search. `⌕ find`.
+    /// Grep、模糊文件搜索、网络搜索。`⌕ find`。
     Find,
-    /// Single sub-agent dispatch. `◐ delegate`.
+    /// 单个子代理分发。`◐ delegate`。
     Delegate,
-    /// Multi-agent fanout dispatch (rlm). `⋮⋮ fanout`.
+    /// 多代理扇出分发（rlm）。`⋮⋮ fanout`。
     Fanout,
-    /// Recursive language model work. `⋮⋮ rlm`.
+    /// 递归语言模型工作。`⋮⋮ rlm`。
     Rlm,
-    /// Reasoning / chain-of-thought. `… think`. Reasoning has its own
-    /// render path (`render_thinking` in `history.rs`); the family is
-    /// declared here for completeness so any future code that reaches for
-    /// it has the matching glyph + label vocabulary.
+    /// 推理/思维链。`… think`。推理有自己的渲染路径
+    ///（`history.rs` 中的 `render_thinking`）；此处声明该家族
+    /// 是为了完整性，以便未来任何使用它的代码都有匹配的字形和标签词汇。
     #[allow(dead_code)]
     Think,
-    /// Anything we don't have a family glyph for yet — falls back to a
-    /// neutral bullet so the card still renders cleanly.
+    /// 尚未拥有家族字形的任何内容 — 回退到中性圆点，以便卡片仍能干净渲染。
     Generic,
 }
 
-/// Map a legacy tool-header title string (the value passed to
-/// `render_tool_header`) to a family. Anything unrecognised falls back to
-/// [`ToolFamily::Generic`] so cards still render — they just lose the
-/// verb-glyph treatment until the family is added here.
+/// 将旧的工具标题字符串（传递给 `render_tool_header` 的值）映射到家族。
+/// 无法识别的任何内容都会回退到 [`ToolFamily::Generic`]，
+/// 以便卡片仍能渲染——它们只是失去了动词字形处理，直到在此处添加家族为止。
 #[must_use]
 pub fn tool_family_for_title(title: &str) -> ToolFamily {
     match title {
@@ -68,10 +60,10 @@ pub fn tool_family_for_title(title: &str) -> ToolFamily {
     }
 }
 
-/// Map an arbitrary tool name (as exposed to the model — e.g. `read_file`,
-/// `apply_patch`, `agent_spawn`) to a family. Used by `GenericToolCell`
-/// where the `tool_family_for_title` shortcut isn't enough because every
-/// generic cell shares the title `"Tool"`.
+/// 将任意工具名称（如暴露给模型的 — 例如 `read_file`、`apply_patch`、
+/// `agent_spawn`）映射到家族。由 `GenericToolCell` 使用，
+/// 因为每个通用单元都共享标题 `"Tool"`，所以 `tool_family_for_title`
+/// 快捷方式不够用。
 #[must_use]
 pub fn tool_family_for_name(name: &str) -> ToolFamily {
     match name {
@@ -85,8 +77,7 @@ pub fn tool_family_for_name(name: &str) -> ToolFamily {
     }
 }
 
-/// Build a compact semantic summary for a tool header from the public tool
-/// name and the already-sanitized argument summary.
+/// 从公开工具名称和已清理的参数摘要构建紧凑的语义摘要。
 #[must_use]
 pub fn tool_header_summary_for_name(name: &str, input_summary: Option<&str>) -> Option<String> {
     let summary = input_summary?.trim();
@@ -130,8 +121,7 @@ fn summary_value(summary: &str, key: &str) -> Option<String> {
     None
 }
 
-/// The verb glyph for a family. Single grapheme so the header layout math
-/// in `render_tool_header` stays simple (one cell wide).
+/// 家族的字形。单个字素，以便 `render_tool_header` 中的标题布局计算保持简单（一个单元宽）。
 #[must_use]
 pub fn family_glyph(family: ToolFamily) -> &'static str {
     match family {
@@ -147,9 +137,8 @@ pub fn family_glyph(family: ToolFamily) -> &'static str {
     }
 }
 
-/// The short verb label for a family — appears in card headers next to the
-/// glyph. Lowercased on purpose; the verb-glyph + label is the new card
-/// title vocabulary.
+/// 家族的简短动词标签 — 出现在卡片标题中字形旁边。
+/// 故意使用小写；动词字形 + 标签是新的卡片标题词汇。
 #[must_use]
 pub fn family_label(family: ToolFamily) -> &'static str {
     match family {
@@ -165,23 +154,22 @@ pub fn family_label(family: ToolFamily) -> &'static str {
     }
 }
 
-/// Position of a line within a multi-line card — drives the left-rail
-/// glyph so the box reads as a contiguous group from top to bottom.
+/// 多行卡片中的行位置 — 驱动左侧轨道字形，使方框从上到下读作连续组。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(dead_code)] // wired by future card-refactor follow-ups
 pub enum CardRail {
-    /// First line of the card — the header. `╭`.
+    /// 卡片的第一行 — 标题。`╭`。
     Top,
-    /// Any middle line — body content. `│`.
+    /// 任何中间行 — 正文内容。`│`。
     Middle,
-    /// Last line of the card. `╰`.
+    /// 卡片的最后一行。`╰`。
     Bottom,
-    /// Single-line card — no rail at all.
+    /// 单行卡片 — 完全没有轨道。
     Single,
 }
 
-/// Map a [`CardRail`] position to its rail glyph. Returned as a `&str`
-/// because callers paste it into a span.
+/// 将 [`CardRail`] 位置映射到其轨道字形。以 `&str` 返回，
+/// 因为调用方将其粘贴到 span 中。
 #[must_use]
 #[allow(dead_code)] // wired by future card-refactor follow-ups
 pub fn rail_glyph(rail: CardRail) -> &'static str {

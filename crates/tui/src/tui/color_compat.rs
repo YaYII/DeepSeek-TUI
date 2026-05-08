@@ -1,10 +1,10 @@
 //! 颜色兼容性辅助函数 — 将 ratatui 颜色转换为 ANSI 和终端颜色。
 //!
-//! Ratatui's crossterm backend emits truecolor SGR for every `Color::Rgb`
-//! cell. That is correct for truecolor terminals, but macOS Terminal.app often
-//! advertises only `xterm-256color`; sending `38;2` / `48;2` there can render
-//! as stray green/cyan backgrounds. This backend adapts every cell to the
-//! detected color depth before handing it to crossterm.
+//! Ratatui 的 crossterm 后端为每个 `Color::Rgb` 单元发出真彩色 SGR。
+//! 这对于真彩色终端是正确的，但 macOS Terminal.app 通常只声明
+//! `xterm-256color`；在那里发送 `38;2` / `48;2` 可能会呈现为杂散的
+//! 绿色/青色背景。此后端在将每个单元交给 crossterm 之前，
+//! 会将其适配到检测到的颜色深度。
 
 use std::io::{self, Write};
 
@@ -21,10 +21,10 @@ pub(crate) struct ColorCompatBackend<W: Write> {
     inner: CrosstermBackend<W>,
     depth: ColorDepth,
     palette_mode: PaletteMode,
-    /// During a resize event the terminal emulator may report stale dimensions
-    /// for a brief window (observed on macOS Terminal.app and Windows ConHost).
-    /// Forcing the expected size prevents ratatui's internal `autoresize` from
-    /// shrinking the viewport back to the stale dimension inside `draw()`.
+    /// 在调整大小事件期间，终端模拟器可能会在短时间内报告过时的尺寸
+    ///（在 macOS Terminal.app 和 Windows ConHost 上观察到）。
+    /// 强制使用预期大小可防止 ratatui 内部的 `autoresize` 在 `draw()`
+    /// 内部将视口缩小回过时的尺寸。
     forced_size: Option<Size>,
 }
 
@@ -38,14 +38,17 @@ impl<W: Write> ColorCompatBackend<W> {
         }
     }
 
+    /// 强制使用指定的终端尺寸，绕过 ratatui 的内部 autoresize。
     pub(crate) fn force_size(&mut self, size: Size) {
         self.forced_size = Some(size);
     }
 
+    /// 清除强制尺寸，恢复为终端报告的实际尺寸。
     pub(crate) fn clear_forced_size(&mut self) {
         self.forced_size = None;
     }
 
+    /// 在运行时更新调色板模式（深色/浅色）。
     pub(crate) fn set_palette_mode(&mut self, palette_mode: PaletteMode) {
         self.palette_mode = palette_mode;
     }
@@ -154,6 +157,7 @@ mod tests {
 
     #[test]
     fn adapts_rgb_cells_to_indexed_on_ansi256() {
+        let mut cell = Cell::default();
         let mut cell = Cell::default();
         cell.set_fg(Color::Rgb(53, 120, 229));
         cell.set_bg(Color::Rgb(11, 21, 38));

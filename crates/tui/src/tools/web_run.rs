@@ -342,7 +342,7 @@ impl ToolSpec for WebRunTool {
     }
 
     fn description(&self) -> &'static str {
-        "Browse the web (search/open/click/find/screenshot/image_query) and return structured results with ref_ids for citations."
+        "浏览网页（搜索/打开/点击/查找/截图/图片搜索）并返回带 ref_id 的结构化结果用于引用。"
     }
 
     fn input_schema(&self) -> Value {

@@ -1,9 +1,9 @@
 //! 阿里云 OpenSandbox 后端适配器。
 //!
-//! Sends shell commands to an OpenSandbox-compatible HTTP API for remote
-//! execution.  The API endpoint is `POST {base_url}/v1/sandbox/run` with
-//! JSON body `{"cmd": "...", "env": {...}}` and expects a JSON response
-//! `{"stdout": "...", "stderr": "...", "exit_code": 0}`.
+//! 将 shell 命令发送到兼容 OpenSandbox 的 HTTP API 进行远程执行。
+//! API 端点为 `POST {base_url}/v1/sandbox/run`，
+//! JSON 请求体为 `{"cmd": "...", "env": {...}}`，
+//! 期望 JSON 响应 `{"stdout": "...", "stderr": "...", "exit_code": 0}`。
 
 use std::collections::HashMap;
 use std::time::Duration;
@@ -15,19 +15,19 @@ use serde::Serialize;
 
 use super::backend::{SandboxBackend, SandboxOutput};
 
-/// Request body sent to the OpenSandbox `/v1/sandbox/run` endpoint.
+/// 发送到 OpenSandbox `/v1/sandbox/run` 端点的请求体。
 #[derive(Debug, Serialize)]
 struct SandboxRunRequest {
-    /// Full shell command to execute.
+    /// 要执行的完整 shell 命令。
     cmd: String,
-    /// Environment variables to set in the sandbox.
+    /// 在沙箱中设置的环境变量。
     env: HashMap<String, String>,
 }
 
-/// Response body from the OpenSandbox `/v1/sandbox/run` endpoint.
+/// 来自 OpenSandbox `/v1/sandbox/run` 端点的响应体。
 #[derive(Debug, Deserialize)]
 struct SandboxRunResponse {
-    /// Standard output from the command.
+    /// 命令的标准输出。
     stdout: String,
     /// Standard error from the command.
     stderr: String,

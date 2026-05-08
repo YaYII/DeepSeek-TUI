@@ -1,15 +1,15 @@
 //! 语言检测 + 将语言映射到处理它的 LSP 服务器二进制文件的固定字典。
 //!
-//! Kept intentionally small: a dozen languages, a hard-coded executable name
-//! per language, an optional list of args. Users can override the defaults
-//! via `[lsp.servers]` in `~/.deepseek/config.toml` (handled by
-//! [`super::LspConfig`], not this file).
+//! 特意保持小而精：十几种语言，每种语言对应一个硬编码的可执行文件名，
+//! 以及一个可选的参数列表。用户可以通过
+//! `~/.deepseek/config.toml` 中的 `[lsp.servers]` 覆盖默认值
+//!（由 [`super::LspConfig`] 处理，而非此文件）。
 
 use std::path::Path;
 
-/// A language we know how to ask an LSP server about. Detected from the file
-/// extension by [`detect_language`]. `Other` is a sentinel used when we do
-/// not have an LSP for the file — the LSP manager treats it as "skip".
+/// 一种我们知道如何向 LSP 服务器询问的语言。通过文件扩展名由
+/// [`detect_language`] 检测。`Other` 是在我们没有该文件的 LSP 时使用的哨兵——
+/// LSP 管理器将其视为"跳过"。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Language {
     Rust,

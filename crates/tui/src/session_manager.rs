@@ -3,8 +3,8 @@
 //! 本模块提供以下功能：
 //! - 将会话保存到磁盘
 //! - 列出之前的会话
-//! - Resuming sessions by ID
-//! - Managing session lifecycle
+//! - 按 ID 恢复会话
+//! - 管理会话生命周期
 
 use crate::models::{ContentBlock, Message, SystemPrompt};
 use crate::tui::file_mention::ContextReference;
@@ -15,7 +15,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
-/// Maximum number of sessions to retain
+/// 要保留的最大会话数量
 const MAX_SESSIONS: usize = 50;
 /// 要持久化的最大消息数量（#402 P0）。
 /// 超出此限制时，最旧的消息被丢弃，一条截断
@@ -33,7 +33,7 @@ const fn default_queue_schema_version() -> u32 {
     CURRENT_QUEUE_SCHEMA_VERSION
 }
 
-/// Persisted queued message for offline/degraded mode.
+/// 为离线/降级模式持久化的队列消息。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QueuedSessionMessage {
     pub display: String,
@@ -41,13 +41,13 @@ pub struct QueuedSessionMessage {
     pub skill_instruction: Option<String>,
 }
 
-/// Persisted queue state for recovery after restart/crash.
+/// 重启/崩溃后恢复的持久化队列状态。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OfflineQueueState {
     #[serde(default = "default_queue_schema_version")]
     pub schema_version: u32,
-    /// Session ID this queue belongs to. Queue is only restored when
-    /// resuming the same session to prevent stale messages leaking into new chats.
+    /// 此队列所属的会话 ID。仅在恢复同一会话时恢复队列，
+    /// 以防止过时消息泄漏到新聊天中。
     #[serde(default)]
     pub session_id: Option<String>,
     #[serde(default)]
@@ -67,17 +67,17 @@ impl Default for OfflineQueueState {
     }
 }
 
-/// Durable context-reference metadata attached to a user message.
+/// 附加到用户消息的持久化上下文引用元数据。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SessionContextReference {
     pub message_index: usize,
     pub reference: ContextReference,
 }
 
-/// Session metadata stored with each saved session
+/// 与每个保存的会话一起存储的会话元数据
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SessionMetadata {
-    /// Unique session identifier
+    /// 唯一的会话标识符
     pub id: String,
     /// Human-readable title (derived from first message)
     pub title: String,

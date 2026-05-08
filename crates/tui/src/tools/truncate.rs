@@ -3,36 +3,27 @@
 //! 当工具产生的输出太大而无法放入模型的上下文预算时，
 //! 我们希望同时做两件事：
 //!
-//! 1. The transcript / tool-cell renders a bounded preview so the UI
-//!    stays scannable.
-//! 2. The full original output is preserved on disk so the model can
-//!    `read_file` it back if it later needs the elided tail, and so
-//!    the user can open it in `$EDITOR`.
+//! 1. 转录/工具单元格渲染一个有边界的预览，以便 UI 保持可浏览性。
+//! 2. 完整的原始输出保存在磁盘上，以便模型在以后需要被省略的尾部时
+//!    可以通过 `read_file` 读回，也方便用户在 `$EDITOR` 中打开。
 //!
-//! This module owns the disk side. Files land in
-//! `~/.deepseek/tool_outputs/<sanitised-id>.txt`. The id is the tool
-//! call id the engine assigns; we sanitise it conservatively (ASCII
-//! alphanumeric + `-`/`_`) so a hostile id can't escape the directory
-//! via `..` or absolute-path tricks.
+//! 本模块负责磁盘端。文件存放在 `~/.deepseek/tool_outputs/<清理后的id>.txt`。
+//! id 是引擎分配的工具调用 id；我们保守地进行清理（仅允许 ASCII 字母数字 +
+//! `-`/`_`），以防止恶意 id 通过 `..` 或绝对路径技巧逃逸目录。
 //!
-//! Boot prune drops files whose mtime is older than [`SPILLOVER_MAX_AGE`]
-//! (7 days). Prune failures are logged and never fatal — the user
-//! shouldn't see startup wedge because of a stale tool-output file.
+//! 启动时清理会删除 mtime 早于 [`SPILLOVER_MAX_AGE`]（7 天）的文件。
+//! 清理失败会被记录但不会致命——用户不应因为一个过时的工具输出文件而看到启动卡住。
 //!
-//! ## Live callers
+//! ## 实时调用者
 //!
-//! * [`apply_spillover`] — invoked from the engine's tool-execution
-//!   path (`turn_loop.rs`) so any successful tool result over
-//!   [`SPILLOVER_THRESHOLD_BYTES`] spills to disk and the model
-//!   receives a [`SPILLOVER_HEAD_BYTES`] head plus a pointer footer.
-//! * Boot prune in `main.rs` deletes files older than
-//!   [`SPILLOVER_MAX_AGE`].
+//! * [`apply_spillover`] — 从引擎的工具执行路径（`turn_loop.rs`）调用，
+//!   任何超过 [`SPILLOVER_THRESHOLD_BYTES`] 的成功工具结果都会被溢出到磁盘，
+//!   模型会收到一个 [`SPILLOVER_HEAD_BYTES`] 大小的头部和一个指针页脚。
+//! * 启动清理在 `main.rs` 中删除早于 [`SPILLOVER_MAX_AGE`] 的文件。
 //!
-//! UI-side rendering of the inline `full output: <path>` annotation
-//! is owned by `tui/history.rs::render_spillover_annotation`. The
-//! tool-details pager opens the spillover file when the user
-//! presses `Alt+V` (or plain `v` with empty composer) on a spilled
-//! tool cell.
+//! UI 端的内联 `full output: <path>` 注释的渲染由
+//! `tui/history.rs::render_spillover_annotation` 负责。工具详情分页器在用户
+//! 在已溢出的工具单元格上按 `Alt+V`（或在空编辑器上按 `v`）时打开溢出文件。
 
 use std::fs;
 use std::io;
@@ -45,19 +36,16 @@ use crate::tools::spec::ToolResult;
 #[cfg(test)]
 use std::path::Path;
 
-/// Name of the spillover directory under `~/.deepseek/`.
+/// `~/.deepseek/` 下溢出目录的名称。
 pub const SPILLOVER_DIR_NAME: &str = "tool_outputs";
 
-/// Default threshold above which a tool result is a candidate for
-/// spillover. Mirrors the `MAX_MEMORY_SIZE` ceiling we use elsewhere
-/// for "too large to inline" so the rules feel consistent. Wired
-/// callers can pass a different value if a tool family has different
-/// economics.
+/// 默认阈值，超过此值的工具结果将成为溢出候选。
+/// 镜像了我们在其他地方用于"太大而无法内联"的 `MAX_MEMORY_SIZE` 上限，
+/// 使规则保持一致。如果某个工具族有不同的经济考量，调用者可以传递不同的值。
 pub const SPILLOVER_THRESHOLD_BYTES: usize = 100 * 1024; // 100 KiB
 
-/// Default boot-prune age. Older spillover files are deleted on
-/// startup to keep `~/.deepseek/tool_outputs/` from growing without
-/// bound. Mirrors the workspace-snapshot 7-day default.
+/// 默认启动清理期限。超过此期限的溢出文件在启动时被删除，
+/// 以防止 `~/.deepseek/tool_outputs/` 无限制增长。镜像了工作区快照的 7 天默认值。
 pub const SPILLOVER_MAX_AGE: Duration = Duration::from_secs(7 * 24 * 60 * 60);
 
 #[cfg(test)]
@@ -66,10 +54,9 @@ static TEST_SPILLOVER_ROOT: std::sync::Mutex<Option<PathBuf>> = std::sync::Mutex
 #[cfg(test)]
 pub(crate) static TEST_SPILLOVER_GUARD: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
-/// Resolve `~/.deepseek/tool_outputs/`. Returns `None` if the home
-/// directory can't be determined (CI containers occasionally hit
-/// this). Callers should treat `None` as "spillover unavailable" and
-/// degrade gracefully rather than fail the tool call.
+/// 解析 `~/.deepseek/tool_outputs/`。如果无法确定 home 目录则返回 `None`
+///（CI 容器偶尔会遇到此情况）。调用者应将 `None` 视为"溢出不可用"并优雅降级，
+/// 而不是使工具调用失败。
 #[must_use]
 pub fn spillover_root() -> Option<PathBuf> {
     #[cfg(test)]
@@ -84,7 +71,7 @@ pub fn spillover_root() -> Option<PathBuf> {
     Some(dirs::home_dir()?.join(".deepseek").join(SPILLOVER_DIR_NAME))
 }
 
-/// Override the spillover root for tests without mutating `$HOME`.
+/// 覆盖测试的溢出根目录，无需修改 `$HOME`。
 #[cfg(test)]
 pub(crate) fn set_test_spillover_root(root: Option<PathBuf>) -> Option<PathBuf> {
     let mut guard = TEST_SPILLOVER_ROOT
@@ -93,23 +80,20 @@ pub(crate) fn set_test_spillover_root(root: Option<PathBuf>) -> Option<PathBuf> 
     std::mem::replace(&mut *guard, root)
 }
 
-/// Resolve the spillover-file path for a tool call id. Sanitises the
-/// id so that a hostile value can't escape the storage directory.
-/// Returns `None` for empty / fully-invalid ids; the caller should
-/// treat that as "spillover unavailable" and skip the write.
+/// 解析工具调用 id 的溢出文件路径。对 id 进行清理，防止恶意值逃逸存储目录。
+/// 对空或完全无效的 id 返回 `None`；调用者应将其视为"溢出不可用"并跳过写入。
 #[must_use]
 pub fn spillover_path(id: &str) -> Option<PathBuf> {
     let sanitised = sanitise_id(id)?;
     Some(spillover_root()?.join(format!("{sanitised}.txt")))
 }
 
-/// Write `content` to the spillover file for `id`. Creates the
-/// parent directory if needed. Returns the resolved path on success.
+/// 将 `content` 写入 `id` 的溢出文件。如果需要则创建父目录。
+/// 成功时返回解析后的路径。
 ///
-/// Atomic via `write` + filesystem rename guarantees from the
-/// underlying OS — the file is created at a temp name first and
-/// then renamed into place. Failures bubble up as `io::Error` so the
-/// caller can decide whether to surface them.
+/// 通过底层操作系统的 `write` + 文件系统重命名保证实现原子性——
+/// 文件首先以临时名称创建，然后重命名为最终名称。
+/// 失败以 `io::Error` 形式冒泡，调用者可决定是否将其展示。
 pub fn write_spillover(id: &str, content: &str) -> io::Result<PathBuf> {
     let path = spillover_path(id).ok_or_else(|| {
         io::Error::new(
@@ -124,10 +108,9 @@ pub fn write_spillover(id: &str, content: &str) -> io::Result<PathBuf> {
     Ok(path)
 }
 
-/// Drop spillover files older than `max_age`. Returns the number of
-/// files removed. Non-fatal: directory-missing returns 0; per-file
-/// errors are logged and skipped. Mirrors
-/// [`crate::session_manager::prune_workspace_snapshots`].
+/// 删除早于 `max_age` 的溢出文件。返回已删除的文件数。
+/// 非致命：目录不存在返回 0；每个文件的错误会被记录并跳过。
+/// 镜像了 [`crate::session_manager::prune_workspace_snapshots`]。
 pub fn prune_older_than(max_age: Duration) -> io::Result<usize> {
     let Some(root) = spillover_root() else {
         return Ok(0);
@@ -169,17 +152,13 @@ pub fn prune_older_than(max_age: Duration) -> io::Result<usize> {
     Ok(pruned)
 }
 
-/// Convenience for the common "too long? spill it." pattern. If
-/// `content` is at or below `threshold` bytes, returns `None` and the
-/// caller keeps the inline content. Above the threshold, writes the
-/// full content to the spillover file and returns
-/// `Some((head, path))` where `head` is the leading slice the caller
-/// can show inline. The trailing tail isn't returned — `path` is the
-/// canonical reference.
+/// 通用"太长？溢出"模式的便利函数。如果 `content` 小于或等于 `threshold` 字节，
+/// 返回 `None`，调用者保留内联内容。超过阈值时，将完整内容写入溢出文件并返回
+/// `Some((head, path))`，其中 `head` 是调用者可以内联显示的前导切片。
+/// 尾部不返回——`path` 是规范引用。
 ///
-/// `head_bytes` controls how much inline content the caller wants to
-/// keep. Pass `threshold` for "preserve as much as fits inline" or
-/// a smaller value (e.g. `4 * 1024`) for "show a peek".
+/// `head_bytes` 控制调用者希望保留的内联内容量。
+/// 传入 `threshold` 表示"尽可能多地内联"，传入较小值（如 `4 * 1024`）表示"显示预览"。
 pub fn maybe_spillover(
     id: &str,
     content: &str,
@@ -199,12 +178,10 @@ pub fn maybe_spillover(
     Ok(Some((content[..cut].to_string(), path)))
 }
 
-/// Inline head retained when [`apply_spillover`] truncates a tool
-/// result. 32 KiB is large enough for the model to keep meaningful
-/// context (a long stack trace, a `git diff` head, a directory
-/// listing of typical depth) without consuming the lion's share of
-/// the per-turn context budget. The full output is preserved on
-/// disk; the model can `read_file` it back if it needs the tail.
+/// 当 [`apply_spillover`] 截断工具结果时保留的内联头部。
+/// 32 KiB 足够模型保留有意义的上下文（长堆栈跟踪、`git diff` 头部、
+/// 典型深度的目录列表），而不会消耗每轮上下文预算的大部分。
+/// 完整输出保存在磁盘上；模型在需要尾部时可以通过 `read_file` 读回。
 pub const SPILLOVER_HEAD_BYTES: usize = 32 * 1024;
 
 /// Apply spillover to a tool result in place. If the result's

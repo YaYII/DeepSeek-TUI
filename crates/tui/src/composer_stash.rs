@@ -1,29 +1,27 @@
 //! 编辑器的暂存草稿（#440）。
 //!
-//! A stash is a side-channel from history: it holds drafts the user
-//! parked deliberately (Ctrl+S) instead of submissions made in the
-//! past (which live in `composer_history.rs`). Pop semantics make it
-//! a LIFO — the most recent stash comes back first.
+//! 暂存区是历史记录的侧通道：它保存用户有意存放的草稿（Ctrl+S），
+//! 而不是过去的提交内容（存在于 `composer_history.rs` 中）。
+//! 弹出语义使其成为 LIFO — 最新的暂存最先取出。
 //!
-//! ## On-disk format
+//! ## 磁盘格式
 //!
-//! `~/.deepseek/composer_stash.jsonl` — one JSON object per line:
+//! `~/.deepseek/composer_stash.jsonl` — 每行一个 JSON 对象：
 //!
 //! ```jsonl
 //! {"ts":"2026-05-04T01:23:45Z","text":"draft here"}
 //! ```
 //!
-//! Self-healing parser: malformed lines are skipped silently so a
-//! single bad write doesn't corrupt the rest of the stash. The
-//! parser doesn't require any specific field order; only `text` is
-//! mandatory.
+//! 自我修复解析器：格式错误的行被静默跳过，因此单个错误写入
+//! 不会损坏暂存区的其余部分。解析器不要求任何特定字段顺序；
+//! 只有 `text` 是必需的。
 //!
-//! ## Why JSONL and not a plain text file?
+//! ## 为什么使用 JSONL 而不是纯文本文件？
 //!
-//! Drafts can contain newlines (they're prompts, not single-line
-//! commands), so a `\n`-delimited plain file would mangle multi-line
-//! drafts. JSONL escapes newlines inside JSON strings without
-//! ambiguity and the timestamp / future fields land cleanly.
+//! 草稿可以包含换行符（它们是提示，不是单行命令），
+//! 因此以 `\n` 分隔的纯文件会破坏多行草稿。
+//! JSONL 在 JSON 字符串内无歧义地转义换行符，
+//! 且时间戳/未来字段也能干净地存放。
 
 use std::fs;
 use std::io;
@@ -34,20 +32,18 @@ use serde::{Deserialize, Serialize};
 
 const STASH_FILE_NAME: &str = "composer_stash.jsonl";
 
-/// Hard cap so a runaway script can't fill the user's home with
-/// parked drafts. Older entries are pruned at push time when the
-/// stash exceeds this count.
+/// 硬上限，防止失控的脚本用存放的草稿填满用户的家目录。
+/// 当暂存超过此数量时，会在推送时修剪较旧的条目。
 pub const MAX_STASH_ENTRIES: usize = 200;
 
-/// One parked draft. Fields are `#[serde(default)]` so legacy /
-/// truncated records still parse instead of poisoning the stash.
+/// 一个存放的草稿。字段使用 `#[serde(default)]`，以便旧版/
+/// 截断的记录仍能被解析，而不会破坏暂存区。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StashedDraft {
-    /// RFC 3339 timestamp; omitted on legacy records.
+    /// RFC 3339 时间戳；旧版记录上省略。
     #[serde(default)]
     pub ts: String,
-    /// The parked text. Required — entries with no `text` are
-    /// dropped during load (treated as malformed).
+    /// 存放的文本。必需 — 加载时丢弃没有 `text` 的条目（视为格式错误）。
     pub text: String,
 }
 
@@ -55,10 +51,8 @@ fn default_stash_path() -> Option<PathBuf> {
     dirs::home_dir().map(|home| home.join(".deepseek").join(STASH_FILE_NAME))
 }
 
-/// Load every stashed draft from disk in the order they were
-/// written (oldest first). Self-healing: malformed lines are
-/// dropped silently. Returns an empty vec when the file doesn't
-/// exist.
+/// 从磁盘加载所有暂存的草稿，按写入顺序排列（最旧的在前）。
+/// 自我修复：格式错误的行被静默丢弃。当文件不存在时返回空 vec。
 #[must_use]
 pub fn load_stash() -> Vec<StashedDraft> {
     let Some(path) = default_stash_path() else {
@@ -80,10 +74,9 @@ fn load_stash_from(path: &Path) -> Vec<StashedDraft> {
         .collect()
 }
 
-/// Push a new draft onto the stash. Empty / whitespace-only text
-/// is silently dropped so a stray Ctrl+S on an empty composer
-/// doesn't pollute the file. Failures are logged but never
-/// propagated — stash is a UX nicety, not a correctness concern.
+/// 将一个草稿推入暂存区。空文本/仅空白文本会被静默丢弃，
+/// 这样在空编辑器中误按 Ctrl+S 不会污染文件。失败会记录日志但永不
+/// 传播 — 暂存区是 UX 优化项，不是正确性问题。
 pub fn push_stash(text: &str) {
     let Some(path) = default_stash_path() else {
         return;
@@ -118,17 +111,16 @@ fn push_stash_to(path: &Path, text: &str) {
     write_stash_to(path, &entries);
 }
 
-/// Remove and return the most recently pushed draft, if any.
-/// Rewrites the on-disk file with the remaining entries.
+/// 移除并返回最近推入的草稿（如果有）。
+/// 用剩余条目重写磁盘上的文件。
 #[must_use]
 pub fn pop_stash() -> Option<StashedDraft> {
     let path = default_stash_path()?;
     pop_stash_from(&path)
 }
 
-/// Wipe the stash file entirely. Returns the number of entries
-/// that were dropped (so the caller can report it). Returns 0
-/// when the file doesn't exist or had no entries.
+/// 完全清除暂存文件。返回被丢弃的条目数量（以便调用者报告）。当文件
+/// 不存在或没有条目时返回 0。
 pub fn clear_stash() -> io::Result<usize> {
     let Some(path) = default_stash_path() else {
         return Ok(0);
@@ -165,17 +157,15 @@ fn write_stash_to(path: &Path, entries: &[StashedDraft]) {
                 payload.push('\n');
             }
             Err(err) => {
-                // A draft that round-trips through serde shouldn't
-                // fail to serialize, but belt-and-suspenders so a
-                // weird codepoint in `text` doesn't blow the file
-                // away mid-write.
-                tracing::warn!("Skipping stash entry due to serialize failure: {err}");
+                // 经过 serde 往返序列化的草稿不应序列化失败，
+                // 但以防万一，`text` 中的奇异码位不会在写入中途毁掉文件。
+                tracing::warn!("因序列化失败跳过暂存条目：{err}");
             }
         }
     }
     if let Err(err) = crate::utils::write_atomic(path, payload.as_bytes()) {
         tracing::warn!(
-            "Failed to persist composer stash at {}: {err}",
+            "持久化暂存区到 {} 失败：{err}",
             path.display()
         );
     }
@@ -237,14 +227,14 @@ mod tests {
         push_stash_to(&path, multiline);
         let entries = load_stash_from(&path);
         assert_eq!(entries.len(), 1);
-        // Multi-line text round-trips because JSON escapes the newlines.
+        // 多行文本能往返传输是因为 JSON 转义了换行符。
         assert_eq!(entries[0].text, multiline);
     }
 
     #[test]
     fn malformed_lines_are_skipped_and_valid_lines_survive() {
         let (_tmp, path) = temp_stash_path();
-        // Mix of valid JSON, garbage, and partial-write truncation.
+        // 混合有效的 JSON、垃圾数据和部分写入截断。
         let raw = "\
 {\"ts\":\"2026-05-04T01:23:45Z\",\"text\":\"good one\"}
 this is not json
@@ -263,7 +253,7 @@ this is not json
     #[test]
     fn clear_returns_zero_when_file_is_absent() {
         let (_tmp, path) = temp_stash_path();
-        // Path doesn't exist yet.
+        // 路径尚不存在。
         assert_eq!(clear_stash_at(&path).unwrap(), 0);
     }
 
@@ -282,7 +272,7 @@ this is not json
         push_stash_to(&path, "third");
         let dropped = clear_stash_at(&path).expect("clear succeeds");
         assert_eq!(dropped, 3);
-        // File still exists but is empty so subsequent loads come back clean.
+        // 文件仍然存在但为空，因此后续加载返回空内容。
         assert!(load_stash_from(&path).is_empty());
     }
 
@@ -294,7 +284,7 @@ this is not json
         }
         let entries = load_stash_from(&path);
         assert_eq!(entries.len(), MAX_STASH_ENTRIES);
-        // Oldest survivors are `5..` because the first 5 were pruned.
+        // 最旧保留的是 `5..`，因为前 5 条被修剪了。
         assert_eq!(entries[0].text, "draft 5");
         assert_eq!(
             entries[entries.len() - 1].text,

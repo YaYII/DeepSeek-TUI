@@ -1,24 +1,20 @@
 //! 进程级成本累积侧通道（#526）。
 //!
-//! Background LLM calls outside the main turn-complete path
-//! (compaction summaries, seam recompaction, cycle briefings) used
-//! to drop their token usage on the floor — the dashboard's
-//! session-cost only saw the parent turn's tokens, so a long
-//! session that triggered compaction or cycle-restart under-reported
-//! cost by however many tokens those background calls consumed.
+//! 主轮次完成路径之外的背景 LLM 调用（压缩摘要、接缝重新压缩、
+//! 周期简报）以前会丢弃其令牌使用量 — 仪表盘的会话成本
+//! 只看到父轮次的令牌，因此触发压缩或周期重启的长会话
+//! 会低估这些后台调用消耗的令牌数。
 //!
-//! Mirrors the [`crate::retry_status`] pattern: background callers
-//! call [`report`] after each `client.create_message`, the TUI
-//! render loop calls [`drain`] every frame, and any drained amount
-//! gets folded into `App::accrue_subagent_cost_estimate`.
+//! 镜像 [`crate::retry_status`] 模式：后台调用者在每次
+//! `client.create_message` 后调用 [`report`]，TUI 渲染循环
+//! 每帧调用 [`drain`]，任何排出的金额被归入
+//! `App::accrue_subagent_cost_estimate`。
 //!
-//! Why a side-channel and not a plumbed callback: the leaky callers
-//! (`compaction.rs`, `seam_manager.rs`, `cycle_manager.rs`) are
-//! engine-internal machinery without a direct handle to `App` or
-//! the engine's event channel. A side-channel keeps the change
-//! surface tiny — one new `report` line per call site — and any
-//! future background caller (summarizers, retrieval helpers) gets
-//! accrued for free without further plumbing.
+//! 为什么是侧通道而不是插接回调：泄漏的调用者
+//!（`compaction.rs`、`seam_manager.rs`、`cycle_manager.rs`）
+//! 是引擎内部机制，没有直接访问 `App` 或引擎事件通道的句柄。
+//! 侧通道使变更面保持微小 — 每个调用点新增一行 `report` —
+//! 任何未来的后台调用者（摘要器、检索助手）无需额外插接即可自动累积。
 
 use std::sync::{Mutex, OnceLock};
 
@@ -31,10 +27,10 @@ fn cell() -> &'static Mutex<CostEstimate> {
     PENDING.get_or_init(|| Mutex::new(CostEstimate::default()))
 }
 
-/// Background callers report their LLM usage here. Computes the
-/// cost via [`crate::pricing::calculate_turn_cost_estimate_from_usage`] and
-/// adds it to the pending pool. Cheap; takes a short-lived lock
-/// and returns. No-op on models the pricing table doesn't know.
+/// 后台调用者在此报告其 LLM 使用量。通过
+/// [`crate::pricing::calculate_turn_cost_estimate_from_usage`] 计算成本
+/// 并将其添加到待处理池中。轻量级；获取短生命周期的锁并返回。
+/// 对定价表未知的模型无操作。
 pub fn report(model: &str, usage: &Usage) {
     let Some(cost) = crate::pricing::calculate_turn_cost_estimate_from_usage(model, usage) else {
         return;
@@ -48,9 +44,9 @@ pub fn report(model: &str, usage: &Usage) {
     }
 }
 
-/// Drain the pending cost. Returns the accumulated amount and resets
-/// the pool to zero. Called by the TUI render / event loop on each
-/// frame; any non-zero result gets folded into `accrue_subagent_cost_estimate`.
+/// 排出待处理成本。返回累积金额并将池重置为零。
+/// 由 TUI 渲染/事件循环每帧调用；任何非零结果归入
+/// `accrue_subagent_cost_estimate`。
 pub fn drain() -> CostEstimate {
     let Ok(mut pending) = cell().lock() else {
         return CostEstimate::default();

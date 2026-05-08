@@ -1,12 +1,12 @@
 //! Shell 工具 — `exec_shell` 命令执行，支持后台进程和沙箱化。
 //!
-//! Provides:
-//! - Synchronous command execution with timeout
-//! - Background process execution
-//! - Process output retrieval
-//! - Process termination
-//! - Sandbox support (macOS Seatbelt)
-//! - Streaming output (future)
+//! 提供：
+//! - 带超时的同步命令执行
+//! - 后台进程执行
+//! - 进程输出检索
+//! - 进程终止
+//! - 沙箱支持（macOS Seatbelt）
+//! - 流式输出（未来）
 
 use anyhow::{Context, Result, anyhow};
 use serde::{Deserialize, Serialize};
@@ -140,31 +140,26 @@ fn kill_child_process_group(child: &mut Child) -> std::io::Result<()> {
     }
 }
 
-/// Configure parent-death signaling so shell-spawned children are reaped when
-/// the TUI dies abnormally (#421). On Linux this installs
-/// `PR_SET_PDEATHSIG(SIGTERM)` via `pre_exec` — the kernel then sends SIGTERM
-/// to the child the moment the parent process exits, even on SIGKILL of the
-/// TUI. The cancellation path already SIGKILLs the whole process group, so
-/// this only fires when the parent dies without running its drop / cleanup
-/// code (panic during shutdown, OOM, hardware crash, etc.).
+/// 配置父进程死亡信号，以便在 TUI 异常退出时回收 shell 派生的子进程（#421）。
+/// 在 Linux 上，通过 `pre_exec` 安装 `PR_SET_PDEATHSIG(SIGTERM)`——内核在父进程退出时立即向子进程发送 SIGTERM，
+/// 即使父进程被 SIGKILL 也是如此。取消路径已经会 SIGKILL 整个进程组，
+/// 因此这只在父进程未运行其 drop/清理代码就死亡时触发（关闭期间 panic、OOM、硬件崩溃等）。
 ///
-/// On macOS / Windows there's no kernel equivalent. The existing graceful
-/// path (`kill_child_process_group` from the cancellation token) still
-/// handles normal shutdown; abnormal exit can leak children — tracked as a
-/// follow-up watchdog item per the original issue's acceptance criteria.
+/// 在 macOS/Windows 上没有对应的内核机制。现有的优雅路径（通过取消令牌的 `kill_child_process_group`）
+/// 仍处理正常关闭；异常退出可能泄露子进程——根据原始 issue 的验收标准，作为后续看管项进行跟踪。
 #[cfg(target_os = "linux")]
 fn install_parent_death_signal(cmd: &mut Command) {
     use std::os::unix::process::CommandExt;
-    // SAFETY: `pre_exec` runs in the child between fork and exec. The closure
-    // only calls `libc::prctl` with stack-allocated constant arguments and
-    // does not touch heap memory or the parent's locks. Both requirements
-    // (async-signal-safe + no allocation in the post-fork window) are met.
+    // SAFETY: `pre_exec` 在子进程中运行，位于 fork 和 exec 之间。
+    // 该闭包仅使用栈分配的常量参数调用 `libc::prctl`，
+    // 不触及堆内存或父进程的锁。两个要求
+    //（async-signal-safe + post-fork 窗口内无分配）均满足。
     unsafe {
         cmd.pre_exec(|| {
             let result = libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGTERM, 0, 0, 0);
             if result == -1 {
-                // Surface the errno but do not abort the spawn — the child
-                // will simply lose the parent-death cleanup safety net.
+                // 公开 errno 但不中止派生——子进程
+                // 将失去父进程死亡清理的安全网。
                 Err(std::io::Error::last_os_error())
             } else {
                 Ok(())
@@ -175,10 +170,10 @@ fn install_parent_death_signal(cmd: &mut Command) {
 
 #[cfg(not(target_os = "linux"))]
 fn install_parent_death_signal(_cmd: &mut Command) {
-    // No kernel-level equivalent on macOS / Windows. The cooperative
-    // cancellation + process_group SIGKILL path covers normal shutdown;
-    // abnormal exit (panic without unwind, SIGKILL of the TUI) can still
-    // leak children on those platforms — tracked as a follow-up.
+    // macOS/Windows 上没有内核级别的等效机制。协作式的
+    // 取消 + 进程组 SIGKILL 路径覆盖了正常关闭；
+    // 异常退出（不带展开的 panic、TUI 的 SIGKILL）仍可能
+    // 在这些平台上泄露子进程——作为后续跟踪项。
 }
 
 #[derive(Clone, Copy, Debug)]
