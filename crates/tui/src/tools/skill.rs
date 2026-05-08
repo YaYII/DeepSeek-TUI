@@ -42,8 +42,8 @@ impl ToolSpec for LoadSkillTool {
     }
 
     fn description(&self) -> &'static str {
-        "Load a skill (SKILL.md body + companion file list) into the next turn's context. \
-         Use this when the user names a skill or the task clearly matches a skill listed in the system prompt's `## Skills` section. Faster than read_file + list_dir."
+        "将技能（SKILL.md 正文 + 配套文件列表）加载到下一轮的上下文中。\
+         当用户提到某个技能或任务明显匹配系统提示的 `## Skills` 部分中列出的技能时使用。比 read_file + list_dir 更快。"
     }
 
     fn input_schema(&self) -> Value {
@@ -52,7 +52,7 @@ impl ToolSpec for LoadSkillTool {
             "properties": {
                 "name": {
                     "type": "string",
-                    "description": "Skill id (the `name` field from the SKILL.md frontmatter, also shown in the `## Skills` listing)."
+                    "description": "技能 ID（来自 SKILL.md 前置元数据的 `name` 字段，也显示在 `## Skills` 列表中）。"
                 }
             },
             "required": ["name"],
