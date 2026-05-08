@@ -537,8 +537,7 @@ mod tests {
         let mut cache = TranscriptViewCache::new();
         cache.ensure(&cells_v1, &revs_v1, 80, TranscriptRenderOptions::default());
 
-        // Snapshot the cached lines for cells 0 and 2 (unchanged across the
-        // delta).
+        // 快照单元格 0 和 2 的缓存行（在差异中保持不变）。
         let cell0_lines_before = cache.per_cell[0]
             .lines
             .iter()
@@ -560,7 +559,7 @@ mod tests {
             })
             .collect::<Vec<_>>();
 
-        // Mutate cell 1 (assistant streaming delta) and bump only its rev.
+        // 修改单元格 1（助手流式增量）并仅增加其修订版本。
         let cells_v2 = vec![
             user_cell("hello"),
             assistant_cell("hi world", true),
@@ -570,7 +569,7 @@ mod tests {
 
         cache.ensure(&cells_v2, &revs_v2, 80, TranscriptRenderOptions::default());
 
-        // Cells 0 and 2 are byte-identical (proving reuse path didn't corrupt).
+        // 单元格 0 和 2 字节相同（证明重用路径没有损坏数据）。
         let cell0_lines_after = cache.per_cell[0]
             .lines
             .iter()
@@ -594,11 +593,10 @@ mod tests {
         assert_eq!(cell0_lines_before, cell0_lines_after);
         assert_eq!(cell2_lines_before, cell2_lines_after);
 
-        // Cell 1 reflects the new content.
-        // The renderer interleaves role/whitespace spans, so the joined
-        // content has internal padding (e.g. "Assistant   hi   world").
-        // Check for the new tokens individually rather than a literal
-        // "hi world" substring.
+        // 单元格 1 反映新内容。
+        // 渲染器交错插入角色/空白跨度，因此拼接后的
+        // 内容有内部填充（例如 "Assistant   hi   world"）。
+        // 分别检查新令牌，而不是字面检查 "hi world" 子字符串。
         let cell1_after: String = cache.per_cell[1]
             .lines
             .iter()

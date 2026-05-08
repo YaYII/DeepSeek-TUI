@@ -849,10 +849,9 @@ async fn candidate_urls(
 ) -> Result<UrlResolution> {
     match source {
         InstallSource::GitHubRepo(repo) => {
-            // GitHub's archive endpoint lives on `codeload.github.com` after
-            // the redirect, but the public URL we hit is `github.com`. Both
-            // typically appear in user allow lists; we check the canonical
-            // host.
+            // GitHub 的存档端点在重定向后位于 `codeload.github.com`，
+            // 但我们访问的公共 URL 是 `github.com`。两者通常都出现在
+            // 用户允许列表中；我们检查规范主机。
             Ok(UrlResolution::Resolved(vec![
                 format!("https://github.com/{repo}/archive/refs/heads/main.tar.gz"),
                 format!("https://github.com/{repo}/archive/refs/heads/master.tar.gz"),
@@ -873,13 +872,11 @@ async fn candidate_urls(
                             entry.source
                         )
                     })?;
-                    // Recurse only one level — registry pointing at registry is
-                    // disallowed to avoid cycles.
+                    // 仅递归一层——禁止注册表指向注册表以避免循环。
                     if matches!(inner, InstallSource::Registry(_)) {
                         bail!("registry entry for '{name}' must not point to another registry");
                     }
-                    // Reuse this function for the inner source so GitHub fallback
-                    // still applies.
+                    // 对内层来源重用此函数，以便 GitHub 回退仍然适用。
                     Box::pin(candidate_urls(&inner, network, registry_url)).await
                 }
                 RegistryFetchResult::NeedsApproval(host) => Ok(UrlResolution::NeedsApproval(host)),
@@ -960,8 +957,7 @@ async fn download_with_cap(url: &str, max_size: u64) -> Result<DownloadAttempt> 
         }
         bail!("download {url} returned {status}");
     }
-    // Soft cap on the *compressed* download — well above max_size to allow
-    // for highly compressible payloads but still bounded.
+    // *压缩后*下载的软限制——远高于 max_size，以允许高度可压缩的有效载荷但仍有界限。
     let compressed_cap = max_size.saturating_mul(4);
     let bytes = resp
         .bytes()
