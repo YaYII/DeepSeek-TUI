@@ -426,7 +426,7 @@ impl Engine {
                     let _ = self
                         .tx_event
                         .send(Event::status(format!(
-                            "Capacity refresh compaction failed: {err}. Falling back to local trim."
+                            "容量刷新压缩失败：{err}。回退到本地裁剪。"
                         )))
                         .await;
                 }
@@ -706,7 +706,7 @@ impl Engine {
         let _ = self
             .tx_event
             .send(Event::status(
-                "Capacity guardrail: context reset to canonical state; replanning step."
+                "容量护栏：上下文已重置为规范状态；正在重新规划步骤。"
                     .to_string(),
             ))
             .await;

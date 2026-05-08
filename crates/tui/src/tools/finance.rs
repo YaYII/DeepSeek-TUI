@@ -186,7 +186,7 @@ impl ToolSpec for FinanceTool {
     }
 
     fn description(&self) -> &'static str {
-        "Fetch a live market quote for a stock, ETF, or crypto ticker using Yahoo Finance-style public endpoints."
+        "使用 Yahoo Finance 风格公共端点获取股票、ETF 或加密货币代码的实时市场报价。"
     }
 
     fn input_schema(&self) -> Value {

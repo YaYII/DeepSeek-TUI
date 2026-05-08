@@ -26,7 +26,7 @@ impl ToolSpec for ProjectMapTool {
     }
 
     fn description(&self) -> &'static str {
-        "Get a high-level map of the project structure, including key files and a tree view."
+        "获取项目结构的高级概览，包括关键文件和树形视图。"
     }
 
     fn input_schema(&self) -> Value {
@@ -35,7 +35,7 @@ impl ToolSpec for ProjectMapTool {
             "properties": {
                 "max_depth": {
                     "type": "integer",
-                    "description": "Maximum depth for the tree view (default: 3)."
+                    "description": "树形视图的最大深度（默认：3）。"
                 }
             }
         })

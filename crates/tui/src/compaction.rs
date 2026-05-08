@@ -17,44 +17,40 @@ use crate::models::{
     context_window_for_model,
 };
 
-/// Configuration for conversation compaction behavior.
+/// 对话压缩行为的配置。
 ///
-/// v0.8.11 simplified this from the prior token-OR-message-count trigger
-/// to a token-only trigger gated by an absolute floor. The
-/// `message_threshold` field was removed: its only purpose was to fire
-/// compaction on long sessions of small messages, which is exactly the
-/// case where rewriting the V4 prefix cache is least valuable. Token
-/// budget is the right signal; message count was a 128K-era heuristic.
+/// v0.8.11 将其从先前的令牌或消息计数触发器简化为仅令牌触发器，
+/// 并由绝对下限控制。`message_threshold` 字段已被移除：
+/// 其唯一目的是在包含小消息的长会话上触发压缩，而这正是
+/// 重写 V4 前缀缓存最不值得的情况。令牌预算才是正确的信号；
+/// 消息计数是 128K 时代的启发式方法。
 #[derive(Debug, Clone, PartialEq)]
 pub struct CompactionConfig {
     pub enabled: bool,
     pub token_threshold: usize,
     pub model: String,
     pub cache_summary: bool,
-    /// Hard floor — `should_compact` returns `false` when total session
-    /// tokens fall below this number, regardless of `enabled` or
-    /// `token_threshold`. Defaults to [`MINIMUM_AUTO_COMPACTION_TOKENS`]
-    /// (500K) for v0.8.11+. Tests that want to exercise the threshold
-    /// logic at small fixture sizes can set this to `0` to disable the
-    /// floor.
+    /// 硬下限 — 当会话总令牌数低于此数值时，`should_compact` 返回 `false`，
+    /// 无论 `enabled` 或 `token_threshold` 如何。对于 v0.8.11+，
+    /// 默认为 [`MINIMUM_AUTO_COMPACTION_TOKENS`]（500K）。
+    /// 想要在小夹具上测试阈值逻辑的测试可以将其设置为 `0` 以禁用下限。
     pub auto_floor_tokens: usize,
 }
 
 impl Default for CompactionConfig {
     fn default() -> Self {
         Self {
-            // ON BY DEFAULT since v0.8.6 (#402 P0 survivability) — but the
-            // engine-level `auto_compact` setting was flipped OFF in v0.8.11
-            // (#665) so this default is mostly a fallback for code paths
-            // that build a `CompactionConfig` without going through
-            // `compaction_threshold_for_model_and_effort`. Real per-model
-            // values are still derived through that helper.
+            // 自 v0.8.6 起默认开启（#402 P0 可生存性）— 但引擎级别的
+            // `auto_compact` 设置在 v0.8.11（#665）中被关闭，
+            // 因此此默认值主要是对于不通过
+            // `compaction_threshold_for_model_and_effort` 构建
+            // `CompactionConfig` 的代码路径的回退。真实的每模型值
+            // 仍然通过该辅助函数推导。
             enabled: true,
-            // v0.8.11: 50K was a 128K-era leftover that biased every
-            // unconfigured caller toward "compact almost immediately on V4."
-            // Bumped to 800K (80% of V4's 1M window) so the dead-code
-            // default no longer lies. Real call sites override this via
-            // `compaction_threshold_for_model_and_effort`.
+            // v0.8.11：50K 是 128K 时代的遗留值，使每个未配置的调用者
+            // 偏向于"几乎立即在 V4 上压缩"。提升到 800K（V4 1M 窗口的 80%），
+            // 使死代码默认值不再撒谎。真实调用点通过
+            // `compaction_threshold_for_model_and_effort` 覆盖此值。
             token_threshold: 800_000,
             model: DEFAULT_TEXT_MODEL.to_string(),
             cache_summary: true,
@@ -63,21 +59,19 @@ impl Default for CompactionConfig {
     }
 }
 
-/// Hard floor for automatic compaction in v0.8.11+.
+/// v0.8.11+ 中自动压缩的硬下限。
 ///
-/// Below this token count, `should_compact` returns `false` regardless of
-/// `enabled` or `token_threshold`. The point of the floor is V4 prefix-cache
-/// economics: compaction rewrites the stable prefix, which destroys the KV
-/// cache. At low token counts the prefix cache is healthy and compaction's
-/// cost (full re-prefill at miss prices) dwarfs its benefit (a tiny budget
-/// reclaim). Above the floor compaction can still be net-positive — cache
-/// is already pressured, the prefix has drifted, and freeing budget matters.
+/// 低于此令牌数时，`should_compact` 返回 `false`，无论 `enabled` 或
+/// `token_threshold` 如何。设置下限的目的是 V4 前缀缓存经济学：
+/// 压缩会重写稳定前缀，从而破坏 KV 缓存。在低令牌数时，
+/// 前缀缓存是健康的，压缩的成本（以未命中价格完全重新预填充）
+/// 远大于其收益（微小的预算回收）。超过下限后，压缩仍可能是净正面的
+/// — 缓存已经受压，前缀已经漂移，释放预算变得重要。
 ///
-/// Manual `/compact` slash command bypasses this floor with explicit user
-/// agency.
+/// 手动 `/compact` 斜杠命令通过明确的用户意图绕过此下限。
 ///
-/// Constant rather than configurable for v0.8.11. If anyone needs to dial
-/// it (smaller models, opinionated workflows), we can add a setting later.
+/// 对于 v0.8.11 保持为常量而非可配置。如果有人需要调整它
+///（较小的模型、有主见的工作流），我们之后可以添加设置。
 pub const MINIMUM_AUTO_COMPACTION_TOKENS: usize = 500_000;
 
 pub const KEEP_RECENT_MESSAGES: usize = 4;
@@ -397,12 +391,12 @@ pub fn plan_compaction(
         return CompactionPlan::default();
     }
 
-    // Always pin the tail of the conversation to preserve immediate context.
+    // 始终固定对话的尾部以保留即时上下文。
     let recent_start = len.saturating_sub(keep_recent);
     pinned_indices.extend(recent_start..len);
 
-    // Derive a repo-aware working set from recent messages/tool calls and
-    // merge it with any externally provided working-set paths.
+    // 从最近的消息/工具调用中推导出仓库感知的工作集，
+    // 并将其与任何外部提供的工作集路径合并。
     let seed_indices = external_pins.unwrap_or(&[]);
     let mut working_set_paths = derive_working_set_paths(messages, workspace, seed_indices);
     if let Some(paths) = external_working_set_paths {
@@ -423,20 +417,19 @@ pub fn plan_compaction(
         }
     }
 
-    // External pins are authoritative and should be preserved even if they
-    // were not detected by the heuristics above.
+    // 外部固定是权威的，即使未被上述启发式方法检测到也应保留。
     if let Some(pins) = external_pins {
         pinned_indices.extend(pins.iter().copied().filter(|idx| *idx < len));
     }
 
-    // Ensure tool result messages are not kept without their corresponding tool call.
+    // 确保没有对应的工具调用时不保留工具结果消息。
     enforce_tool_call_pairs(messages, &mut pinned_indices);
 
     let summarize_indices = (0..len)
         .filter(|idx| !pinned_indices.contains(idx))
         .collect();
 
-    // `working_set_paths` was used only for pinning decisions above.
+    // `working_set_paths` 仅用于上面的固定决策。
     drop(working_set_paths);
 
     CompactionPlan {
@@ -450,7 +443,7 @@ fn enforce_tool_call_pairs(messages: &[Message], pinned_indices: &mut BTreeSet<u
         return;
     }
 
-    // Build maps: tool_id → message index across ALL messages (not just pinned).
+    // 构建映射：tool_id → 所有消息中的消息索引（不仅限于固定的）。
     let mut call_id_to_idx: HashMap<String, usize> = HashMap::new();
     let mut result_id_to_idx: HashMap<String, usize> = HashMap::new();
 
@@ -468,11 +461,10 @@ fn enforce_tool_call_pairs(messages: &[Message], pinned_indices: &mut BTreeSet<u
         }
     }
 
-    // Fixpoint loop: re-check until stable.
-    // Newly pinned messages may introduce new pair requirements;
-    // removed messages may orphan their counterparts.
-    // Track permanently removed indices so they cannot be re-added
-    // by a counterpart in a later iteration (prevents oscillation).
+    // 不动点循环：重新检查直到稳定。
+    // 新固定的消息可能引入新的配对需求；
+    // 已移除的消息可能孤立它们的对应方。
+    // 跟踪永久移除的索引，使其无法在后续迭代中被对应方重新添加（防止震荡）。
     let mut permanently_removed: HashSet<usize> = HashSet::new();
 
     let max_iters = messages.len().max(10);
@@ -487,7 +479,7 @@ fn enforce_tool_call_pairs(messages: &[Message], pinned_indices: &mut BTreeSet<u
             let msg = &messages[idx];
             for block in &msg.content {
                 match block {
-                    // Pinned result → its call must also be pinned (or remove result)
+                    // 固定的结果 → 其调用也必须固定（或移除结果）
                     ContentBlock::ToolResult { tool_use_id, .. } => {
                         match call_id_to_idx.get(tool_use_id) {
                             Some(&call_idx) if !permanently_removed.contains(&call_idx) => {
@@ -498,7 +490,7 @@ fn enforce_tool_call_pairs(messages: &[Message], pinned_indices: &mut BTreeSet<u
                             }
                         }
                     }
-                    // Pinned call → its result must also be pinned (or remove call)
+                    // 固定的调用 → 其结果也必须固定（或移除调用）
                     ContentBlock::ToolUse { id, .. } => match result_id_to_idx.get(id) {
                         Some(&result_idx) if !permanently_removed.contains(&result_idx) => {
                             to_add.push(result_idx);
@@ -512,8 +504,8 @@ fn enforce_tool_call_pairs(messages: &[Message], pinned_indices: &mut BTreeSet<u
             }
         }
 
-        // Removals take priority: if a message is both needed and orphaned,
-        // remove it now; the fixpoint loop will cascade the orphaning.
+        // 移除优先：如果一条消息既被需要又是孤立的，立即移除它；
+        // 不动点循环将级联传播孤立状态。
         let remove_set: HashSet<usize> = to_remove.iter().copied().collect();
         let mut changed = false;
         for idx in to_add {

@@ -478,12 +478,12 @@ pub fn decide_policy(
 }
 
 fn normalize_model_prior_key(model: &str) -> &str {
-    // Strip optional "deepseek-ai/" NIM namespace prefix before pattern matching.
+    // 在模式匹配之前去除可选的 "deepseek-ai/" NIM 命名空间前缀。
     let model = model.strip_prefix("deepseek-ai/").unwrap_or(model);
     let lower = model.to_ascii_lowercase();
-    // V4 variants must be checked before the generic V3/chat/reasoner branches
-    // because those branches do not contain "v4" tokens and the ordering prevents
-    // accidental cross-matches.
+    // V4 变体必须在通用 V3/chat/reasoner 分支之前检查，
+    // 因为那些分支不包含 "v4" 令牌，并且排序防止了
+    // 意外的交叉匹配。
     if lower.contains("v4-pro") || lower.contains("v4_pro") {
         "deepseek_v4_pro"
     } else if lower.contains("v4-flash") || lower.contains("v4_flash") {
@@ -617,8 +617,8 @@ mod tests {
         assert_eq!(decide_policy(&cfg, &snap), GuardrailAction::VerifyAndReplan);
     }
 
-    /// v0.8.11 flipped the default to `enabled = false`. The controller's
-    /// observe / decide methods early-return when disabled — opt-in only.
+    /// v0.8.11 将默认值翻转为 `enabled = false`。控制器的
+    /// observe / decide 方法在禁用时提前返回 — 仅选择启用。
     #[test]
     fn default_controller_is_disabled_and_skips_observations() {
         let cfg = CapacityControllerConfig::default();
@@ -638,8 +638,8 @@ mod tests {
         assert!(snapshot.is_none());
     }
 
-    /// Opting in via `capacity.enabled = true` re-arms the controller —
-    /// observations produce snapshots, decisions can fire interventions.
+    /// 通过 `capacity.enabled = true` 选择启用会重新武装控制器 —
+    /// 观察产生快照，决策可以触发干预。
     #[test]
     fn opt_in_controller_observes_and_decides() {
         let cfg = CapacityControllerConfig {

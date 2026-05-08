@@ -642,7 +642,7 @@ impl Engine {
                                     let _ = self
                                         .tx_event
                                         .send(Event::status(format!(
-                                            "⚠ Tool '{}' received malformed arguments from model",
+                                            "⚠ 工具 '{}' 接收到来自模型的格式错误的参数",
                                             tool_state.name
                                         )))
                                         .await;
@@ -1109,7 +1109,7 @@ impl Engine {
 
                 if !caller_allowed_for_tool(tool_caller.as_ref(), tool_def) {
                     blocked_error = Some(ToolError::permission_denied(format!(
-                        "Tool '{tool_name}' does not allow caller '{}'",
+                        "工具 '{tool_name}' 不允许调用者 '{}'",
                         caller_type_for_tool_use(tool_caller.as_ref())
                     )));
                 }
@@ -1847,10 +1847,10 @@ fn resolve_auto_effort(reasoning_effort: Option<&str>, messages: &[Message]) -> 
                 })
                 .unwrap_or_default();
 
-            // is_subagent is false here — handle_deepseek_turn runs in the
-            // main engine (not a sub-agent's inner loop). Sub-agents have
-            // their own turn pass and can pass is_subagent=true when they
-            // call this function directly.
+            // 此处 is_subagent 为 false — handle_deepseek_turn 在主引擎中
+            // 运行（而不是子代理的内部循环）。子代理有
+            // 自己的轮次传递，可以直接调用此函数时
+            // 传递 is_subagent=true。
             let tier = crate::auto_reasoning::select(false, &last_msg);
             let resolved = tier.as_setting().to_string();
             tracing::debug!(

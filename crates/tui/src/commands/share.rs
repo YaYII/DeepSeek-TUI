@@ -14,7 +14,7 @@ use std::path::Path;
 use super::CommandResult;
 use crate::tui::app::{App, AppAction};
 
-/// Share the current session as a web URL.
+/// 将当前会话分享为网页 URL。
 pub fn share(app: &mut App, arg: Option<&str>) -> CommandResult {
     let raw = arg.map(str::trim).unwrap_or("");
 
@@ -37,7 +37,7 @@ pub fn share(app: &mut App, arg: Option<&str>) -> CommandResult {
     }
 }
 
-/// Export the session as HTML, upload to a Gist, and show the URL.
+/// 将会话导出为 HTML，上传到 Gist，并显示 URL。
 fn do_share(app: &mut App) -> CommandResult {
     // Check if there's any session content to share
     if app.history.is_empty() {
@@ -65,10 +65,10 @@ fn do_share(app: &mut App) -> CommandResult {
     )
 }
 
-/// Actually perform the share export.
+/// 实际执行分享导出。
 ///
-/// This is called from the engine after receiving the `ShareSession` action.
-/// It renders the session as HTML and uploads it via `gh gist create`.
+/// 这在引擎收到 `ShareSession` 操作后被调用。
+/// 它将会话渲染为 HTML 并通过 `gh gist create` 上传。
 pub async fn perform_share(history_json: &str, model: &str, mode: &str) -> Result<String, String> {
     // Build HTML from the session data
     let html = render_session_html(history_json, model, mode);
@@ -88,7 +88,7 @@ pub async fn perform_share(history_json: &str, model: &str, mode: &str) -> Resul
     Ok(url)
 }
 
-/// Render the session as a standalone HTML page.
+/// 将会话渲染为独立的 HTML 页面。
 fn render_session_html(history_json: &str, model: &str, mode: &str) -> String {
     let timestamp = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC");
     let escaped_model = html_escape(model);
@@ -133,7 +133,7 @@ fn render_session_html(history_json: &str, model: &str, mode: &str) -> String {
     )
 }
 
-/// HTML-escape special characters.
+/// HTML 转义特殊字符。
 fn html_escape(s: &str) -> String {
     s.replace('&', "&amp;")
         .replace('<', "&lt;")
@@ -142,7 +142,7 @@ fn html_escape(s: &str) -> String {
         .replace('\'', "&#39;")
 }
 
-/// Write HTML to a secure temp file and keep it alive for upload.
+/// 将 HTML 写入安全的临时文件并保持活跃以便上传。
 fn write_temp_html(html: &str) -> Result<tempfile::NamedTempFile, String> {
     let mut tmp = tempfile::Builder::new()
         .prefix("deepseek-share-")
@@ -153,7 +153,7 @@ fn write_temp_html(html: &str) -> Result<tempfile::NamedTempFile, String> {
     Ok(tmp)
 }
 
-/// Upload a file as a GitHub Gist using the `gh` CLI.
+/// 使用 `gh` CLI 将文件上传为 GitHub Gist。
 async fn upload_gist(path: &Path) -> Result<String, String> {
     let output = tokio::process::Command::new("gh")
         .args([

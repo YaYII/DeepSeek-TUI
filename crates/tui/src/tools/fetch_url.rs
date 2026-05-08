@@ -87,7 +87,7 @@ impl ToolSpec for FetchUrlTool {
     }
 
     fn description(&self) -> &'static str {
-        "Fetch a known URL directly (HTTP GET) and return its content. Use this when the user gives a URL or you already know the canonical link — it's faster and more reliable than web_search for known pages."
+        "直接获取已知 URL（HTTP GET）并返回其内容。当用户提供 URL 或你已经知道规范链接时使用——对于已知页面，这比 web_search 更快更可靠。"
     }
 
     fn input_schema(&self) -> Value {
@@ -96,20 +96,20 @@ impl ToolSpec for FetchUrlTool {
             "properties": {
                 "url": {
                     "type": "string",
-                    "description": "Absolute HTTP/HTTPS URL to fetch."
+                    "description": "要获取的绝对 HTTP/HTTPS URL。"
                 },
                 "format": {
                     "type": "string",
                     "enum": ["text", "markdown", "raw"],
-                    "description": "Post-processing for the response body. `markdown` (default) and `text` strip HTML tags to readable text; `raw` returns the body bytes as-is."
+                    "description": "响应体的后处理。`markdown`（默认）和 `text` 将 HTML 标签剥离为可读文本；`raw` 原样返回响应体字节。"
                 },
                 "max_bytes": {
                     "type": "integer",
-                    "description": "Truncate response body after this many bytes (default 1,000,000; hard max 10,485,760)."
+                    "description": "在此字节数后截断响应体（默认 1,000,000；硬上限 10,485,760）。"
                 },
                 "timeout_ms": {
                     "type": "integer",
-                    "description": "Request timeout in milliseconds (default 15,000; max 60,000)."
+                    "description": "请求超时毫秒数（默认 15,000；最大 60,000）。"
                 }
             },
             "required": ["url"]

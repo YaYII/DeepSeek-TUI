@@ -27,13 +27,10 @@ impl ToolSpec for RememberTool {
     }
 
     fn description(&self) -> &'static str {
-        "Append a durable note to the user memory file so it surfaces in \
-         future sessions. Use this when the user states a preference, a \
-         convention they want enforced, or a fact about themselves or \
-         their workflow that you should not have to relearn next time. \
-         Keep notes terse (one sentence). Don't store secrets, transient \
-         tasks, or reasoning scratch — those belong in a checklist or in \
-         the conversation."
+        "将持久的笔记追加到用户记忆文件中，使其在未来的会话中可用。\
+         当用户声明偏好、希望强制的约定、或者关于他们自己或工作流程的事实，\
+         且你下次不应重新学习时使用。保持笔记简洁（一句话）。不要存储\
+         秘密、临时任务或推理草稿——这些属于检查列表或对话中。"
     }
 
     fn input_schema(&self) -> Value {

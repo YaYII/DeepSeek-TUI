@@ -707,8 +707,8 @@ pub fn get_command_info(name: &str) -> Option<&'static CommandInfo> {
         .find(|cmd| cmd.name == name || cmd.aliases.contains(&name))
 }
 
-/// Get all command names matching a prefix, including both built-in
-/// static commands and user-defined commands, formatted as `/name`.
+/// 获取所有匹配前缀的命令名称，包括内置
+/// 静态命令和用户定义命令，格式为 `/name`。
 pub fn all_command_names_matching(prefix: &str) -> Vec<String> {
     let prefix = prefix.strip_prefix('/').unwrap_or(prefix).to_lowercase();
     let mut result: Vec<String> = COMMANDS
@@ -727,7 +727,7 @@ pub fn all_command_names_matching(prefix: &str) -> Vec<String> {
     result
 }
 
-/// Get all commands matching a prefix (for autocomplete)
+/// 获取所有匹配前缀的命令（用于自动补全）
 #[allow(dead_code)]
 pub fn commands_matching(prefix: &str) -> Vec<&'static CommandInfo> {
     let prefix = prefix.strip_prefix('/').unwrap_or(prefix).to_lowercase();

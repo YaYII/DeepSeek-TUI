@@ -175,7 +175,7 @@ pub fn show_settings(app: &mut App) -> CommandResult {
     }
 }
 
-/// Open the `/statusline` multi-select picker for configuring footer items.
+/// 打开 `/statusline` 多选选择器以配置页脚项。
 pub fn status_line(_app: &mut App) -> CommandResult {
     CommandResult::action(AppAction::OpenStatusPicker)
 }
@@ -513,25 +513,25 @@ pub fn set_config(app: &mut App, args: Option<&str>) -> CommandResult {
     set_config_value(app, &key, value, should_save)
 }
 
-/// Enable YOLO mode (shell + trust + auto-approve)
+/// 启用 YOLO 模式（shell + trust + 自动批准）
 pub fn yolo(app: &mut App) -> CommandResult {
     app.set_mode(AppMode::Yolo);
-    CommandResult::message("YOLO mode enabled - shell + trust + auto-approve!")
+    CommandResult::message("YOLO 模式已启用 - shell + trust + 自动批准！")
 }
 
-/// Legacy alias for the removed normal mode.
+/// 已移除的普通模式的遗留别名。
 pub fn normal_mode(app: &mut App) -> CommandResult {
     app.set_mode(AppMode::Agent);
     CommandResult::message("Normal mode was removed. Switched to Agent mode.")
 }
 
-/// Enable agent mode (autonomous tool use with approvals)
+/// 启用代理模式（带批准的自助工具使用）
 pub fn agent_mode(app: &mut App) -> CommandResult {
     app.set_mode(AppMode::Agent);
     CommandResult::message("Agent mode enabled.")
 }
 
-/// Enable plan mode (tool planning, then choose execution route)
+/// 启用计划模式（工具规划，然后选择执行路径）
 pub fn plan_mode(app: &mut App) -> CommandResult {
     app.set_mode(AppMode::Plan);
     CommandResult::message(
@@ -539,7 +539,7 @@ pub fn plan_mode(app: &mut App) -> CommandResult {
     )
 }
 
-/// Toggle between dark and light theme.
+/// 在深色和浅色主题之间切换。
 pub fn theme(app: &mut App) -> CommandResult {
     let new_theme = match app.ui_theme.mode {
         crate::palette::PaletteMode::Dark => {
@@ -557,15 +557,15 @@ pub fn theme(app: &mut App) -> CommandResult {
     CommandResult::message(format!("Theme switched to {label}."))
 }
 
-/// Manage workspace-level trust and the per-path allowlist.
+/// 管理工作区级别的信任和按路径允许列表。
 ///
-/// Subcommands:
-/// - `/trust`            – show current state and trusted external paths
-/// - `/trust on`         – legacy: trust the entire workspace (turn off all path checks)
-/// - `/trust off`        – disable workspace-level trust mode
-/// - `/trust add <path>` – add a directory to the allowlist (#29)
-/// - `/trust remove <path>` (alias `rm`) – remove a path from the allowlist
-/// - `/trust list`       – list trusted external paths for this workspace
+/// 子命令:
+/// - `/trust`            — 显示当前状态和受信任的外部路径
+/// - `/trust on`         — 遗留功能：信任整个工作区（关闭所有路径检查）
+/// - `/trust off`        — 禁用工作区级别信任模式
+/// - `/trust add <path>` — 将目录添加到允许列表 (#29)
+/// - `/trust remove <path>`（别名 `rm`）— 从允许列表移除路径
+/// - `/trust list`       — 列出此工作区的受信任外部路径
 pub fn trust(app: &mut App, arg: Option<&str>) -> CommandResult {
     let raw = arg.map(str::trim).unwrap_or("");
     let mut parts = raw.splitn(2, char::is_whitespace);
@@ -670,12 +670,12 @@ fn expand_tilde(raw: &str) -> String {
     raw.to_string()
 }
 
-/// Auto-select a model based on request complexity.
+/// 根据请求复杂度自动选择模型。
 ///
-/// Short messages (<100 chars) → Flash (fast & cheap).
-/// Long messages (>500 chars) → Pro (powerful reasoning).
-/// Messages with complex keywords → Pro.
-/// Default → Flash (cost savings).
+/// 短消息（<100 字符）→ Flash（快速且便宜）。
+/// 长消息（>500 字符）→ Pro（强大的推理）。
+/// 包含复杂关键词的消息 → Pro。
+/// 默认 → Flash（节省成本）。
 pub fn auto_model_heuristic(input: &str, _current_model: &str) -> String {
     let len = input.chars().count();
     let lower = input.to_lowercase();
@@ -746,11 +746,11 @@ pub const AUTO_MODEL_ROUTER_SYSTEM_PROMPT: &str = "\
 仅在琐碎的无工具答案时使用 thinking off，普通推理时使用 high，\
 代理型工作、编码、多文件、发布、架构、调试、安全、工具密集型或不确定的工作时使用 max。";
 
-/// Parse the Flash router's JSON-only response.
+/// 解析 Flash 路由器的纯 JSON 响应。
 ///
-/// The runtime treats classifier output as untrusted: only known V4 model IDs
-/// and supported reasoning tiers are accepted. Anything else falls back to the
-/// deterministic heuristic.
+/// 运行时将分类器输出视为不可信：仅接受已知的 V4 模型 ID
+/// 和受支持的推理层级。其他所有情况都回退到
+/// 确定性启发式方法。
 pub fn parse_auto_route_recommendation(raw: &str) -> Option<AutoRouteRecommendation> {
     let json = extract_first_json_object(raw)?;
     let value: serde_json::Value = serde_json::from_str(json).ok()?;
@@ -939,11 +939,11 @@ fn truncate_for_auto_router(text: &str, max_chars: usize) -> String {
     }
 }
 
-/// Toggle LSP diagnostics on/off or show status.
+/// 切换 LSP 诊断的开启/关闭或显示状态。
 ///
-/// - `/lsp on` — enable inline LSP diagnostics
-/// - `/lsp off` — disable inline LSP diagnostics
-/// - `/lsp status` — show whether diagnostics are currently enabled
+/// - `/lsp on` — 启用内联 LSP 诊断
+/// - `/lsp off` — 禁用内联 LSP 诊断
+/// - `/lsp status` — 显示诊断当前是否已启用
 pub fn lsp_command(app: &mut App, arg: Option<&str>) -> CommandResult {
     let raw = arg.map(str::trim).unwrap_or("");
     // Access lsp_manager config through the App's engine handle
@@ -973,7 +973,7 @@ pub fn lsp_command(app: &mut App, arg: Option<&str>) -> CommandResult {
     }
 }
 
-/// Logout - clear API key and return to onboarding
+/// 登出 — 清除 API 密钥并返回引导页面
 pub fn logout(app: &mut App) -> CommandResult {
     match clear_api_key() {
         Ok(()) => {

@@ -29,7 +29,7 @@ impl ToolSpec for FileSearchTool {
     }
 
     fn description(&self) -> &'static str {
-        "Search for files using fuzzy matching with score-based ranking."
+        "使用模糊匹配和基于分数的排序搜索文件。"
     }
 
     fn input_schema(&self) -> Value {
@@ -38,20 +38,20 @@ impl ToolSpec for FileSearchTool {
             "properties": {
                 "query": {
                     "type": "string",
-                    "description": "Search query (file name or path fragment)."
+                    "description": "搜索查询（文件名或路径片段）。"
                 },
                 "path": {
                     "type": "string",
-                    "description": "Optional base path to search (relative to workspace)."
+                    "description": "可选的搜索基础路径（相对于工作区）。"
                 },
                 "limit": {
                     "type": "integer",
-                    "description": "Maximum number of results to return (default: 20)."
+                    "description": "返回的最大结果数（默认：20）。"
                 },
                 "extensions": {
                     "type": "array",
                     "items": { "type": "string" },
-                    "description": "Optional list of file extensions to include (e.g. [\"rs\", \"md\"])."
+                    "description": "可选的包含的文件扩展名列表（例如 [\"rs\", \"md\"]）。"
                 }
             },
             "required": ["query"]

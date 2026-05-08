@@ -8,14 +8,14 @@ use crate::tui::app::App;
 
 use super::CommandResult;
 
-/// Top-level dispatch for `/stash`. Subcommands:
+/// `/stash` 的顶级调度。子命令：
 ///
-/// * `/stash`        — same as `/stash list`.
-/// * `/stash list`   — show parked drafts, oldest first.
-/// * `/stash pop`    — restore the most recently parked draft into
-///   the composer; the popped entry is removed from disk.
-/// * `/stash clear`  — wipe the entire stash file. Reports how many
-///   entries were dropped so the user knows what they deleted.
+/// * `/stash`        — 等同于 `/stash list`。
+/// * `/stash list`   — 显示暂存的草稿，最早的在前。
+/// * `/stash pop`    — 将最近暂存的草稿恢复到
+///   编辑器中；弹出的条目将从磁盘删除。
+/// * `/stash clear`  — 清除整个暂存文件。报告删除了
+///   多少条目，以便用户知道删除了什么。
 pub fn stash(app: &mut App, arg: Option<&str>) -> CommandResult {
     let sub = arg.map(str::trim).unwrap_or("list").to_ascii_lowercase();
     match sub.as_str() {
@@ -84,9 +84,8 @@ fn pop(app: &mut App) -> CommandResult {
     }
 }
 
-/// Take a one-line preview of `text`, capped at `max_chars`.
-/// Multi-line drafts get a single-line summary so the listing
-/// stays scannable.
+/// 获取 `text` 的单行预览，限制在 `max_chars` 字符。
+/// 多行草稿将获得单行摘要，使列表保持可扫描性。
 fn preview_first_line(text: &str, max_chars: usize) -> String {
     let head = text.lines().next().unwrap_or("").trim();
     if head.chars().count() <= max_chars {

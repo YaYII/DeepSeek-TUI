@@ -104,7 +104,7 @@ impl ToolSpec for TaskListTool {
     }
 
     fn description(&self) -> &'static str {
-        "List recent durable tasks with status, linked thread/turn ids, and concise summaries."
+        "列出最近的持久化任务，包含状态、关联的线程/轮次 ID 和简洁摘要。"
     }
 
     fn input_schema(&self) -> Value {
@@ -148,7 +148,7 @@ impl ToolSpec for TaskReadTool {
     }
 
     fn description(&self) -> &'static str {
-        "Read durable task detail including timeline, checklist, gate evidence, artifacts, and PR attempts."
+        "读取持久化任务详情，包括时间线、检查列表、关卡证据、产物和 PR 尝试。"
     }
 
     fn input_schema(&self) -> Value {
@@ -191,7 +191,7 @@ impl ToolSpec for TaskCancelTool {
     }
 
     fn description(&self) -> &'static str {
-        "Cancel a queued or running durable task through TaskManager. Requires approval because it changes work state."
+        "通过 TaskManager 取消一个排队中或运行中的持久化任务。需要审批，因为这会改变工作状态。"
     }
 
     fn input_schema(&self) -> Value {
@@ -234,7 +234,7 @@ impl ToolSpec for TaskGateRunTool {
     }
 
     fn description(&self) -> &'static str {
-        "Run an approved verification gate command and return structured evidence. When inside a durable task, the gate result and log artifact are attached to that task."
+        "运行一个已批准的验证关卡命令并返回结构化证据。在持久化任务内部时，关卡结果和日志产物会附加到该任务。"
     }
 
     fn input_schema(&self) -> Value {
