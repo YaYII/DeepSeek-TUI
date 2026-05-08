@@ -1,305 +1,305 @@
-# DeepSeek TUI Architecture
+# DeepSeek TUI 架构
 
-This document provides an overview of the DeepSeek TUI architecture for developers and contributors.
+本文档为开发者和贡献者提供 DeepSeek TUI 架构的概览。
 
-Current boundary note (v0.8.6):
-- `crates/tui` is still the live end-user runtime for the TUI, runtime API, task manager, and tool execution loop.
-- Other workspace crates are being split out incrementally, but they are not yet the sole runtime source of truth.
-- The LSP subsystem (`crates/tui/src/lsp/`) is fully wired into the engine's post-tool-execution path
-  (`core/engine/lsp_hooks.rs`), providing inline diagnostics after every edit_file/apply_patch/write_file.
-- The swarm agent system was removed in v0.8.5 in favour of sub-agents (agent_spawn) and RLM (rlm_query).
-  No model-visible swarm tool remains in the active codebase.
+当前边界说明（v0.8.6）：
+- `crates/tui` 仍然是 TUI、运行时 API、任务管理器和工具执行循环的活跃终端用户运行时。
+- 其他工作区 crate 正在逐步拆分，但它们尚未成为运行时的事实来源。
+- LSP 子系统（`crates/tui/src/lsp/`）已完全接入引擎的工具后执行路径
+  （`core/engine/lsp_hooks.rs`），在每次 edit_file/apply_patch/write_file 后提供内联诊断。
+- 集群代理系统在 v0.8.5 中被移除，取而代之的是子代理（agent_spawn）和 RLM（rlm_query）。
+  活动代码库中不再保留模型可见的集群工具。
 
-## High-Level Overview
+## 高层概览
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         User Interface                          │
+│                         用户界面                                │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌────────────────┐  │
-│  │   TUI (ratatui) │  │  One-shot Mode  │  │  Config/CLI    │  │
+│  │   TUI (ratatui) │  │  单次模式       │  │  配置/CLI      │  │
 │  └────────┬────────┘  └────────┬────────┘  └────────┬───────┘  │
 └───────────┼─────────────────────┼────────────────────┼──────────┘
             │                     │                    │
             ▼                     ▼                    ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                        Core Engine                              │
+│                        核心引擎                                 │
 │  ┌─────────────────────────────────────────────────────────┐   │
-│  │                    Agent Loop (core/engine.rs)           │   │
+│  │                    代理循环 (core/engine.rs)             │   │
 │  │  ┌─────────┐  ┌─────────────┐  ┌──────────────────────┐ │   │
-│  │  │ Session │  │ Turn Mgmt   │  │ Tool Orchestration   │ │   │
+│  │  │ 会话    │  │ 回合管理    │  │ 工具编排             │ │   │
 │  │  └─────────┘  └─────────────┘  └──────────────────────┘ │   │
 │  └─────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
             │                     │                    │
             ▼                     ▼                    ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                     Tool & Extension Layer                      │
+│                     工具与扩展层                                │
 │  ┌──────────┐  ┌──────────┐  ┌─────────┐  ┌────────────────┐   │
-│  │  Tools   │  │  Skills  │  │  Hooks  │  │  MCP Servers   │   │
-│  │ (shell,  │  │ (plugins)│  │ (pre/   │  │  (external)    │   │
-│  │  file)   │  │          │  │  post)  │  │                │   │
+│  │  工具    │  │  技能    │  │  钩子   │  │  MCP 服务器     │   │
+│  │ (shell,  │  │ (插件)   │  │ (前/    │  │  (外部)        │   │
+│  │  file)   │  │          │  │  后)    │  │                │   │
 │  └──────────┘  └──────────┘  └─────────┘  └────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
             │                     │                    │
             ▼                     ▼                    ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                  Runtime API + Task Management                  │
+│                  运行时 API + 任务管理                          │
 │  ┌─────────────────────────────┐  ┌──────────────────────────┐  │
-│  │ HTTP/SSE Runtime API        │  │ Persistent Task Manager  │  │
+│  │ HTTP/SSE 运行时 API         │  │ 持久任务管理器           │  │
 │  │ (runtime_api.rs)            │  │ (task_manager.rs)        │  │
 │  └─────────────────────────────┘  └──────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
             │                     │
             ▼                     ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                        LLM Layer                                │
+│                        LLM 层                                   │
 │  ┌──────────────────────────────────────────────────────────┐  │
-│  │              LLM Client Abstraction (llm_client.rs)       │  │
+│  │              LLM 客户端抽象 (llm_client.rs)               │  │
 │  │  ┌─────────────────┐  ┌─────────────────────────────┐    │  │
-│  │  │  DeepSeek Client │  │  Compatible Client (DeepSeek)│    │  │
+│  │  │  DeepSeek 客户端 │  │  兼容客户端 (DeepSeek)       │    │  │
 │  │  │   (client.rs)   │  │       (client.rs)           │    │  │
 │  │  └─────────────────┘  └─────────────────────────────┘    │  │
 │  └──────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## Module Organization
+## 模块组织
 
-### Entry Point
+### 入口点
 
-- **`main.rs`** - CLI argument parsing (clap), configuration loading, entry point routing
+- **`main.rs`** - CLI 参数解析（clap）、配置加载、入口点路由
 
-### Core Components
+### 核心组件
 
-- **`core/`** - Main engine components
-  - `engine.rs` - Engine state, operation handling, message processing
-  - `engine/turn_loop.rs` - Streaming turn loop and tool execution orchestration
-  - `engine/capacity_flow.rs` - Capacity guardrail checkpoints and interventions
-  - `session.rs` - Session state management
-  - `turn.rs` - Turn-based conversation handling
-  - `events.rs` - Event system for UI updates
-  - `ops.rs` - Core operations
+- **`core/`** - 主要引擎组件
+  - `engine.rs` - 引擎状态、操作处理、消息处理
+  - `engine/turn_loop.rs` - 流式回合循环和工具执行编排
+  - `engine/capacity_flow.rs` - 容量护栏检查点和干预
+  - `session.rs` - 会话状态管理
+  - `turn.rs` - 基于回合的对话处理
+  - `events.rs` - UI 更新的事件系统
+  - `ops.rs` - 核心操作
 
-### Configuration
+### 配置
 
-- **`config.rs`** - Configuration loading, profiles, environment variables
-- **`settings.rs`** - Runtime settings management
+- **`config.rs`** - 配置加载、配置文件、环境变量
+- **`settings.rs`** - 运行时设置管理
 
-### Workspace Crates
+### 工作区 Crates
 
-- **`crates/tools`** - Shared tool invocation primitives, including tool result/error/capability types used by the TUI runtime.
-- **`crates/agent`** - Model/provider registry (ModelRegistry) for resolving model IDs to provider endpoints.
-- **`crates/app-server`** - HTTP/SSE + JSON-RPC app server transport for headless agent workflows.
-- **`crates/config`** - Config loading, profiles, environment variable precedence, CLI runtime overrides.
-- **`crates/core`** - Agent loop, session management, turn orchestration, capacity flow guardrails.
-- **`crates/execpolicy`** - Approval/sandbox policy engine for tool execution decisions.
-- **`crates/hooks`** - Lifecycle hooks (stdout, jsonl, webhook) for pre/post tool events.
-- **`crates/mcp`** - MCP client + stdio server for Model Context Protocol tool servers.
-- **`crates/protocol`** - Request/response framing and protocol types.
-- **`crates/secrets`** - OS keyring integration for API key storage.
-- **`crates/state`** - SQLite thread/session persistence layer.
-- **`crates/tui-core`** - Event-driven TUI state machine scaffold.
+- **`crates/tools`** - 共享工具调用原语，包括 TUI 运行时使用的工具结果/错误/能力类型。
+- **`crates/agent`** - 模型/提供者注册表（ModelRegistry），用于将模型 ID 解析到提供者端点。
+- **`crates/app-server`** - HTTP/SSE + JSON-RPC 应用服务器传输，用于无头代理工作流。
+- **`crates/config`** - 配置加载、配置文件、环境变量优先级、CLI 运行时覆盖。
+- **`crates/core`** - 代理循环、会话管理、回合编排、容量流护栏。
+- **`crates/execpolicy`** - 工具执行决策的审批/沙箱策略引擎。
+- **`crates/hooks`** - 工具前后事件的生命周期钩子（stdout、jsonl、webhook）。
+- **`crates/mcp`** - MCP 客户端 + stdio 服务器，用于模型上下文协议工具服务器。
+- **`crates/protocol`** - 请求/响应框架和协议类型。
+- **`crates/secrets`** - 用于 API 密钥存储的操作系统密钥环集成。
+- **`crates/state`** - SQLite 线程/会话持久层。
+- **`crates/tui-core`** - 事件驱动的 TUI 状态机框架。
 
-### LLM Integration
+### LLM 集成
 
-- **`client.rs`** - HTTP client for DeepSeek's documented OpenAI-compatible Chat Completions API
-- **`llm_client.rs`** - Abstract LLM client trait with retry logic
-- **`models.rs`** - Data structures for API requests/responses
+- **`client.rs`** - DeepSeek 记录的 OpenAI 兼容 Chat Completions API 的 HTTP 客户端
+- **`llm_client.rs`** - 具有重试逻辑的抽象 LLM 客户端 trait
+- **`models.rs`** - API 请求/响应的数据结构
 
-#### DeepSeek API Endpoints
+#### DeepSeek API 端点
 
-DeepSeek exposes OpenAI-compatible endpoints. The CLI uses:
-- `https://api.deepseek.com/beta/chat/completions` - default v0.8.16 DeepSeek model turns
-- `https://api.deepseek.com/beta/models` - default v0.8.16 live model discovery and health checks
+DeepSeek 公开了 OpenAI 兼容的端点。CLI 使用：
+- `https://api.deepseek.com/beta/chat/completions` - 默认 v0.8.16 DeepSeek 模型回合
+- `https://api.deepseek.com/beta/models` - 默认 v0.8.16 实时模型发现和健康检查
 
-`https://api.deepseek.com/v1` is accepted for OpenAI SDK compatibility, and
-can still be configured explicitly to opt out of beta-only features such as
-strict tool mode, chat prefix completion, and FIM completion. The public
-DeepSeek docs do not document a Responses API path for this workflow; the engine
-drives turns through Chat Completions.
+`https://api.deepseek.com/v1` 被接受用于 OpenAI SDK 兼容性，并且
+仍可显式配置以选择退出仅限 beta 的功能，如
+严格工具模式、聊天前缀补全和 FIM 补全。公开的
+DeepSeek 文档没有为此工作流记录 Responses API 路径；引擎
+通过 Chat Completions 驱动回合。
 
-### Tool System
+### 工具系统
 
-- **`tools/`** - Built-in tool implementations
-  - `mod.rs` - Tool registry and common types
-  - `shell.rs` - Shell command execution
-  - `file.rs` - File read/write operations
-  - `todo.rs` - Checklist tools plus legacy todo aliases
-  - `tasks.rs` - Model-visible durable task, gate, background shell, and PR-attempt tools
-  - `github.rs` - Read-only GitHub context and guarded comment/closure tools backed by `gh`
-  - `automation.rs` - Model-visible scheduling tools over `AutomationManager`
-  - `plan.rs` - Planning tools
-  - `subagent.rs` - Sub-agent spawning (replaces the removed `agent_swarm` surface)
-  - `spec.rs` - Tool specifications
-  - `rlm.rs` - Recursive Language Model (RLM) tool — sandboxed Python REPL with `llm_query()` helpers
+- **`tools/`** - 内置工具实现
+  - `mod.rs` - 工具注册表和常见类型
+  - `shell.rs` - Shell 命令执行
+  - `file.rs` - 文件读/写操作
+  - `todo.rs` - 检查列表工具加上遗留的 todo 别名
+  - `tasks.rs` - 模型可见的持久任务、门控、后台 shell 和 PR 尝试工具
+  - `github.rs` - 只读 GitHub 上下文和由 `gh` 支持的受保护评论/关闭工具
+  - `automation.rs` - `AutomationManager` 上模型可见的调度工具
+  - `plan.rs` - 规划工具
+  - `subagent.rs` - 子代理生成（替换已移除的 `agent_swarm` 表面）
+  - `spec.rs` - 工具规范
+  - `rlm.rs` - 递归语言模型（RLM）工具 — 带有 `llm_query()` 辅助函数的沙箱化 Python REPL
 
-### Extension Systems
+### 扩展系统
 
-- **`mcp.rs`** - Model Context Protocol client for external tool servers
-- **`skills.rs`** - Plugin/skill loading and execution
-- **`hooks.rs`** - Pre/post execution hooks with conditions
+- **`mcp.rs`** - 用于外部工具服务器的模型上下文协议客户端
+- **`skills.rs`** - 插件/技能加载和执行
+- **`hooks.rs`** - 带有条件的前后执行钩子
 
-### User Interface
+### 用户界面
 
-- **`tui/`** - Terminal UI components (ratatui-based)
-  - `app.rs` - Application state and message handling
-  - `ui.rs` - Event handling, streaming state, and rendering logic
-  - `approval.rs` - Tool approval dialog
-  - `clipboard.rs` - Clipboard handling
-  - `streaming.rs` - Streaming text collector
+- **`tui/`** - 终端 UI 组件（基于 ratatui）
+  - `app.rs` - 应用状态和消息处理
+  - `ui.rs` - 事件处理、流式状态和渲染逻辑
+  - `approval.rs` - 工具审批对话框
+  - `clipboard.rs` - 剪贴板处理
+  - `streaming.rs` - 流式文本收集器
 
-- **`ui.rs`** - Legacy/simple UI utilities
+- **`ui.rs`** - 遗留/简单 UI 工具
 
-### LSP Integration
+### LSP 集成
 
-- **`lsp/`** - Post-edit diagnostics injection (#136)
-  - `mod.rs` - `LspManager` — lazy per-language transport pool + config
-  - `client.rs` - `StdioLspTransport` — JSON-RPC over stdio with `didOpen`/`didChange`/`publishDiagnostics`
-  - `diagnostics.rs` - Diagnostic types, severity, and HTML-block renderer
-  - `registry.rs` - Language detection and default server map (rust-analyzer, pyright, gopls, clangd, typescript-language-server)
-  - Wired into the engine via `core/engine/lsp_hooks.rs` — called after every successful edit
+- **`lsp/`** - 编辑后诊断注入（#136）
+  - `mod.rs` - `LspManager` — 惰性每语言传输池 + 配置
+  - `client.rs` - `StdioLspTransport` — 基于 stdio 的 JSON-RPC，带有 `didOpen`/`didChange`/`publishDiagnostics`
+  - `diagnostics.rs` - 诊断类型、严重性和 HTML 块渲染器
+  - `registry.rs` - 语言检测和默认服务器映射（rust-analyzer、pyright、gopls、clangd、typescript-language-server）
+  - 通过 `core/engine/lsp_hooks.rs` 接入引擎 — 在每次成功编辑后调用
 
-### Security
+### 安全性
 
-- **`sandbox/`** - platform sandbox policy preparation and denial reporting
-  - `mod.rs` - Sandbox type definitions
-  - `policy.rs` - Sandbox policy configuration
-  - `seatbelt.rs` - macOS Seatbelt profile generation
-  - `landlock.rs` - Linux Landlock detection and future helper contract
-  - `windows.rs` - Windows helper contract; not advertised until a Job
-    Object process-containment helper exists
+- **`sandbox/`** - 平台沙箱策略准备和拒绝报告
+  - `mod.rs` - 沙箱类型定义
+  - `policy.rs` - 沙箱策略配置
+  - `seatbelt.rs` - macOS Seatbelt 配置文件生成
+  - `landlock.rs` - Linux Landlock 检测和未来辅助合约
+  - `windows.rs` - Windows 辅助合约；在 Job
+    Object 进程包含辅助存在之前不做宣传
 
-### Utilities
+### 工具
 
-- **`utils.rs`** - Common utilities
-- **`logging.rs`** - Logging infrastructure
-- **`compaction.rs`** - Context compaction for long conversations
-- **`pricing.rs`** - Cost estimation
-- **`prompts.rs`** - System prompt templates
-- **`project_doc.rs`** - Project documentation handling
-- **`session.rs`** - Session serialization
-- **`runtime_api.rs`** - HTTP/SSE runtime API (`deepseek serve --http`)
-- **`runtime_threads.rs`** - Durable thread/turn/item store + replayable event timeline
-- **`task_manager.rs`** - Durable queue, worker pool, task timelines and artifacts
+- **`utils.rs`** - 通用工具
+- **`logging.rs`** - 日志基础设施
+- **`compaction.rs`** - 长对话的上下文压缩
+- **`pricing.rs`** - 成本估算
+- **`prompts.rs`** - 系统提示模板
+- **`project_doc.rs`** - 项目文档处理
+- **`session.rs`** - 会话序列化
+- **`runtime_api.rs`** - HTTP/SSE 运行时 API（`deepseek serve --http`）
+- **`runtime_threads.rs`** - 持久线程/回合/项存储 + 可重放事件时间线
+- **`task_manager.rs`** - 持久队列、工作池、任务时间线和工件
 
-## Data Flow
+## 数据流
 
-### Interactive Session
+### 交互式会话
 
-1. User input received in TUI
-2. Input processed by `core/engine.rs`
-3. Message sent to LLM via `llm_client.rs`
-4. Response streamed back, parsed in `client.rs`
-5. Tool calls extracted and executed via `tools/`
-6. Hooks triggered before/after tool execution
-7. Results aggregated and sent back to LLM
-8. Final response rendered in TUI
+1. TUI 接收用户输入
+2. `core/engine.rs` 处理输入
+3. 通过 `llm_client.rs` 发送消息到 LLM
+4. 响应流式返回，在 `client.rs` 中解析
+5. 通过 `tools/` 提取并执行工具调用
+6. 工具执行前后触发钩子
+7. 结果聚合并发送回 LLM
+8. 最终响应在 TUI 中渲染
 
-### Crash Recovery + Offline Queue
+### 崩溃恢复 + 离线队列
 
-1. Before sending user input, the TUI writes a checkpoint snapshot to `~/.deepseek/sessions/checkpoints/latest.json`
-2. Startup remains fresh by default; prior sessions are resumed explicitly via `--resume`/`--continue` (or `Ctrl+R` in TUI)
-3. While degraded/offline, new prompts are queued in-memory and mirrored to `~/.deepseek/sessions/checkpoints/offline_queue.json`
-4. Queue edits (`/queue ...`) are persisted continuously so drafts and queued prompts survive restarts
-5. Successful turn completion clears the active checkpoint and writes a durable session snapshot
-6. Agent/Yolo turns also take pre/post-turn side-git workspace snapshots under `~/.deepseek/snapshots/<project_hash>/<worktree_hash>/.git`; `/restore N` and `revert_turn` restore file state without changing conversation history or the user's `.git`
+1. 发送用户输入前，TUI 将检查点快照写入 `~/.deepseek/sessions/checkpoints/latest.json`
+2. 启动时默认保持新鲜；先前的会话通过 `--resume`/`--continue`（或 TUI 中的 `Ctrl+R`）显式恢复
+3. 降级/离线时，新提示在内存中排队并镜像到 `~/.deepseek/sessions/checkpoints/offline_queue.json`
+4. 队列编辑（`/queue ...`）持续持久化，因此草稿和排队的提示在重启后仍然存在
+5. 成功完成回合后清除活动检查点并写入持久会话快照
+6. 代理/Yolo 回合还在 `~/.deepseek/snapshots/<project_hash>/<worktree_hash>/.git` 下获取回合前后的 side-git 工作区快照；`/restore N` 和 `revert_turn` 恢复文件状态而不改变对话历史或用户的 `.git`
 
-### Tool Execution
+### 工具执行
 
-1. LLM requests tool via `tool_use` content block
-2. Tool registry looks up handler
-3. Pre-execution hooks run
-4. Approval requested if needed (non-yolo mode)
-5. Tool executed (possibly sandboxed on macOS)
-6. Post-execution hooks run
-7. Result metadata is retained on runtime item records
-8. **LSP post-edit hook** (v0.8.6): if the tool was `edit_file`/`apply_patch`/`write_file` and LSP is enabled, the engine runs `run_post_edit_lsp_hook()` to collect diagnostics
-9. **Diagnostics flush** (v0.8.6): before the next API request, `flush_pending_lsp_diagnostics()` injects any collected errors as a synthetic user message
-10. Result returned to agent loop
+1. LLM 通过 `tool_use` 内容块请求工具
+2. 工具注册表查找处理程序
+3. 运行预执行钩子
+4. 如果需要则请求审批（非 yolo 模式）
+5. 工具执行（在 macOS 上可能被沙箱化）
+6. 运行预执行钩子
+7. 结果元数据保留在运行时项记录上
+8. **LSP 编辑后钩子**（v0.8.6）：如果工具是 `edit_file`/`apply_patch`/`write_file` 且启用了 LSP，引擎运行 `run_post_edit_lsp_hook()` 收集诊断
+9. **诊断刷新**（v0.8.6）：在下一个 API 请求之前，`flush_pending_lsp_diagnostics()` 将收集的错误作为合成用户消息注入
+10. 结果返回给代理循环
 
-### Background Tasks
+### 后台任务
 
-1. Client enqueues task (`/task add ...` or `POST /v1/tasks`)
-2. `task_manager.rs` persists task + queue entry under `~/.deepseek/tasks`
-3. Worker picks queued task (bounded pool), transitions to `running`
-4. Task creates/uses a runtime thread and starts a runtime turn
-5. `runtime_threads.rs` persists thread/turn/item records + monotonic event sequence
-6. Timeline/tool summaries/artifact references are persisted incrementally
-7. Checklist state, verifier gates, PR attempts, and guarded GitHub events are applied from tool metadata to the active task
-8. Final state (`completed|failed|canceled`) is durable and queryable via TUI/API
+1. 客户端排队任务（`/task add ...` 或 `POST /v1/tasks`）
+2. `task_manager.rs` 在 `~/.deepseek/tasks` 下持久化任务 + 队列条目
+3. 工作器选择排队任务（有界池），转换为 `running`
+4. 任务创建/使用运行时线程并启动运行时回合
+5. `runtime_threads.rs` 持久化线程/回合/项记录 + 单调事件序列
+6. 时间线/工具摘要/工件引用增量持久化
+7. 检查列表状态、验证器门控、PR 尝试和受保护的 GitHub 事件从工具元数据应用到活动任务
+8. 最终状态（`completed|failed|canceled`）是持久的，可通过 TUI/API 查询
 
-Model-visible durable task tools are a surface over this same manager. They do
-not introduce a parallel work system: `task_create` enqueues normal tasks,
-`checklist_*` updates task-local progress, `task_gate_run` and completed
-`task_shell_wait` attach verification evidence, and automation runs enqueue
-ordinary durable tasks.
+模型可见的持久任务工具是此同一管理器的表面。它们不
+引入并行工作系统：`task_create` 排队正常任务，
+`checklist_*` 更新任务本地进度，`task_gate_run` 和已完成的
+`task_shell_wait` 附加验证证据，自动化运行排队
+普通持久任务。
 
-### Runtime Thread/Turn Timeline
+### 运行时线程/回合时间线
 
-1. API/TUI creates or resumes a thread (`/v1/threads*`)
-2. Turn starts on the thread (`/v1/threads/{id}/turns`)
-3. Engine events are mapped to item lifecycle events (`item.started|item.delta|item.completed`)
-4. Interrupt/steer operations apply to the active turn only
-5. Compaction (auto/manual) is emitted as `context_compaction` item lifecycle
-6. Clients replay history and resume with `/v1/threads/{id}/events?since_seq=<n>`
+1. API/TUI 创建或恢复线程（`/v1/threads*`）
+2. 回合在线程上开始（`/v1/threads/{id}/turns`）
+3. 引擎事件映射到项生命周期事件（`item.started|item.delta|item.completed`）
+4. 中断/转向操作仅应用于活动回合
+5. 压缩（自动/手动）作为 `context_compaction` 项生命周期发出
+6. 客户端重放历史并通过 `/v1/threads/{id}/events?since_seq=<n>` 恢复
 
-### Durable Schema Gates
+### 持久模式门
 
-- `session_manager.rs`, `runtime_threads.rs`, and `task_manager.rs` embed `schema_version` on persisted records.
-- On load, newer schema versions are rejected with explicit errors instead of silently truncating/overwriting data.
-- This allows safe forward migrations and prevents corruption when binaries and stored state are out of sync.
+- `session_manager.rs`、`runtime_threads.rs` 和 `task_manager.rs` 在持久化记录上嵌入 `schema_version`。
+- 加载时，较新的模式版本会被显式错误拒绝，而不是静默截断/覆盖数据。
+- 这允许安全的前向迁移，并防止二进制文件和存储状态不同步时的损坏。
 
-## Extension Points
+## 扩展点
 
-### Adding a New Tool
+### 添加新工具
 
-1. Create handler in `tools/`
-2. Register in `tools/registry.rs`
-3. Add tool specification (name, description, input schema)
+1. 在 `tools/` 中创建处理程序
+2. 在 `tools/registry.rs` 中注册
+3. 添加工具规范（名称、描述、输入模式）
 
-### Adding an MCP Server
+### 添加 MCP 服务器
 
-1. Configure in `~/.deepseek/mcp.json`
-2. Server auto-discovered at startup
-3. Tools exposed to LLM automatically
+1. 在 `~/.deepseek/mcp.json` 中配置
+2. 启动时自动发现服务器
+3. 工具自动暴露给 LLM
 
-### Creating a Skill
+### 创建技能
 
-1. Create skill directory with `SKILL.md`
-2. Define skill prompt and optional scripts
-3. Place in `~/.deepseek/skills/`
+1. 创建带有 `SKILL.md` 的技能目录
+2. 定义技能提示和可选脚本
+3. 放置在 `~/.deepseek/skills/` 中
 
-### Adding Hooks
+### 添加钩子
 
-Configure in `~/.deepseek/config.toml`:
+在 `~/.deepseek/config.toml` 中配置：
 
 ```toml
 [[hooks]]
 event = "tool_call_before"
-command = "echo 'Running tool: $TOOL_NAME'"
+command = "echo '运行工具：$TOOL_NAME'"
 ```
 
-## Key Design Decisions
+## 关键设计决策
 
-1. **Streaming-first**: All LLM responses stream for responsiveness
-2. **Tool safety**: Non-YOLO mode requires approval for destructive operations, including side-effectful MCP tools
-3. **Extensibility**: MCP, skills, and hooks allow customization without code changes
-4. **Cross-platform**: Core works on Linux/macOS/Windows. Sandbox guarantees
-   are platform-specific: macOS Seatbelt is the active policy path; Linux and
-   Windows require helper enforcement before they should be treated as full OS
-   sandboxing.
-5. **Minimal dependencies**: Careful dependency selection for build speed
-6. **Local-first runtime API**: HTTP/SSE endpoints are intended for trusted localhost access and are served by the `crates/tui` runtime today
+1. **流式优先**：所有 LLM 响应流式传输以提高响应速度
+2. **工具安全**：非 YOLO 模式需要审批破坏性操作，包括有副作用的 MCP 工具
+3. **可扩展性**：MCP、技能和钩子允许无需代码更改的自定义
+4. **跨平台**：核心在 Linux/macOS/Windows 上工作。沙箱保证
+   是平台特定的：macOS Seatbelt 是活动策略路径；Linux 和
+   Windows 需要辅助执行才能被视为完整的操作系统
+   沙箱。
+5. **最小依赖**：谨慎选择依赖以加快构建速度
+6. **本地优先运行时 API**：HTTP/SSE 端点旨在用于受信任的 localhost 访问，目前由 `crates/tui` 运行时提供服务
 
-## Configuration Files
+## 配置文件
 
-- `~/.deepseek/config.toml` - Main configuration
-- `/etc/deepseek/managed_config.toml` - Optional managed defaults layer (Unix)
-- `/etc/deepseek/requirements.toml` - Optional allowed-policy constraints (Unix)
-- `~/.deepseek/mcp.json` - MCP server configuration
-- `~/.deepseek/skills/` - User skills directory
-- `~/.deepseek/sessions/` - Session history
-- `~/.deepseek/sessions/checkpoints/` - Crash checkpoint + offline queue persistence
-- `~/.deepseek/snapshots/` - Side-git pre/post-turn workspace snapshots for `/restore` and `revert_turn`
-- `~/.deepseek/tasks/` - Background task records, queue, timelines, artifacts
-- `~/.deepseek/audit.log` - Append-only audit events for credential + approval/elevation actions
+- `~/.deepseek/config.toml` - 主要配置
+- `/etc/deepseek/managed_config.toml` - 可选的托管默认层（Unix）
+- `/etc/deepseek/requirements.toml` - 可选的允许策略约束（Unix）
+- `~/.deepseek/mcp.json` - MCP 服务器配置
+- `~/.deepseek/skills/` - 用户技能目录
+- `~/.deepseek/sessions/` - 会话历史
+- `~/.deepseek/sessions/checkpoints/` - 崩溃检查点 + 离线队列持久化
+- `~/.deepseek/snapshots/` - 用于 `/restore` 和 `revert_turn` 的 side-git 回合前后工作区快照
+- `~/.deepseek/tasks/` - 后台任务记录、队列、时间线、工件
+- `~/.deepseek/audit.log` - 凭据 + 审批/提升操作的追加_only 审计事件
