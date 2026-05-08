@@ -1472,6 +1472,26 @@ fn home_config_path() -> Option<PathBuf> {
     effective_home_dir().map(|home| home.join(".deepseek").join("config.toml"))
 }
 
+/// Get config path from project directory (.deepseek/config.toml)
+fn project_config_path() -> Option<PathBuf> {
+    if let Ok(current_dir) = std::env::current_dir() {
+        let mut search_dir = current_dir.as_path();
+        loop {
+            let project_config = search_dir.join(".deepseek").join("config.toml");
+            if project_config.exists() {
+                return Some(project_config);
+            }
+            
+            // Move to parent directory
+            match search_dir.parent() {
+                Some(parent) => search_dir = parent,
+                None => break, // Reached filesystem root
+            }
+        }
+    }
+    None
+}
+
 fn env_config_path() -> Option<PathBuf> {
     if let Ok(path) = std::env::var("DEEPSEEK_CONFIG_PATH") {
         let trimmed = path.trim();
@@ -1494,6 +1514,7 @@ fn resolve_load_config_path(path: Option<PathBuf>) -> Option<PathBuf> {
         return Some(expand_pathbuf(path));
     }
 
+    // Priority 1: DEEPSEEK_CONFIG_PATH environment variable
     if let Some(path) = env_config_path() {
         if path.exists() {
             return Some(path);
@@ -1508,6 +1529,12 @@ fn resolve_load_config_path(path: Option<PathBuf>) -> Option<PathBuf> {
         return Some(path);
     }
 
+    // Priority 2: Project directory config (.deepseek/config.toml)
+    if let Some(project_path) = project_config_path() {
+        return Some(project_path);
+    }
+
+    // Priority 3: Home directory config (~/.deepseek/config.toml)
     home_config_path()
 }
 
@@ -1603,6 +1630,26 @@ fn default_memory_path() -> Option<PathBuf> {
 }
 
 pub(crate) fn default_i18n_dir() -> Option<PathBuf> {
+    // Priority 1: Check if we're in a project with .deepseek/i18n/ directory
+    // This avoids permission issues with ~/.deepseek/i18n/
+    // Search upwards from current directory to find project root
+    if let Ok(current_dir) = std::env::current_dir() {
+        let mut search_dir = current_dir.as_path();
+        loop {
+            let project_i18n = search_dir.join(".deepseek").join("i18n");
+            if project_i18n.exists() {
+                return Some(project_i18n);
+            }
+            
+            // Move to parent directory
+            match search_dir.parent() {
+                Some(parent) => search_dir = parent,
+                None => break, // Reached filesystem root
+            }
+        }
+    }
+    
+    // Priority 2: Fall back to ~/.deepseek/i18n/
     effective_home_dir().map(|home| home.join(".deepseek").join("i18n"))
 }
 

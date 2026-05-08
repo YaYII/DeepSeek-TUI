@@ -910,20 +910,7 @@ pub fn tr_json(key: &str) -> String {
         }
     }
 
-    // Non-interactive CLI commands and tests can call `tr()` before the TUI
-    // has initialized the cache. Load lazily so user-visible output does not
-    // fall back to raw message keys.
-    if let Ok(translations) = crate::i18n_files::load_translations() {
-        let value = translations.get(key).cloned();
-        if let Ok(mut cache) = TRANSLATION_CACHE.write() {
-            *cache = translations;
-        }
-        if let Some(value) = value {
-            return value;
-        }
-    }
-
-    // Last resort: return the key itself
+    // Cache miss: return the key itself (cache should be initialized at startup)
     key.to_string()
 }
 

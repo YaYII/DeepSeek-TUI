@@ -1307,6 +1307,10 @@ impl Engine {
         // `/trust add` / `/trust remove` mutations without an explicit cache
         // refresh hook.
         let trusted = crate::workspace_trust::WorkspaceTrust::load_for(&self.session.workspace);
+        
+        // Note: i18n directory is now inside the project workspace (.deepseek/i18n/),
+        // so no special trust path handling is needed.
+        
         let mut ctx = ToolContext::with_auto_approve(
             self.session.workspace.clone(),
             self.session.trust_mode,

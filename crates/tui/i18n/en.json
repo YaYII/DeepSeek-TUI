@@ -74,7 +74,7 @@
     "cmd_jobs_description": "Inspect and control background shell jobs",
     "cmd_links_description": "Show DeepSeek dashboard and docs links",
     "cmd_load_description": "Load session from file",
-    "cmd_localize_description": "Ask the assistant to generate or repair the local i18n.json file",
+    "cmd_localize_description": "Create or repair local i18n target files for translation",
     "cmd_logout_description": "Clear API key and return to setup",
     "cmd_mcp_description": "Open or manage MCP servers",
     "cmd_memory_description": "Inspect or manage the persistent user-memory file",

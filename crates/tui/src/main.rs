@@ -1825,7 +1825,7 @@ async fn run_doctor(config: &Config, workspace: &Path, config_path_override: Opt
 
                 println!(
                     "  {}",
-                    "· Localization generation is interactive; run /localize <locale> in the TUI to create or repair i18n.json."
+                    "· Localization scaffolding writes readable local i18n files; run /localize <locale> in the TUI to create or repair ~/.deepseek/i18n."
                         .dimmed()
                 );
             }

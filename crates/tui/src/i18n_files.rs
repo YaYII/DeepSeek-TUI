@@ -1,8 +1,8 @@
-//! Runtime i18n file discovery and transparent localization task prompts.
+//! Runtime i18n file discovery and local localization file scaffolding.
 //!
 //! The application never calls a hidden translation API from here. `/localize`
-//! sends the generated instructions through the normal TUI conversation so the
-//! user can inspect, edit, and approve the files the assistant writes.
+//! writes readable target files to the local i18n directory so they can be
+//! translated later by DeepSeek or any other tool.
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
@@ -69,64 +69,48 @@ pub fn load_translations() -> Result<HashMap<String, String>> {
     Ok(load_en_json()?.translations)
 }
 
-/// Build the visible TUI task sent by `/localize <locale>`.
-pub fn generate_tui_localization_prompt(target_locale: &str) -> Result<String> {
-    let en_path = bundled_i18n_dir().join("en.json");
-    let source = fs::read_to_string(&en_path)
-        .with_context(|| format!("Unable to read {}", en_path.display()))?;
-    let output_dir = user_i18n_dir();
-    let output_path = output_dir.join("i18n.json");
-    let prompt_files = prompt_localization_targets(&output_dir);
-    let prompt_file_list = prompt_files
-        .iter()
-        .map(|target| {
-            format!(
-                "- `{}` -> `{}`",
-                target.source.display(),
-                target.output.display()
-            )
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
+/// Result of scaffolding localizable files into the target i18n directory.
+#[derive(Debug, Clone, Default)]
+pub struct LocalizationScaffoldReport {
+    #[allow(dead_code)]
+    pub output_dir: PathBuf,
+    pub created_files: Vec<PathBuf>,
+}
 
-    Ok(format!(
-        r#"请为 DeepSeek TUI 生成本地化文件。
+impl LocalizationScaffoldReport {
+    fn record_created(&mut self, path: PathBuf) {
+        self.created_files.push(path);
+    }
+}
 
-目标语言标签：{target_locale}
-英文 UI 源文件：{en_path}
-输出目录：{output_dir}
-UI 输出文件：{output_path}
+pub(crate) fn scaffold_tui_localization_files(
+    output_dir: &Path,
+    _target_locale: &str,
+) -> Result<LocalizationScaffoldReport> {
+    fs::create_dir_all(output_dir)
+        .with_context(|| format!("Unable to create {}", output_dir.display()))?;
 
-所有输出文件都放在 `{output_dir}`。运行时优先读取这里的本地文件；文件缺失时回退到软件内置英文内容。
+    let mut report = LocalizationScaffoldReport {
+        output_dir: output_dir.to_path_buf(),
+        ..LocalizationScaffoldReport::default()
+    };
 
-还要本地化系统 prompt 覆盖文件。命名规则是 `原文件名.i18n.原后缀`，例如 `base.md` 输出为 `base.i18n.md`。
+    // Copy en.json as i18n.json (user will translate it)
+    let en_source_path = bundled_i18n_dir().join("en.json");
+    let i18n_output_path = output_dir.join("i18n.json");
+    let en_content = fs::read_to_string(&en_source_path)
+        .with_context(|| format!("Unable to read {}", en_source_path.display()))?;
+    ensure_text_scaffold(&i18n_output_path, &en_content)?;
+    report.record_created(i18n_output_path);
 
-系统 prompt 源文件与输出文件：
-{prompt_file_list}
+    for target in prompt_localization_targets(output_dir) {
+        let source = fs::read_to_string(&target.source)
+            .with_context(|| format!("Unable to read {}", target.source.display()))?;
+        ensure_text_scaffold(&target.output, &source)?;
+        report.record_created(target.output);
+    }
 
-请执行这些步骤：
-1. 创建输出目录 `{output_dir}`。
-2. 读取下面的英文 JSON，保持顶层结构兼容 `version`、`language`、`language_name`、`description`、`last_updated`、`generated_by`、`source`、`translations`。
-3. 只翻译 `translations` 里的值，不要翻译键。
-4. 保留所有占位符变量，例如 `{{tag}}`、`{{err}}`、`{{count}}`、`{{cost}}`、`{{path}}`。
-5. 保留换行语义、命令名、配置键、模型名、文件路径、URL、快捷键和终端符号。
-6. 将 UI 翻译写入 `{output_path}`，其中 `language` 必须是 `{target_locale}`，`source` 使用 `en.json`，`generated_by` 使用 `DeepSeek TUI visible localization workflow`。
-7. 对上面列出的每个系统 prompt 源文件，读取源文件，翻译人类可见说明文本，保留 Markdown 结构、XML/HTML 标签、工具名、命令名、配置键、代码块、占位符和 sentinel 字符串。把结果写入对应的 `*.i18n.*` 输出文件。
-8. 写入后用 JSON 解析器校验 `{output_path}` 是合法 JSON，并检查翻译键集合与英文源一致。发现问题请直接修正文件。
-9. 完成后告诉我需要重启 TUI 才会加载新的本地化文件。
-
-英文 UI 源 JSON：
-```json
-{source}
-```
-"#,
-        target_locale = target_locale,
-        en_path = en_path.display(),
-        output_dir = output_dir.display(),
-        output_path = output_path.display(),
-        prompt_file_list = prompt_file_list,
-        source = source
-    ))
+    Ok(report)
 }
 
 #[derive(Debug)]
@@ -147,9 +131,17 @@ fn prompt_localization_targets(output_dir: &Path) -> Vec<PromptLocalizationTarge
         .collect()
 }
 
+fn ensure_text_scaffold(path: &Path, contents: &str) -> Result<bool> {
+    // Always overwrite to ensure latest source content
+    crate::utils::write_atomic(path, contents.as_bytes())
+        .with_context(|| format!("Unable to write {}", path.display()))?;
+    Ok(true)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tempfile::tempdir;
 
     #[test]
     fn load_en_json_from_bundled_source() {
@@ -159,13 +151,71 @@ mod tests {
     }
 
     #[test]
-    fn localize_prompt_mentions_user_i18n_outputs() {
-        let prompt = generate_tui_localization_prompt("zh-Hans").expect("prompt");
-        assert!(prompt.contains("zh-Hans"));
-        assert!(prompt.contains("i18n.json"));
+    fn scaffold_localization_files_creates_readable_targets() {
+        let tmp = tempdir().expect("tempdir");
+        let report = scaffold_tui_localization_files(tmp.path(), "zh-Hans").expect("scaffold");
+        
+        // Check i18n.json is created (copied from en.json)
+        assert!(
+            report
+                .created_files
+                .iter()
+                .any(|path| path.ends_with("i18n.json"))
+        );
+        assert!(tmp.path().join("i18n.json").exists());
+        
+        // Verify it's a copy of en.json
+        let i18n_config: I18nConfig = serde_json::from_str(
+            &fs::read_to_string(tmp.path().join("i18n.json")).expect("read i18n json"),
+        )
+        .expect("parse i18n json");
+        assert_eq!(i18n_config.language, "en"); // Should still be "en" since it's a direct copy
+        assert!(!i18n_config.translations.is_empty());
+
         for layer in crate::prompts::LOCALIZABLE_PROMPT_LAYERS {
-            let output = crate::prompts::i18n_prompt_file_name(layer.relative_path);
-            assert!(prompt.contains(&output), "missing {output}");
+            let output = tmp
+                .path()
+                .join(crate::prompts::i18n_prompt_file_name(layer.relative_path));
+            assert!(output.exists(), "missing {}", output.display());
+            let raw = fs::read_to_string(&output).expect("localized prompt");
+            assert!(!raw.trim().is_empty(), "empty {}", output.display());
         }
+    }
+
+    #[test]
+    fn scaffold_localization_files_overwrites_existing_targets() {
+        let tmp = tempdir().expect("tempdir");
+        let output_dir = tmp.path();
+        fs::create_dir_all(output_dir).expect("mkdir");
+        let i18n_path = output_dir.join("i18n.json");
+        let seed = I18nConfig {
+            version: "1.0".to_string(),
+            language: "zh-Hans".to_string(),
+            language_name: "简体中文".to_string(),
+            description: "seed".to_string(),
+            last_updated: "2026-05-06".to_string(),
+            generated_by: None,
+            source: None,
+            translations: HashMap::from([(String::from("key"), String::from("value"))]),
+        };
+        let seed_json = serde_json::to_string(&seed).expect("serialize seed");
+        fs::write(&i18n_path, &seed_json).expect("seed i18n");
+        let prompt_path = output_dir.join("base.i18n.md");
+        fs::write(&prompt_path, "existing translation").expect("seed prompt");
+
+        let report = scaffold_tui_localization_files(output_dir, "zh-Hans").expect("scaffold");
+
+        // Should overwrite existing files
+        assert!(report.created_files.contains(&i18n_path));
+        assert!(report.created_files.contains(&prompt_path));
+
+        // Content should be updated (direct copy from en.json)
+        let new_i18n_content = fs::read_to_string(&i18n_path).expect("read i18n");
+        let new_config: I18nConfig = serde_json::from_str(&new_i18n_content).expect("parse");
+        assert_eq!(new_config.language, "en"); // Direct copy, so still "en"
+        assert_ne!(new_config.description, "seed"); // Should match en.json description
+
+        let new_prompt_content = fs::read_to_string(&prompt_path).expect("read prompt");
+        assert_ne!(new_prompt_content, "existing translation"); // Should be updated
     }
 }
