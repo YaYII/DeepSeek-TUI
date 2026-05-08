@@ -1,26 +1,23 @@
 //! `MockLlmClient` — 用于测试的队列驱动 `LlmClient` 实现。
 //!
-//! This client implements the [`LlmClient`](super::LlmClient) trait by replaying a
-//! pre-loaded queue of canned responses (one per turn). It captures every
-//! request the runtime sends so tests can assert on the outgoing payload —
-//! e.g. confirming that prior `reasoning_content` is replayed in DeepSeek V4
-//! thinking-mode tool-calling turns (V4 §5.1.1; the bug that broke
-//! v0.4.9-v0.5.1).
+//! 此客户端通过重放预加载的预设响应队列（每轮一个）来实现
+//! [`LlmClient`](super::LlmClient) trait。它捕获运行时发送的每个请求，
+//! 以便测试可以断言发出的负载——例如确认在 DeepSeek V4 思维模式工具调用轮次中
+//! 重放了先前的 `reasoning_content`（V4 §5.1.1；破坏了 v0.4.9-v0.5.1 的 bug）。
 //!
-//! # Mocking strategy
+//! # Mock 策略
 //!
-//! Tests mock at the **trait boundary** (`LlmClient`), never at the `reqwest`
-//! HTTP layer. The trait is the durable abstraction — internal HTTP plumbing
-//! changes frequently and is not part of the public engine contract.
+//! 测试在 **trait 边界**（`LlmClient`）处模拟，永远不会在 `reqwest` HTTP 层。
+//! trait 是持久的抽象——内部 HTTP 管道频繁更改，不属于公共引擎合约的一部分。
 //!
-//! # Example
+//! # 示例
 //!
 //! ```ignore
 //! use crate::llm_client::mock::{MockLlmClient, canned};
 //! use crate::llm_client::LlmClient;
 //!
-//! // One canned turn that emits "hello world" as two text deltas, then
-//! // finishes with stop_reason = "end_turn".
+//! // 一个预设轮次，以两个文本 delta 发出 "hello world"，
+//! // 然后以 stop_reason = "end_turn" 结束。
 //! let turn = vec![
 //!     canned::message_start("msg_1"),
 //!     canned::text_delta(0, "hello "),
@@ -30,15 +27,15 @@
 //!
 //! let mock = MockLlmClient::new(vec![turn]);
 //! let stream = mock.create_message_stream(/* ... */).await.unwrap();
-//! // ... drain the stream, assert deltas ...
+//! // ... 消费流，断言 delta ...
 //! assert_eq!(mock.call_count(), 1);
 //! assert_eq!(mock.captured_requests().len(), 1);
 //! ```
 
-// This module ships methods + builder helpers that integration tests rely on
-// individually. Not every helper is exercised by unit tests — that's expected
-// (the goal is a usable mock surface for downstream tests), so we silence
-// per-item dead-code warnings at the module level.
+// 此模块提供集成测试单独依赖的方法和构建器辅助函数。
+// 并非每个辅助函数都经过单元测试——这是预期的（目标是
+// 为下游测试提供可用的 mock 接口），因此我们在模块级别
+// 静默逐项死代码警告。
 #![allow(dead_code)]
 
 use std::collections::VecDeque;
@@ -56,38 +53,34 @@ use crate::models::{
 
 use super::{LlmClient, StreamEventBox};
 
-/// A pre-recorded "turn" the mock will replay on the next streaming call.
+/// 一个预设的"轮次"，mock 将在下次流式调用时重放。
 ///
-/// `MessageStop` does *not* need to be the final element — the mock will
-/// auto-emit one if missing, mirroring the real client's behaviour. Likewise
-/// the mock does not require `MessageStart` to be present.
+/// `MessageStop` *不*需要是最后一个元素——如果缺少，mock 将自动发出一个，
+/// 镜像真实客户端的行为。同样，mock 不需要 `MessageStart` 存在。
 pub type CannedTurn = Vec<StreamEvent>;
 
-/// A queue-driven mock LLM client.
+/// 一个队列驱动的 mock LLM 客户端。
 ///
-/// The mock holds a FIFO queue of canned response turns. Each call to
-/// [`LlmClient::create_message_stream`] dequeues the next turn and replays its
-/// events as a stream. If the queue is exhausted, the call returns an error
-/// — tests should ensure they push exactly as many turns as the runtime will
-/// consume.
+/// mock 持有一个预设响应轮的 FIFO 队列。每次调用
+/// [`LlmClient::create_message_stream`] 都会出队下一个轮次并将其事件作为流重放。
+/// 如果队列耗尽，调用返回错误——测试应确保它们推送的轮次数量与运行时将消费的
+/// 数量完全一致。
 ///
-/// The mock also captures the [`MessageRequest`] passed to every call so tests
-/// can assert on the outgoing payload (e.g. that prior `reasoning_content` is
-/// preserved across turns).
+/// mock 还会捕获传递给每次调用的 [`MessageRequest`]，以便测试可以断言
+/// 发出的负载（例如先前的 `reasoning_content` 在轮次间是否保留）。
 pub struct MockLlmClient {
     canned: Mutex<VecDeque<CannedTurn>>,
     captured_requests: Mutex<Vec<MessageRequest>>,
     calls: AtomicUsize,
     provider_name: &'static str,
     model: String,
-    /// If set, [`LlmClient::create_message`] returns this verbatim. Otherwise
-    /// it falls back to streaming + collection. Useful for non-streaming
-    /// compaction-style calls.
+    /// 如果设置，[`LlmClient::create_message`] 原样返回此值。否则回退到流 + 收集。
+    /// 对非流式压缩样式调用很有用。
     canned_messages: Mutex<VecDeque<MessageResponse>>,
 }
 
 impl MockLlmClient {
-    /// Construct a mock that will replay the given canned turns in order.
+    /// 构造一个将按顺序重放给定预设轮次的 mock。
     #[must_use]
     pub fn new(canned: Vec<CannedTurn>) -> Self {
         Self {
@@ -100,21 +93,21 @@ impl MockLlmClient {
         }
     }
 
-    /// Set the provider-name string returned by [`LlmClient::provider_name`].
+    /// 设置由 [`LlmClient::provider_name`] 返回的提供者名称字符串。
     #[must_use]
     pub fn with_provider(mut self, name: &'static str) -> Self {
         self.provider_name = name;
         self
     }
 
-    /// Set the model identifier returned by [`LlmClient::model`].
+    /// 设置由 [`LlmClient::model`] 返回的模型标识符。
     #[must_use]
     pub fn with_model(mut self, model: impl Into<String>) -> Self {
         self.model = model.into();
         self
     }
 
-    /// Push a canned turn onto the back of the queue.
+    /// 将一个预设轮次推入队列尾部。
     pub fn push_turn(&self, turn: CannedTurn) {
         self.canned
             .lock()
@@ -122,8 +115,7 @@ impl MockLlmClient {
             .push_back(turn);
     }
 
-    /// Push a canned non-streaming `MessageResponse`. Consumed by
-    /// [`LlmClient::create_message`] (FIFO).
+    /// 推送一个预设的非流式 `MessageResponse`。由 [`LlmClient::create_message`] FIFO 消费。
     pub fn push_message_response(&self, response: MessageResponse) {
         self.canned_messages
             .lock()
@@ -131,14 +123,13 @@ impl MockLlmClient {
             .push_back(response);
     }
 
-    /// Number of completed calls to either `create_message` or
-    /// `create_message_stream`.
+    /// 已完成的对 `create_message` 或 `create_message_stream` 的调用次数。
     #[must_use]
     pub fn call_count(&self) -> usize {
         self.calls.load(Ordering::SeqCst)
     }
 
-    /// Number of canned turns still queued.
+    /// 仍在队列中的预设轮次数。
     #[must_use]
     pub fn remaining_turns(&self) -> usize {
         self.canned
@@ -147,7 +138,7 @@ impl MockLlmClient {
             .len()
     }
 
-    /// Snapshot of every request the mock has been asked to handle, in order.
+    /// mock 被要求处理的每个请求的快照，按顺序排列。
     #[must_use]
     pub fn captured_requests(&self) -> Vec<MessageRequest> {
         self.captured_requests
@@ -156,8 +147,7 @@ impl MockLlmClient {
             .clone()
     }
 
-    /// Convenience: return the most recently captured request, or `None` if
-    /// the mock has not been called yet.
+    /// 便利方法：返回最近捕获的请求，如果 mock 尚未被调用则返回 `None`。
     #[must_use]
     pub fn last_request(&self) -> Option<MessageRequest> {
         self.captured_requests
@@ -235,8 +225,7 @@ impl LlmClient for MockLlmClient {
     }
 }
 
-/// Wrap a canned event vector as a stream that yields each event in order and
-/// auto-appends `MessageStop` if the trailing event is not already one.
+/// 将预设事件向量包装为流，按顺序产生每个事件，如果尾部事件还不是 `MessageStop` 则自动附加。
 fn stream_from_canned(turn: CannedTurn) -> StreamEventBox {
     let s = try_stream! {
         let has_stop = matches!(turn.last(), Some(StreamEvent::MessageStop));
@@ -250,9 +239,8 @@ fn stream_from_canned(turn: CannedTurn) -> StreamEventBox {
     Box::pin(s) as Pin<Box<dyn Stream<Item = Result<StreamEvent>> + Send + 'static>>
 }
 
-/// Best-effort: collapse a streaming turn into a non-streaming
-/// `MessageResponse` by concatenating text deltas. Used only as a fallback
-/// when callers `create_message` without a queued `MessageResponse`.
+/// 尽力而为：通过连接文本 delta 将流式轮次折叠为非流式 `MessageResponse`。
+/// 仅在调用者在没有队列 `MessageResponse` 的情况下调用 `create_message` 时作为回退使用。
 fn synthesize_message_response(turn: CannedTurn, model: &str) -> MessageResponse {
     use crate::models::Delta;
 
@@ -291,8 +279,7 @@ fn synthesize_message_response(turn: CannedTurn, model: &str) -> MessageResponse
     }
 }
 
-/// Builders for common canned-event patterns. Re-exported so tests can build
-/// realistic streams without wiring `StreamEvent` shapes by hand.
+/// 常见预设事件模式的构建器。重新导出，以便测试无需手动拼接 `StreamEvent` 形状即可构建逼真的流。
 pub mod canned {
     use serde_json::Value;
 
@@ -300,7 +287,7 @@ pub mod canned {
         ContentBlockStart, Delta, MessageDelta, MessageResponse, StreamEvent, Usage,
     };
 
-    /// `MessageStart` event with a synthetic message envelope.
+    /// 带有合成消息信封的 `MessageStart` 事件。
     #[must_use]
     pub fn message_start(id: &str) -> StreamEvent {
         StreamEvent::MessageStart {
@@ -318,7 +305,7 @@ pub mod canned {
         }
     }
 
-    /// Open a text content block at `index`.
+    /// 在 `index` 处打开一个文本内容块。
     #[must_use]
     pub fn text_block_start(index: u32) -> StreamEvent {
         StreamEvent::ContentBlockStart {
@@ -329,7 +316,7 @@ pub mod canned {
         }
     }
 
-    /// Append `text` to the content block at `index`.
+    /// 将 `text` 追加到 `index` 处的内容块。
     #[must_use]
     pub fn text_delta(index: u32, text: &str) -> StreamEvent {
         StreamEvent::ContentBlockDelta {
@@ -340,7 +327,7 @@ pub mod canned {
         }
     }
 
-    /// Append a thinking-content delta at `index`.
+    /// 在 `index` 处追加一个思维内容 delta。
     #[must_use]
     pub fn thinking_delta(index: u32, thinking: &str) -> StreamEvent {
         StreamEvent::ContentBlockDelta {
@@ -351,7 +338,7 @@ pub mod canned {
         }
     }
 
-    /// Open a tool_use content block at `index`.
+    /// 在 `index` 处打开一个 tool_use 内容块。
     #[must_use]
     pub fn tool_use_block_start(index: u32, id: &str, name: &str) -> StreamEvent {
         StreamEvent::ContentBlockStart {
@@ -365,7 +352,7 @@ pub mod canned {
         }
     }
 
-    /// Stream partial JSON for a tool's input arguments.
+    /// 流式传输工具输入参数的部分 JSON。
     #[must_use]
     pub fn tool_input_delta(index: u32, partial_json: &str) -> StreamEvent {
         StreamEvent::ContentBlockDelta {
@@ -376,7 +363,7 @@ pub mod canned {
         }
     }
 
-    /// Close the content block at `index`.
+    /// 关闭 `index` 处的内容块。
     #[must_use]
     pub fn block_stop(index: u32) -> StreamEvent {
         StreamEvent::ContentBlockStop { index }

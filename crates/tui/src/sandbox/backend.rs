@@ -1,37 +1,36 @@
 //! 可插拔沙箱后端抽象。
 //!
-//! External sandbox backends route shell command execution to a remote service
-//! (e.g. Alibaba OpenSandbox) instead of spawning a local process. This is
-//! complementary to the OS-level sandbox module (Seatbelt / Landlock / Windows)
-//! — the external backend *replaces* local execution entirely when configured.
+//! 外部沙箱后端将 shell 命令执行路由到远程服务（例如阿里云 OpenSandbox），
+//! 而不是在本地生成进程。这是对操作系统级沙箱模块（Seatbelt / Landlock / Windows）
+//! 的补充——外部后端在配置时会完全*替换*本地执行。
 
 use std::collections::HashMap;
 
 use anyhow::Result;
 use async_trait::async_trait;
 
-/// Output from a sandbox backend execution.
+/// 沙箱后端执行的输出。
 #[derive(Debug, Clone)]
 pub struct SandboxOutput {
-    /// Standard output from the command.
+    /// 命令的标准输出。
     pub stdout: String,
-    /// Standard error from the command.
+    /// 命令的标准错误。
     pub stderr: String,
-    /// Exit code (0 for success).
+    /// 退出码（0 表示成功）。
     pub exit_code: i32,
 }
 
-/// The kind of external sandbox backend.
+/// 外部沙箱后端的类型。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SandboxKind {
-    /// No external sandbox — execute commands locally.
+    /// 无外部沙箱——在本地执行命令。
     None,
-    /// Alibaba OpenSandbox remote execution.
+    /// 阿里云 OpenSandbox 远程执行。
     OpenSandbox,
 }
 
 impl SandboxKind {
-    /// Parse a sandbox backend name from config (case-insensitive).
+    /// 从配置中解析沙箱后端名称（不区分大小写）。
     #[must_use]
     pub fn parse(value: &str) -> Option<Self> {
         match value.trim().to_ascii_lowercase().as_str() {
@@ -41,7 +40,7 @@ impl SandboxKind {
         }
     }
 
-    /// Human-readable label.
+    /// 人类可读的标签。
     #[must_use]
     pub fn as_str(self) -> &'static str {
         match self {

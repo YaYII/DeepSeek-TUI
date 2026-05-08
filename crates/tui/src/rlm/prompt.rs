@@ -144,7 +144,7 @@ mod tests {
     #[test]
     fn rlm_prompt_requires_deterministic_counts_and_coverage() {
         let s = body();
-        assert!(s.contains("直接用 Python 计算"));
+        assert!(s.contains("直接用 Python 在 `context` 上计算"));
         assert!(s.contains("报告覆盖率"));
         assert!(s.contains("已处理分块"));
     }

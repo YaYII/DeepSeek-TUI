@@ -379,16 +379,16 @@ mod tests {
         let t = tool();
         let description = t.description();
         assert!(
-            description.contains("Use this tool when"),
-            "description should positively explain the RLM fit"
+            description.contains("使用此工具"),
+            "描述应正面解释 RLM 的适用场景"
         );
         assert!(
-            !description.contains("DO NOT use"),
-            "avoid training the model to avoid an available tool"
+            !description.contains("不要使用"),
+            "避免训练模型回避可用工具"
         );
         assert!(
-            !description.contains("slower and more expensive"),
-            "cost caveats belong in verification guidance, not tool suppression"
+            !description.contains("更慢且更贵"),
+            "成本警告应属于验证指导，而非工具抑制"
         );
     }
 
@@ -428,6 +428,6 @@ mod tests {
         let path_desc = schema["properties"]["file_path"]["description"]
             .as_str()
             .unwrap();
-        assert!(path_desc.to_lowercase().contains("mutually exclusive"));
+        assert!(path_desc.contains("互斥"));
     }
 }

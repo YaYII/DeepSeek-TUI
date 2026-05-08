@@ -1,22 +1,19 @@
 //! 差异格式 — 统一 diff 格式化和解析。
 //!
-//! `edit_file` and `write_file` capture the file contents before and after
-//! the mutation and emit a unified diff at the head of their `ToolResult`
-//! output. The TUI's `output_looks_like_diff` detector then routes the
-//! payload through `diff_render::render_diff`, which renders it with line
-//! numbers and coloured `+`/`-` gutters (#505).
+//! `edit_file` 和 `write_file` 捕获变更前后的文件内容，并在其 `ToolResult`
+//! 输出的头部发出统一差异。TUI 的 `output_looks_like_diff` 检测器然后将负载
+//! 路由到 `diff_render::render_diff`，后者使用行号和彩色 `+`/`-` 边线渲染差异（#505）。
 //!
-//! The diff is also a strict UX upgrade for the model — it sees exactly
-//! which lines changed instead of a one-line summary.
+//! 差异对于模型来说也是一项严格的 UX 升级——它确切地看到哪些行发生了变化，
+//! 而不是一行摘要。
 
 use similar::TextDiff;
 
-/// Build a unified diff between `old` and `new` keyed at `path`.
+/// 构建 `old` 和 `new` 之间的统一差异，以 `path` 为键。
 ///
-/// Returns an empty string when the inputs are byte-identical so callers
-/// can skip the "no changes" header. The output uses git-style `--- a/...`
-/// / `+++ b/...` headers and three lines of context — matching the format
-/// the TUI's `diff_render::render_diff` already understands.
+/// 当输入字节相同时返回空字符串，以便调用者可跳过"无变更"标头。
+/// 输出使用 git 风格的 `--- a/...` / `+++ b/...` 标头和三行上下文——
+/// 匹配 TUI 的 `diff_render::render_diff` 已经理解的格式。
 #[must_use]
 pub fn make_unified_diff(path: &str, old: &str, new: &str) -> String {
     if old == new {

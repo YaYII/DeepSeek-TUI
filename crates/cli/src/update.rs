@@ -1,9 +1,7 @@
-//! Self-update for the `deepseek` binary.
+//! `deepseek` 二进制文件的自我更新。
 //!
-//! The `update` subcommand fetches the latest release from
-//! `github.com/Hmbown/DeepSeek-TUI/releases/latest`, downloads the
-//! platform-correct binary, verifies its SHA256 checksum, and atomically
-//! replaces the currently running binary.
+//! `update` 子命令从 `github.com/Hmbown/DeepSeek-TUI/releases/latest` 获取最新发布，
+//! 下载与平台匹配的二进制文件，验证其 SHA256 校验和，并以原子方式替换当前运行的二进制文件。
 
 use std::path::Path;
 use std::process::Command;
@@ -11,27 +9,27 @@ use std::process::Command;
 use anyhow::{Context, Result, bail};
 use std::io::Write;
 
-/// Run the self-update workflow.
+/// 运行自我更新流程。
 pub fn run_update() -> Result<()> {
     let current_exe =
-        std::env::current_exe().context("failed to determine current executable path")?;
+        std::env::current_exe().context("无法确定当前可执行文件路径")?;
 
-    println!("Checking for updates...");
-    println!("Current binary: {}", current_exe.display());
+    println!("正在检查更新...");
+    println!("当前二进制文件: {}", current_exe.display());
 
     let binary_name =
         release_asset_stem_for(&current_exe, std::env::consts::OS, std::env::consts::ARCH);
 
-    // Step 1: Fetch latest release metadata
+    // 步骤 1：获取最新发布元数据
     let release = fetch_latest_release()?;
     let latest_tag = &release.tag_name;
-    println!("Latest release: {latest_tag}");
+    println!("最新发布: {latest_tag}");
 
-    // Step 2: Find the matching asset
+    // 步骤 2：查找匹配的资产
     let asset = select_platform_asset(&release, &binary_name).with_context(|| {
         format!(
-            "no asset found for platform {binary_name} in release {latest_tag}. \
-                 Available assets: {}",
+            "在发布 {latest_tag} 中未找到平台 {binary_name} 的资产。\
+                 可用资产: {}",
             release
                 .assets
                 .iter()
@@ -41,43 +39,43 @@ pub fn run_update() -> Result<()> {
         )
     })?;
 
-    println!("Downloading {}...", asset.name);
+    println!("正在下载 {}...", asset.name);
 
-    // Step 3: Download the asset
+    // 步骤 3：下载资产
     let bytes = download_url(&asset.browser_download_url)
-        .with_context(|| format!("failed to download {}", asset.name))?;
+        .with_context(|| format!("下载 {} 失败", asset.name))?;
 
-    // Step 4: Download the SHA256 checksum file if available
+    // 步骤 4：如有可用则下载 SHA256 校验和文件
     let sha_url = format!("{}.sha256", asset.browser_download_url);
     let expected_hash = match download_url(&sha_url) {
         Ok(sha_bytes) => {
             let sha_text = String::from_utf8_lossy(&sha_bytes);
-            // Parse "hash  filename" format
+            // 解析 "hash  filename" 格式
             sha_text.split_whitespace().next().map(|s| s.to_string())
         }
         Err(_) => {
-            println!("  (no SHA256 checksum file found; skipping verification)");
+            println!("  （未找到 SHA256 校验和文件；跳过验证）");
             None
         }
     };
 
-    // Step 5: Verify checksum if available
+    // 步骤 5：如有校验和则进行验证
     if let Some(expected) = &expected_hash {
         let actual = sha256_hex(&bytes);
         if !actual.eq_ignore_ascii_case(expected) {
-            bail!("SHA256 mismatch!\n  expected: {expected}\n  actual:   {actual}");
+            bail!("SHA256 不匹配！\n  期望值: {expected}\n  实际值:   {actual}");
         }
-        println!("SHA256 checksum verified.");
+        println!("SHA256 校验和已验证。");
     }
 
-    // Step 6: Replace the current binary atomically
+    // 步骤 6：以原子方式替换当前二进制文件
     replace_binary(&current_exe, &bytes)?;
 
     println!(
-        "\n✅ Successfully updated to {latest_tag}!\n\
-         New binary: {}\n\
+        "\n✅ 已成功更新至 {latest_tag}！\n\
+         新二进制文件: {}\n\
          \n\
-         Restart the application to use the new version.",
+         请重新启动应用程序以使用新版本。",
         current_exe.display()
     );
 
@@ -126,21 +124,21 @@ fn select_platform_asset<'a>(release: &'a Release, binary_name: &str) -> Option<
         .find(|asset| asset_matches_platform(&asset.name, binary_name))
 }
 
-/// GitHub release metadata.
+/// GitHub 发布元数据。
 #[derive(serde::Deserialize, Debug)]
 struct Release {
     tag_name: String,
     assets: Vec<Asset>,
 }
 
-/// A single release asset.
+/// 单个发布资产。
 #[derive(serde::Deserialize, Debug)]
 struct Asset {
     name: String,
     browser_download_url: String,
 }
 
-/// Fetch the latest release metadata from GitHub.
+/// 从 GitHub 获取最新发布元数据。
 fn fetch_latest_release() -> Result<Release> {
     let url = "https://api.github.com/repos/Hmbown/DeepSeek-TUI/releases/latest";
     let output = Command::new("curl")
@@ -153,49 +151,48 @@ fn fetch_latest_release() -> Result<Release> {
             url,
         ])
         .output()
-        .context("failed to run curl to fetch release info")?;
+        .context("运行 curl 获取发布信息失败")?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        bail!("curl failed: {stderr}");
+        bail!("curl 失败: {stderr}");
     }
 
     let body = String::from_utf8_lossy(&output.stdout);
     let release: Release = serde_json::from_str(&body).with_context(|| {
-        format!("failed to parse release JSON from GitHub API. Response: {body}")
+        format!("无法从 GitHub API 解析发布 JSON。响应: {body}")
     })?;
 
     Ok(release)
 }
 
-/// Download a URL to bytes using curl.
+/// 使用 curl 下载 URL 至字节数组。
 fn download_url(url: &str) -> Result<Vec<u8>> {
     let output = Command::new("curl")
         .args(["-sSfL", url])
         .output()
-        .with_context(|| format!("failed to download {url}"))?;
+        .with_context(|| format!("下载 {url} 失败"))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        bail!("curl download failed: {stderr}");
+        bail!("curl 下载失败: {stderr}");
     }
 
     Ok(output.stdout)
 }
 
-/// Compute the SHA256 hex digest of data.
+/// 计算数据的 SHA256 十六进制摘要。
 fn sha256_hex(data: &[u8]) -> String {
     use sha2::Digest;
     let hash = sha2::Sha256::digest(data);
     format!("{hash:x}")
 }
 
-/// Replace the running binary.
+/// 替换正在运行的二进制文件。
 ///
-/// Writes the new binary to a secure temp file in the target directory, then
-/// installs it in place. Unix can atomically replace the executable path. On
-/// Windows, replacing a running executable can fail, so rename the current file
-/// out of the way before moving the new binary into the original path.
+/// 将新二进制文件写入目标目录中的安全临时文件，然后原位安装。
+/// Unix 可以原子方式替换可执行文件路径。在 Windows 上，替换正在运行的
+/// 可执行文件可能会失败，因此先将当前文件移走，再将新二进制文件移入原始路径。
 fn replace_binary(target: &Path, new_bytes: &[u8]) -> Result<()> {
     let parent = target
         .parent()
@@ -205,11 +202,11 @@ fn replace_binary(target: &Path, new_bytes: &[u8]) -> Result<()> {
     let mut tmp = tempfile::Builder::new()
         .prefix(".deepseek-update-")
         .tempfile_in(parent)
-        .with_context(|| format!("failed to create temp file in {}", parent.display()))?;
+        .with_context(|| format!("无法在 {} 中创建临时文件", parent.display()))?;
     tmp.write_all(new_bytes)
-        .with_context(|| format!("failed to write temp file at {}", tmp.path().display()))?;
+        .with_context(|| format!("无法写入临时文件 {}", tmp.path().display()))?;
 
-    // Preserve permissions from the original binary (if it exists)
+    // 保留原始二进制文件的权限（如果存在）
     if target.exists() {
         if let Ok(meta) = std::fs::metadata(target) {
             let _ = std::fs::set_permissions(tmp.path(), meta.permissions());
@@ -228,7 +225,7 @@ fn replace_binary(target: &Path, new_bytes: &[u8]) -> Result<()> {
         if target.exists() {
             std::fs::rename(target, &backup).with_context(|| {
                 format!(
-                    "failed to move current executable {} to {}",
+                    "无法将当前可执行文件 {} 移至 {}",
                     target.display(),
                     backup.display()
                 )
@@ -240,7 +237,7 @@ fn replace_binary(target: &Path, new_bytes: &[u8]) -> Result<()> {
                 let _ = std::fs::rename(&backup, target);
             }
             bail!(
-                "failed to install new binary at {}: {}",
+                "无法在新位置 {} 安装二进制文件: {}",
                 target.display(),
                 err.error
             );
@@ -253,7 +250,7 @@ fn replace_binary(target: &Path, new_bytes: &[u8]) -> Result<()> {
     {
         tmp.persist(target)
             .map_err(|err| err.error)
-            .with_context(|| format!("failed to rename temp file to {}", target.display()))?;
+            .with_context(|| format!("无法将临时文件重命名为 {}", target.display()))?;
     }
 
     Ok(())
@@ -281,29 +278,29 @@ fn backup_path_for(target: &Path) -> std::path::PathBuf {
 mod tests {
     use super::*;
 
-    /// Verify the arch mapping used when constructing asset names.
-    /// The mapping must use release-asset naming (arm64/x64), not Rust
-    /// stdlib constants (aarch64/x86_64).
+    /// 验证用于构造资产名称的架构映射。
+    /// 该映射必须使用发布资产命名（arm64/x64），而不是 Rust
+    /// 标准库常量（aarch64/x86_64）。
     #[test]
     fn test_arch_mapping() {
         assert_eq!(release_arch_for_rust_arch("aarch64"), "arm64");
         assert_eq!(release_arch_for_rust_arch("x86_64"), "x64");
-        // Pass-through for unknown arches
+        // 对于未知架构直通
         assert_eq!(release_arch_for_rust_arch("riscv64"), "riscv64");
-        // The currently-compiled arch maps to a release asset name
+        // 当前编译的架构映射到发布资产名称
         let compiled_arch = std::env::consts::ARCH;
         let asset_arch = release_arch_for_rust_arch(compiled_arch);
-        // Must not contain the raw Rust constant names
+        // 不得包含原始的 Rust 常量名称
         assert!(
             !asset_arch.contains("aarch64") && !asset_arch.contains("x86_64"),
-            "asset arch '{asset_arch}' still uses raw Rust constant name"
+            "资产架构 '{asset_arch}' 仍使用原始的 Rust 常量名称"
         );
     }
 
-    /// Verify binary prefix detection for dispatcher vs TUI binary.
+    /// 验证调度器与 TUI 二进制文件的前缀检测。
     #[test]
     fn test_binary_prefix_detection() {
-        // TUI binary should use deepseek-tui prefix
+        // TUI 二进制文件应使用 deepseek-tui 前缀
         assert_eq!(
             binary_prefix_for_exe(Path::new("deepseek-tui")),
             "deepseek-tui"
@@ -317,7 +314,7 @@ mod tests {
             "deepseek-tui"
         );
 
-        // Dispatcher binary should use deepseek prefix
+        // 调度器二进制文件应使用 deepseek 前缀
         assert_eq!(binary_prefix_for_exe(Path::new("deepseek")), "deepseek");
         assert_eq!(binary_prefix_for_exe(Path::new("deepseek.exe")), "deepseek");
         assert_eq!(
@@ -325,7 +322,7 @@ mod tests {
             "deepseek"
         );
 
-        // Fallback for unknown names
+        // 未知名称的备用方案
         assert_eq!(binary_prefix_for_exe(Path::new("other-binary")), "deepseek");
     }
 
@@ -397,7 +394,7 @@ mod tests {
     fn test_replace_binary_creates_and_replaces() {
         let dir = tempfile::TempDir::new().unwrap();
         let target = dir.path().join("deepseek-test");
-        // Write initial content
+        // 写入初始内容
         std::fs::write(&target, b"old binary").unwrap();
 
         replace_binary(&target, b"new binary content").unwrap();
@@ -415,10 +412,9 @@ mod tests {
         assert_eq!(content, "fresh binary");
     }
 
-    /// Mocked GitHub release payload covering both the dispatcher (`deepseek`)
-    /// and the legacy TUI (`deepseek-tui`) binaries across our published
-    /// platform/arch matrix, plus a checksum sibling that must never be picked
-    /// as the primary binary.
+    /// 模拟的 GitHub 发布载荷，涵盖调度器（`deepseek`）和旧版 TUI（`deepseek-tui`）
+    /// 二进制文件在我们发布的平台/架构矩阵上，以及一个永远不应被选为主二进制文件的
+    /// 校验和兄弟文件。
     fn mocked_release() -> Release {
         let json = r#"{
           "tag_name": "v0.8.8",
@@ -434,7 +430,7 @@ mod tests {
             { "name": "deepseek-tui-windows-x64.exe","browser_download_url": "https://example.invalid/deepseek-tui-windows-x64.exe" }
           ]
         }"#;
-        serde_json::from_str(json).expect("mock release JSON")
+        serde_json::from_str(json).expect("模拟发布 JSON")
     }
 
     #[test]
@@ -450,7 +446,7 @@ mod tests {
         for (os, arch, expected) in cases {
             let stem = release_asset_stem_for(Path::new("/usr/local/bin/deepseek"), os, arch);
             let asset = select_platform_asset(&release, &stem)
-                .unwrap_or_else(|| panic!("no asset for {os}/{arch} (stem {stem})"));
+                .unwrap_or_else(|| panic!("{os}/{arch} 无资产（stem {stem}）"));
             assert_eq!(asset.name, expected, "{os}/{arch}");
         }
     }
@@ -460,7 +456,7 @@ mod tests {
         let release = mocked_release();
         let stem =
             release_asset_stem_for(Path::new("/usr/local/bin/deepseek-tui"), "macos", "aarch64");
-        let asset = select_platform_asset(&release, &stem).expect("TUI platform asset");
+        let asset = select_platform_asset(&release, &stem).expect("TUI 平台资产");
         assert_eq!(asset.name, "deepseek-tui-macos-arm64");
     }
 }

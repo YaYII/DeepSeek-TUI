@@ -2,10 +2,9 @@
 
 pub mod install;
 mod system;
-// Re-exports kept for documentation parity and downstream consumers; the
-// binary itself imports directly from `skills::install`. `#[allow(...)]`
-// silences the dead-code warning that fires because no `bin` source path
-// references these names through `skills::*`.
+// 为文档一致性和下游消费者保留重导出；二进制文件本身直接从
+// `skills::install` 导入。`#[allow(...)]` 用于消除死代码警告，
+// 因为没有任何 `bin` 源代码路径通过 `skills::*` 引用这些名称。
 #[allow(unused_imports)]
 pub use install::{
     DEFAULT_MAX_SIZE_BYTES, DEFAULT_REGISTRY_URL, INSTALLED_FROM_MARKER, InstallOutcome,
@@ -36,17 +35,16 @@ pub fn default_skills_dir() -> PathBuf {
     )
 }
 
-/// Global agentskills.io-compatible skills directory (`~/.agents/skills`).
+/// 全局 agentskills.io 兼容技能目录（`~/.agents/skills`）。
 #[must_use]
 pub fn agents_global_skills_dir() -> Option<PathBuf> {
     dirs::home_dir().map(|p| p.join(".agents").join("skills"))
 }
 
-/// Global Claude-compatible skills directory (`~/.claude/skills`). The
-/// SKILL.md frontmatter convention is shared across the broader Claude
-/// ecosystem, so picking up the global path lets users inherit skills
-/// they already installed for other Claude-compatible tools without
-/// re-authoring them in DeepSeek's native layout (#902).
+/// 全局 Claude 兼容技能目录（`~/.claude/skills`）。SKILL.md
+/// 前置元数据约定在更广泛的 Claude 生态系统中共享，因此引入全局路径
+/// 使用户可以继承他们已为其他 Claude 兼容工具安装的技能，
+/// 而无需在 DeepSeek 的原生布局中重新编写它们（#902）。
 #[must_use]
 pub fn claude_global_skills_dir() -> Option<PathBuf> {
     dirs::home_dir().map(|p| p.join(".claude").join("skills"))
@@ -54,20 +52,19 @@ pub fn claude_global_skills_dir() -> Option<PathBuf> {
 
 // === Types ===
 
-/// Parsed representation of a SKILL.md definition.
+/// 已解析的 SKILL.md 定义表示。
 #[derive(Debug, Clone)]
 pub struct Skill {
     pub name: String,
     pub description: String,
     pub body: String,
-    /// On-disk path to the `SKILL.md` this was loaded from. The directory
-    /// name can differ from the frontmatter `name` for community installs
-    /// or manually-placed skills, so callers must use this rather than
-    /// reconstructing `<dir>/<name>/SKILL.md`.
+    /// 此技能加载来源的 `SKILL.md` 的磁盘路径。对于社区安装或手动放置的技能，
+    /// 目录名称可能与前置元数据中的 `name` 不同，因此调用者必须使用此路径
+    /// 而非重新构造 `<dir>/<name>/SKILL.md`。
     pub path: PathBuf,
 }
 
-/// Collection of discovered skills.
+/// 已发现技能的集合。
 #[derive(Debug, Clone, Default)]
 pub struct SkillRegistry {
     skills: Vec<Skill>,
@@ -75,31 +72,26 @@ pub struct SkillRegistry {
 }
 
 impl SkillRegistry {
-    /// Maximum directory-traversal depth when discovering skills.
+    /// 发现技能时的最大目录遍历深度。
     ///
-    /// Defends against pathological configurations (e.g. a user pointing
-    /// `skills_dir` at `~`) without artificially limiting realistic
-    /// vendored layouts like `<root>/<org>/<repo>/<skill>/SKILL.md`.
+    /// 防御病态配置（例如用户将 `skills_dir` 指向 `~`），
+    /// 同时不人为限制实际的供应商布局，如 `<root>/<org>/<repo>/<skill>/SKILL.md`。
     const MAX_DISCOVERY_DEPTH: usize = 8;
 
-    /// Discover skills from the given directory.
+    /// 从给定目录发现技能。
     ///
-    /// The search walks `dir` recursively: any directory that contains a
-    /// `SKILL.md` is loaded as a single skill, and the walk does **not**
-    /// descend further into that directory (companion files live next to
-    /// `SKILL.md`, and `tools::skill::collect_companion_files` already
-    /// treats nested subdirs as out-of-scope). This lets users organize
-    /// skills by vendor / category — e.g.
-    /// `<root>/<vendor>/<skill>/SKILL.md` — instead of being forced into
-    /// a flat `<root>/<skill>/SKILL.md` layout.
+    /// 搜索递归遍历 `dir`：任何包含 `SKILL.md` 的目录都被加载为一个技能，
+    /// 并且遍历**不会**进一步进入该目录（配套文件位于 `SKILL.md` 旁边，
+    /// 而 `tools::skill::collect_companion_files` 已将嵌套子目录视为范围外）。
+    /// 这使用户可以按供应商/类别组织技能——例如
+    /// `<root>/<vendor>/<skill>/SKILL.md`——而不是被迫使用扁平化的
+    /// `<root>/<skill>/SKILL.md` 布局。
     ///
-    /// Hidden subdirectories (names starting with `.`) below the root
-    /// are skipped to avoid descending into VCS / cache trees like
-    /// `.git/`. The provided `dir` itself is always honored, even if
-    /// hidden — that's what the user explicitly configured.
-    /// Symlinked directories are followed when they resolve to directories,
-    /// with canonical path tracking plus [`Self::MAX_DISCOVERY_DEPTH`] keeping
-    /// the walk finite when a skills layout contains cycles.
+    /// 根目录以下的隐藏子目录（名称以 `.` 开头）会被跳过，以避免进入
+    /// VCS/缓存树（如 `.git/`）。提供的 `dir` 本身始终被保留，即使它是
+    /// 隐藏目录——因为这是用户显式配置的。
+    /// 当符号链接解析到目录时会被跟随，通过规范路径跟踪和
+    /// [`Self::MAX_DISCOVERY_DEPTH`] 确保在技能布局包含循环时遍历仍保持有限。
     #[must_use]
     pub fn discover(dir: &Path) -> Self {
         let mut registry = Self::default();
@@ -128,10 +120,9 @@ impl SkillRegistry {
         let entries = match fs::read_dir(dir) {
             Ok(e) => e,
             Err(err) => {
-                // Only surface a warning for the user-provided root
-                // (depth == 0). Nested permission errors are usually
-                // noise (e.g. a stray `.Trash` inside someone's
-                // `~/.agents/skills`).
+                // 仅对用户提供的根目录（depth == 0）显示警告。
+                // 嵌套的权限错误通常是噪音（例如某人
+                // `~/.agents/skills` 中的零散 `.Trash` 目录）。
                 if depth == 0 {
                     registry.push_warning(format!(
                         "Failed to read skills directory {}: {err}",
@@ -144,14 +135,11 @@ impl SkillRegistry {
 
         for entry in entries.flatten() {
             let path = entry.path();
-            // Skip hidden subdirectories. Common offenders are `.git`,
-            // `.cache`, `.Trash`. The provided root itself is exempt:
-            // the user explicitly pointed `skills_dir` at it and we
-            // never filter it (it's passed directly to this function,
-            // not iterated). This check applies to *children* of the
-            // current directory at every depth — including depth 0,
-            // because a `.git/` right next to the skills we want is
-            // exactly the kind of noise we must not descend into.
+            // 跳过隐藏子目录。常见的罪魁祸首是 `.git`、`.cache`、`.Trash`。
+            // 提供的根目录本身不受此限制：用户显式地将 `skills_dir` 指向了它，
+            // 我们不会过滤它（它直接传递给此函数，而非通过迭代）。
+            // 此检查适用于当前目录的*子级*（包括深度0），
+            // 因为紧挨着我们想要的技能的 `.git/` 正是我们不得进入的噪音。
             if path
                 .file_name()
                 .and_then(|s| s.to_str())
@@ -176,10 +164,9 @@ impl SkillRegistry {
                         }
                         skill.path = skill_path.clone();
                         registry.skills.push(skill);
-                        // This directory IS a skill. Don't descend further:
-                        // any nested `SKILL.md` would be a fixture or
-                        // example bundled with the parent skill, not a
-                        // separately-installable skill.
+                        // 此目录就是一个技能。不再继续深入：
+                        // 任何嵌套的 `SKILL.md` 都将是父技能附带的
+                        // 固定配置或示例，而非可单独安装的技能。
                         continue;
                     }
                     Err(reason) => {
@@ -190,9 +177,8 @@ impl SkillRegistry {
                             "Failed to parse {}: {reason}",
                             skill_path.display()
                         ));
-                        // Still treat this directory as "claimed" — a
-                        // malformed SKILL.md shouldn't cause us to
-                        // double-load nested fixtures as skills.
+                        // 仍将此目录视为"已占用"——格式错误的 SKILL.md
+                        // 不应导致我们双重加载嵌套的固定配置作为技能。
                         continue;
                     }
                 },
@@ -205,8 +191,8 @@ impl SkillRegistry {
                     continue;
                 }
                 Err(_) => {
-                    // No SKILL.md here — recurse to look for nested
-                    // skill directories (e.g. `<vendor>/<skill>/SKILL.md`).
+                    // 此处没有 SKILL.md——递归查找嵌套的技能目录
+                    //（例如 `<vendor>/<skill>/SKILL.md`）。
                 }
             }
 
@@ -227,9 +213,9 @@ impl SkillRegistry {
     fn parse_skill(_path: &Path, content: &str) -> std::result::Result<Skill, String> {
         let trimmed = content.trim_start();
 
-        // Try to parse frontmatter block first. If absent, fall back to
-        // extracting the first `# Heading` as the skill name so that plain
-        // Markdown files (no `---` fence) are accepted instead of rejected.
+        // 先尝试解析前置元数据块。如果不存在，则回退到提取第一个
+        // `# Heading` 作为技能名称，以便纯 Markdown 文件（无 `---` 分隔线）
+        // 被接受而非拒绝。
         if trimmed.starts_with("---") {
             let start = content
                 .find("---")
@@ -274,14 +260,13 @@ impl SkillRegistry {
                 name,
                 description,
                 body: body.trim().to_string(),
-                // Filled in by `discover` after parse succeeds; default to an
-                // empty path so direct constructors (e.g. tests) compile.
+                // 由 `discover` 在解析成功后填充；默认为空路径以便直接构造者（如测试）编译。
                 path: PathBuf::new(),
             });
         }
 
-        // Graceful degradation: no frontmatter fence found.
-        // Extract the first `# Heading` as the skill name.
+        // 优雅降级：未找到前置元数据分隔线。
+        // 提取第一个 `# Heading` 作为技能名称。
         let heading_re = regex::Regex::new(r"(?m)^#\s+(.+)$").expect("static regex is valid");
         let name = heading_re
             .captures(content)
@@ -300,51 +285,46 @@ impl SkillRegistry {
         })
     }
 
-    /// Lookup a skill by name.
+    /// 按名称查找技能。
     pub fn get(&self, name: &str) -> Option<&Skill> {
         self.skills.iter().find(|s| s.name == name)
     }
 
-    /// Return all loaded skills.
+    /// 返回所有已加载的技能。
     pub fn list(&self) -> &[Skill] {
         &self.skills
     }
 
-    /// Parse or I/O warnings encountered while discovering skills.
+    /// 发现技能时遇到的解析或 I/O 警告。
     pub fn warnings(&self) -> &[String] {
         &self.warnings
     }
 
-    /// Check whether any skills were loaded.
+    /// 检查是否加载了任何技能。
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.skills.is_empty()
     }
 
-    /// Return the number of loaded skills.
+    /// 返回已加载技能的数量。
     #[must_use]
     pub fn len(&self) -> usize {
         self.skills.len()
     }
 }
 
-/// Render a compact model-visible skills block.
+/// 解析给定工作区的活动技能目录，镜像 `App::new` 的遍历层次：
+/// `<workspace>/.agents/skills` → `<workspace>/skills` →
+/// [`agents_global_skills_dir`]（`~/.agents/skills`，如果存在）→
+/// [`default_skills_dir`]（`~/.deepseek/skills`）。
+/// 返回第一个存在的目录，或全局默认值（如果用户没有家目录则回退到
+/// `/tmp/deepseek/skills`）。
 ///
-/// The full `SKILL.md` body is intentionally not included here. This mirrors
-/// Resolve the active skills directory given a workspace, mirroring the
-/// hierarchy `App::new` walks: `<workspace>/.agents/skills` →
-/// `<workspace>/skills` → [`agents_global_skills_dir`] (`~/.agents/skills`,
-/// when present) → [`default_skills_dir`] (`~/.deepseek/skills`).
-/// Returns the first directory that exists, or the global default
-/// (which itself falls back to `/tmp/deepseek/skills` if the user
-/// has no home directory).
-///
-/// Kept for callers that want a single canonical directory (e.g.
-/// "where do I install a new skill?"). For session-time discovery
-/// that should pick up cross-tool skill folders too, use
-/// [`skills_directories`] / [`discover_in_workspace`] (#432).
+/// 为需要单一规范目录的调用者保留（例如"我在哪里安装新技能？"）。
+/// 对于需要同时获取跨工具技能文件夹的会话时发现，请使用
+/// [`skills_directories`] / [`discover_in_workspace`]（#432）。
 #[must_use]
-#[allow(dead_code)] // Intentionally kept for the "single canonical install dir" surface; live callers use discover_in_workspace.
+#[allow(dead_code)] // 特意保留作为"单一规范安装目录"接口；实际调用者使用 discover_in_workspace。
 pub fn resolve_skills_dir(workspace: &Path) -> PathBuf {
     let agents = workspace.join(".agents").join("skills");
     if agents.exists() {
@@ -362,26 +342,23 @@ pub fn resolve_skills_dir(workspace: &Path) -> PathBuf {
     default_skills_dir()
 }
 
-/// Resolve every candidate skills directory for a workspace, in
-/// precedence order — most specific first. Used for session-time
-/// skill discovery so the model sees skills that originated in
-/// other AI-tool conventions installed in the same workspace
-/// (#432).
+/// 解析工作区的每个候选技能目录，按优先级顺序——最具体的优先。
+/// 用于会话时的技能发现，以便模型看到同一工作区中安装的其他
+/// AI 工具约定的技能（#432）。
 ///
-/// Precedence (first match wins on name conflicts):
+/// 优先级（名称冲突时第一个匹配胜出）：
 ///
-/// 1. `<workspace>/.agents/skills` — deepseek-native convention.
-/// 2. `<workspace>/skills` — flat, project-local.
-/// 3. `<workspace>/.opencode/skills` — OpenCode interop.
-/// 4. `<workspace>/.claude/skills` — Claude Code interop.
-/// 5. `<workspace>/.cursor/skills` — Cursor interop.
-/// 6. [`agents_global_skills_dir`] — agentskills.io global.
-/// 7. [`claude_global_skills_dir`] — Claude-ecosystem global (#902).
-/// 8. [`default_skills_dir`] — DeepSeek global, user-installed.
+/// 1. `<workspace>/.agents/skills` — deepseek 原生约定。
+/// 2. `<workspace>/skills` — 扁平的项目本地目录。
+/// 3. `<workspace>/.opencode/skills` — OpenCode 互操作。
+/// 4. `<workspace>/.claude/skills` — Claude Code 互操作。
+/// 5. `<workspace>/.cursor/skills` — Cursor 互操作。
+/// 6. [`agents_global_skills_dir`] — agentskills.io 全局目录。
+/// 7. [`claude_global_skills_dir`] — Claude 生态系统全局目录（#902）。
+/// 8. [`default_skills_dir`] — DeepSeek 全局用户安装目录。
 ///
-/// Only directories that exist on disk are returned — callers don't
-/// need to filter further. Returns an empty vec when nothing is
-/// installed (the system-prompt skills block is then suppressed).
+/// 仅返回磁盘上存在的目录——调用者无需进一步过滤。
+/// 当没有任何安装时返回空向量（系统提示词技能块随后被抑制）。
 #[must_use]
 pub fn skills_directories(workspace: &Path) -> Vec<PathBuf> {
     let mut candidates = vec![
@@ -411,14 +388,11 @@ fn existing_skill_dirs(candidates: impl IntoIterator<Item = PathBuf>) -> Vec<Pat
     out
 }
 
-/// Walk every candidate skills directory for a workspace and merge
-/// the discovered skills into a single registry. Name conflicts are
-/// resolved with first-match-wins precedence per
-/// [`skills_directories`].
+/// 遍历工作区的每个候选技能目录，并将发现的技能合并到单个注册表中。
+/// 名称冲突按照 [`skills_directories`] 的优先级以先匹配胜出方式解决。
 ///
-/// Warnings from each scanned directory accumulate so the model
-/// (and the user via `/skill list`) can see why a skill didn't
-/// load.
+/// 来自每个扫描目录的警告会累积，以便模型（和通过 `/skill list` 的用户）
+/// 可以看到技能未能加载的原因。
 #[must_use]
 pub fn discover_in_workspace(workspace: &Path) -> SkillRegistry {
     let mut merged = SkillRegistry::default();
@@ -436,9 +410,8 @@ pub fn discover_in_workspace(workspace: &Path) -> SkillRegistry {
     merged
 }
 
-/// Discover skills from the workspace search set plus the configured install
-/// directory. Workspace/global directories keep their normal precedence; a
-/// custom configured directory is appended when it is outside that set.
+/// 从工作区搜索集以及配置的安装目录中发现技能。
+/// 工作区/全局目录保持其正常优先级；自定义配置的目录在它不在该集合中时被追加。
 #[must_use]
 pub fn discover_for_workspace_and_dir(workspace: &Path, skills_dir: &Path) -> SkillRegistry {
     let mut dirs = skills_directories(workspace);
@@ -461,23 +434,19 @@ pub fn discover_for_workspace_and_dir(workspace: &Path, skills_dir: &Path) -> Sk
     merged
 }
 
-/// Render the system-prompt skills block from every workspace
-/// candidate directory plus the global default (#432). Wraps
-/// [`discover_in_workspace`] for callers (e.g. `prompts.rs`) that
-/// only have the workspace path to hand.
+/// 从每个工作区候选目录加上全局默认目录（#432）渲染系统提示词技能块。
+/// 包装 [`discover_in_workspace`] 供仅持有工作区路径的调用者（例如 `prompts.rs`）使用。
 #[must_use]
 pub fn render_available_skills_context_for_workspace(workspace: &Path) -> Option<String> {
     let registry = discover_in_workspace(workspace);
     render_skills_block(&registry)
 }
 
-/// Codex's progressive-disclosure contract: the model sees skill names,
-/// descriptions, and paths up front, then opens the specific `SKILL.md` only
-/// when a skill is relevant.
+/// Codex 的渐进式披露约定：模型先看到技能名称、描述和路径，
+/// 然后仅在技能相关时才打开特定的 `SKILL.md`。
 ///
-/// Single-directory variant — use
-/// [`render_available_skills_context_for_workspace`] when scanning
-/// a workspace for cross-tool skill folders (#432).
+/// 单目录变体——在扫描工作区以查找跨工具技能文件夹时
+/// 请使用 [`render_available_skills_context_for_workspace`]（#432）。
 #[must_use]
 pub fn render_available_skills_context(skills_dir: &Path) -> Option<String> {
     let registry = SkillRegistry::discover(skills_dir);
@@ -504,10 +473,9 @@ fn render_skills_block(registry: &SkillRegistry) -> Option<String> {
 
     let mut omitted = 0usize;
     for skill in skills {
-        // Use the real on-disk path captured at discovery — the directory
-        // name can differ from the frontmatter `name` for community
-        // installs, in which case `<dir>/<name>/SKILL.md` would not exist
-        // and the model would fail to open it.
+        // 使用发现时捕获的真实磁盘路径——对于社区安装，目录名称可能与
+        // 前置元数据中的 `name` 不同，此时 `<dir>/<name>/SKILL.md` 将不存在，
+        // 模型将无法打开它。
         let description = truncate_for_prompt(&skill.description, MAX_SKILL_DESCRIPTION_CHARS);
         let line = if description.is_empty() {
             format!("- {}: (file: {})\n", skill.name, skill.path.display())
@@ -569,9 +537,9 @@ fn truncate_for_prompt(value: &str, max_chars: usize) -> String {
     truncated
 }
 
-// === CLI Helpers ===
+// === CLI 辅助函数 ===
 
-#[allow(dead_code)] // CLI utility for future use
+#[allow(dead_code)] // CLI 工具，供将来使用
 pub fn list(skills_dir: &Path) -> Result<()> {
     if !skills_dir.exists() {
         println!("No skills directory found at {}", skills_dir.display());
@@ -598,7 +566,7 @@ pub fn list(skills_dir: &Path) -> Result<()> {
     Ok(())
 }
 
-#[allow(dead_code)] // CLI utility for future use
+#[allow(dead_code)] // CLI 工具，供将来使用
 pub fn show(skills_dir: &Path, name: &str) -> Result<()> {
     let path = skills_dir.join(name).join("SKILL.md");
     let contents =
@@ -619,6 +587,7 @@ mod tests {
 
     #[test]
     fn render_available_skills_context_lists_paths_and_usage() {
+        // 验证渲染输出包含技能名称、磁盘路径和使用说明。
         let tmpdir = TempDir::new().unwrap();
         create_skill_dir(
             &tmpdir,
@@ -649,11 +618,9 @@ mod tests {
 
     #[test]
     fn render_available_skills_context_uses_real_dir_name_not_frontmatter_name() {
-        // Regression: when a community-installed or manually-placed skill
-        // lives in a directory whose name differs from its frontmatter
-        // `name`, the rendered prompt must point to the real on-disk file
-        // path, not <skills_dir>/<frontmatter-name>/SKILL.md (which does
-        // not exist).
+        // 回归测试：当社区安装或手动放置的技能所在的目录名称与其前置元数据
+        // `name` 不同时，渲染的提示词必须指向真实的磁盘文件路径，
+        // 而不是 <skills_dir>/<frontmatter-name>/SKILL.md（该路径不存在）。
         let tmpdir = TempDir::new().unwrap();
         create_skill_dir(
             &tmpdir,
@@ -788,15 +755,14 @@ mod tests {
         let tmpdir = TempDir::new().unwrap();
         let workspace = tmpdir.path();
 
-        // Create four of the five workspace candidate dirs (skip `.opencode`).
+        // 创建五个工作区候选目录中的四个（跳过 `.opencode`）。
         std::fs::create_dir_all(workspace.join(".agents").join("skills")).unwrap();
         std::fs::create_dir_all(workspace.join("skills")).unwrap();
         std::fs::create_dir_all(workspace.join(".claude").join("skills")).unwrap();
         std::fs::create_dir_all(workspace.join(".cursor").join("skills")).unwrap();
 
         let dirs = super::skills_directories(workspace);
-        // We don't assert on the global default position because it's
-        // host-dependent (may not exist on the test machine).
+        // 我们不断言全局默认位置，因为它依赖于主机（测试机器上可能不存在）。
         let mut idx = 0;
         let agents = workspace.join(".agents").join("skills");
         let local = workspace.join("skills");
@@ -825,19 +791,18 @@ mod tests {
 
     #[test]
     fn claude_global_skills_dir_returns_home_relative_path() {
-        // Smoke test for the #902 helper. We don't assert the exact path
-        // because dirs::home_dir() is host-dependent; we just pin the
-        // suffix shape so a future refactor can't silently rename it.
+        // #902 辅助函数的冒烟测试。我们不断言确切的路径，
+        // 因为 dirs::home_dir() 依赖于主机；我们只固定后缀形状，
+        // 以便将来的重构不会静默地重命名它。
         let path = super::claude_global_skills_dir().expect("home dir resolves on test host");
         assert!(path.ends_with(".claude/skills") || path.ends_with(r".claude\skills"));
     }
 
     #[test]
     fn existing_skill_dirs_orders_globals_agents_then_claude_then_deepseek() {
-        // Pins the precedence among the three global skill roots (#902).
-        // Workspace candidates are tested separately above; here we only
-        // exercise the global ordering at the existing_skill_dirs level
-        // so the assertion is host-independent.
+        // 固定三个全局技能根目录之间的优先级（#902）。
+        // 工作区候选目录在上面单独测试；这里我们仅在 existing_skill_dirs
+        // 级别测试全局排序，以便断言与主机无关。
         let tmpdir = TempDir::new().unwrap();
         let agents_global = tmpdir.path().join(".agents").join("skills");
         let claude_global = tmpdir.path().join(".claude").join("skills");
@@ -879,8 +844,7 @@ mod tests {
         let tmpdir = TempDir::new().unwrap();
         let workspace = tmpdir.path();
 
-        // Same skill name `shared` in two locations — the higher-precedence
-        // dir's version should win.
+        // 两个位置中存在相同的技能名称 `shared`——优先级更高的目录版本应胜出。
         write_skill(
             &workspace.join(".agents").join("skills"),
             "shared",
@@ -893,7 +857,7 @@ mod tests {
             "claude loses",
             "from claude",
         );
-        // Unique skill in claude — should still be discovered.
+        // claude 中的唯一技能——仍应被发现。
         write_skill(
             &workspace.join(".claude").join("skills"),
             "unique-claude",
@@ -1012,19 +976,16 @@ mod tests {
         assert!(rendered.contains("from-claude"));
     }
 
-    /// Regression for the GitHub issue where users organize skills under
-    /// vendor / category subdirectories (e.g. cloned skill repos that
-    /// bundle several skills together). The old single-level `read_dir`
-    /// only ever surfaced `<root>/<skill>/SKILL.md` and silently ignored
-    /// `<root>/<vendor>/<skill>/SKILL.md`.
+    /// 针对 GitHub issue 的回归测试，用户按供应商/类别子目录组织技能
+    ///（例如克隆的技能仓库打包了多个技能）。旧的单层 `read_dir` 只能找到
+    /// `<root>/<skill>/SKILL.md` 并静默忽略了 `<root>/<vendor>/<skill>/SKILL.md`。
     #[test]
     fn discover_finds_skills_nested_under_vendor_subdirectory() {
         let tmpdir = TempDir::new().unwrap();
         let root = tmpdir.path().join("skills");
 
-        // Two-level nesting: `<root>/<vendor>/<skill>/SKILL.md`. This
-        // matches the `clawhub-skills/clawhub/SKILL.md` layout in the
-        // bug report.
+        // 两层嵌套：`<root>/<vendor>/<skill>/SKILL.md`。这与
+        // 错误报告中的 `clawhub-skills/clawhub/SKILL.md` 布局匹配。
         write_skill(
             &root.join("clawhub-skills"),
             "clawhub",
@@ -1037,15 +998,15 @@ mod tests {
             "github helpers",
             "body",
         );
-        // Three-level nesting: `<root>/<org>/<repo>/<skill>/SKILL.md`.
+        // 三层嵌套：`<root>/<org>/<repo>/<skill>/SKILL.md`。
         write_skill(
             &root.join("pasky").join("chrome-cdp-skill"),
             "chrome-cdp",
             "browser automation",
             "body",
         );
-        // Mixed-depth: a flat skill alongside the nested layout still
-        // works (this is what the bundled `skill-creator` looks like).
+        // 混合深度：扁平技能与嵌套布局并存仍然有效
+        //（这就是捆绑的 `skill-creator` 的样子）。
         write_skill(&root, "skill-creator", "make skills", "body");
 
         let registry = super::SkillRegistry::discover(&root);
@@ -1116,23 +1077,20 @@ mod tests {
         );
     }
 
-    /// Once a directory is identified as a skill (has `SKILL.md`), the
-    /// walker must NOT descend into it: any nested `SKILL.md` would be
-    /// a fixture / example bundled with the parent skill, not a
-    /// separately-installable one. This mirrors the contract that
-    /// `tools::skill::collect_companion_files` already documents
-    /// ("nested directory — skipped").
+    /// 一旦目录被识别为技能（包含 `SKILL.md`），遍历器不得进入其中：
+    /// 任何嵌套的 `SKILL.md` 都将是父技能附带的固定配置/示例，
+    /// 而非可单独安装的技能。这与 `tools::skill::collect_companion_files`
+    /// 已记录的约定一致（"嵌套目录——已跳过"）。
     #[test]
     fn discover_does_not_descend_into_a_skill_directory() {
         let tmpdir = TempDir::new().unwrap();
         let root = tmpdir.path().join("skills");
 
-        // Parent skill: <root>/parent/SKILL.md.
+        // 父技能：<root>/parent/SKILL.md。
         write_skill(&root, "parent", "outer skill", "outer body");
-        // Fixture bundled inside the parent's directory:
-        // <root>/parent/examples/inner-fixture/SKILL.md. The walker
-        // must NOT descend into <root>/parent/ after finding its
-        // SKILL.md, so `inner-fixture` must not be loaded.
+        // 捆绑在父技能目录内的固定配置：
+        // <root>/parent/examples/inner-fixture/SKILL.md。遍历器在找到
+        // 其 SKILL.md 后不得进入 <root>/parent/，因此 `inner-fixture` 不得被加载。
         write_skill(
             &root.join("parent").join("examples"),
             "inner-fixture",
@@ -1149,21 +1107,19 @@ mod tests {
         );
     }
 
-    /// Hidden subdirectories below the root (e.g. `.git`, `.cache`) must
-    /// be skipped so a `skills_dir` that lives inside a checked-out repo
-    /// doesn't accidentally load random `SKILL.md`-named fixtures from
-    /// the VCS metadata. The root itself is exempt — the user explicitly
-    /// pointed `skills_dir` at it.
+    /// 根目录下的隐藏子目录（例如 `.git`、`.cache`）必须被跳过，
+    /// 以便位于检出仓库内的 `skills_dir` 不会意外地从 VCS 元数据中
+    /// 加载随机名为 `SKILL.md` 的固定配置。根目录本身不受限——用户显式将
+    /// `skills_dir` 指向了它。
     #[test]
     fn discover_skips_hidden_subdirectories_below_root() {
         let tmpdir = TempDir::new().unwrap();
         let root = tmpdir.path().join("skills");
 
         write_skill(&root, "real-skill", "ok", "body");
-        // A `<root>/.git/<junk>/SKILL.md` lookalike that mustn't load.
-        // `.git` is a direct child of the user-provided root (depth 0
-        // of the walk), which is exactly the case the old `depth > 0`
-        // gate missed.
+        // 一个 `<root>/.git/<junk>/SKILL.md` 的模拟，不得加载。
+        // `.git` 是用户提供根目录的直接子级（遍历的深度 0），
+        // 这正好是旧的 `depth > 0` 守卫遗漏的情况。
         write_skill(&root.join(".git"), "vcs-noise", "should not load", "body");
 
         let registry = super::SkillRegistry::discover(&root);
@@ -1175,15 +1131,15 @@ mod tests {
         );
     }
 
-    /// The user explicitly chooses the root, so even a hidden path like
-    /// `~/.agents/skills` (the layout in the bug report) must work.
+    /// 用户显式选择根目录，因此即使是像 `~/.agents/skills`（错误报告中的布局）
+    /// 这样的隐藏路径也必须正常工作。
     #[test]
     fn discover_honors_a_hidden_root_directory() {
         let tmpdir = TempDir::new().unwrap();
         let root = tmpdir.path().join(".agents").join("skills");
 
-        // Matches the bug report: skills_dir = "~/.agents/skills"
-        // with a skill nested at <root>/custom-skills/git-conventions/SKILL.md.
+        // 匹配错误报告：skills_dir = "~/.agents/skills"
+        // 技能嵌套在 <root>/custom-skills/git-conventions/SKILL.md。
         write_skill(
             &root.join("custom-skills"),
             "git-conventions",

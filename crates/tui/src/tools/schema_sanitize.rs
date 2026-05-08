@@ -1,27 +1,25 @@
 //! Schema 清理 — 清理工具 schema 定义。
 //!
-//! DeepSeek's `/beta/chat/completions` strict tool mode is harsh. MCP tool
-//! schemas frequently arrive with Pydantic-style `anyOf:[{type:"string"},
-//! {type:"null"}]` unions, bare `{type:"object"}` with no `properties`, or
-//! `required` entries that don't appear in `properties`. These dirty schemas
-//! cause silent 400s that users can't diagnose.
+//! DeepSeek 的 `/beta/chat/completions` 严格工具模式很严格。MCP 工具 schema
+//! 经常带有 Pydantic 风格的 `anyOf:[{type:"string"}, {type:"null"}]` 联合类型、
+//! 裸 `{type:"object"}` 但没有 `properties`，或 `required` 条目不在 `properties`
+//! 中出现。这些脏 schema 会导致用户无法诊断的静默 400 错误。
 //!
-//! The sanitizer runs in-place on every schema returned by
-//! `ToolRegistry::tools_for_api()` before the registry hands them off.
-//! Output is cached so the per-tool overhead is paid once per registration.
+//! 清理器在 `ToolRegistry::tools_for_api()` 返回每个 schema 之前就地运行。
+//! 输出被缓存，因此每个工具的清理开销只在注册时支付一次。
 
 use serde_json::{Map, Value};
 
 use crate::models::Tool;
 
-/// Sanitize a JSON Schema in-place for DeepSeek strict-tool compatibility.
+/// 就地清理 JSON Schema 以兼容 DeepSeek 严格工具模式。
 ///
-/// Applies a sequence of normalisations chosen to be semantics-preserving:
-/// - Collapse `{"anyOf":[X, {"type":"null"}]}` → `X ∪ {"nullable": true}`
-/// - Inject `"properties": {}` on bare-object schemas
-/// - Prune dangling `required` entries
-/// - Collapse single-element `oneOf` / `allOf`
-/// - Walk recursively through all subschemas
+/// 应用一系列保持语义的规范化：
+/// - 折叠 `{"anyOf":[X, {"type":"null"}]}` → `X ∪ {"nullable": true}`
+/// - 在裸对象 schema 上注入 `"properties": {}`
+/// - 修剪悬空的 `required` 条目
+/// - 折叠单元素 `oneOf` / `allOf`
+/// - 递归遍历所有子 schema
 pub fn sanitize(schema: &mut Value) {
     collapse_nullable_unions(schema);
     inject_properties_on_bare_objects(schema);
@@ -39,14 +37,13 @@ pub fn sanitize(schema: &mut Value) {
     }
 }
 
-/// Prepare a complete active tool set for DeepSeek strict function-calling.
+/// 为 DeepSeek 严格函数调用准备完整的活动工具集。
 ///
-/// Returns `false` and leaves the tools in non-strict mode when any root schema
-/// uses conditional alternatives (`anyOf`, `oneOf`, or `allOf`). DeepSeek's
-/// strict object rules make every property required, so forcing strict mode on
-/// root-alternative tools such as `apply_patch` or `finance` would either 400 or
-/// change their semantics. In that case callers should keep the normal
-/// best-effort schema and may still use `tool_choice = "required"`.
+/// 当任何根 schema 使用条件替代（`anyOf`、`oneOf` 或 `allOf`）时，
+/// 返回 `false` 并将工具保留在非严格模式。DeepSeek 的严格对象规则使
+/// 每个属性都成为必需的，因此对根替代工具（如 `apply_patch` 或 `finance`）
+/// 强制严格模式会导致 400 或改变其语义。在这种情况下，调用者应保留正常的
+/// 尽力而为 schema，并仍可使用 `tool_choice = "required"`。
 pub fn prepare_tools_for_strict_mode(tools: &mut [Tool]) -> bool {
     if tools
         .iter()
@@ -65,11 +62,10 @@ pub fn prepare_tools_for_strict_mode(tools: &mut [Tool]) -> bool {
     true
 }
 
-/// Sanitize a schema for DeepSeek strict function-calling.
+/// 为 DeepSeek 严格函数调用清理 schema。
 ///
-/// This extends the general sanitizer with the official strict-mode object
-/// rules: every object must set `additionalProperties: false`, and every
-/// property must be listed in `required`.
+/// 这通过官方严格模式对象规则扩展了通用清理器：每个对象必须设置
+/// `additionalProperties: false`，每个属性必须列在 `required` 中。
 pub fn sanitize_for_strict(schema: &mut Value) {
     sanitize(schema);
     enforce_strict_subset(schema);
@@ -99,10 +95,9 @@ fn has_strict_incompatible_composition(schema: &Value, is_root: bool) -> bool {
     })
 }
 
-/// Collapse `{"anyOf":[X, {"type":"null"}]}` → `X ∪ {"nullable": true}`.
+/// 折叠 `{"anyOf":[X, {"type":"null"}]}` → `X ∪ {"nullable": true}`。
 ///
-/// Same treatment for `oneOf`. Only collapses when exactly one non-null
-/// member and exactly one null-type member are present.
+/// 同样的处理也用于 `oneOf`。仅在恰好一个非 null 成员和恰好一个 null 类型成员时才折叠。
 fn collapse_nullable_unions(schema: &mut Value) {
     let Some(obj) = schema.as_object_mut() else {
         return;
@@ -134,8 +129,8 @@ fn is_null_type(v: &Value) -> bool {
         == Some("null")
 }
 
-/// Bare `{"type": "object"}` (no `properties`, no `additionalProperties`)
-/// → inject `"properties": {}` so DeepSeek's strict validator doesn't 400.
+/// 裸 `{"type": "object"}`（无 `properties`，无 `additionalProperties`）
+/// → 注入 `"properties": {}`，这样 DeepSeek 的严格验证器不会返回 400。
 fn inject_properties_on_bare_objects(schema: &mut Value) {
     let Some(obj) = schema.as_object_mut() else {
         return;
@@ -149,7 +144,7 @@ fn inject_properties_on_bare_objects(schema: &mut Value) {
     obj.insert("properties".into(), Value::Object(Map::new()));
 }
 
-/// Remove entries from `required` that aren't keys in `properties`.
+/// 从 `required` 中移除不在 `properties` 中的键。
 fn prune_dangling_required(schema: &mut Value) {
     let Some(obj) = schema.as_object_mut() else {
         return;
@@ -173,10 +168,9 @@ fn prune_dangling_required(schema: &mut Value) {
     }
 }
 
-/// Collapse `{"oneOf": [X]}` → X, same for `allOf`.
+/// 折叠 `{"oneOf": [X]}` → X，同样适用于 `allOf`。
 ///
-/// Single-element unions are semantically equivalent to the element itself;
-/// DeepSeek's strict validator doesn't always flatten them.
+/// 单元素联合在语义上等同于元素本身；DeepSeek 的严格验证器并不总是展开它们。
 fn collapse_single_element_unions(schema: &mut Value) {
     let Some(obj) = schema.as_object_mut() else {
         return;

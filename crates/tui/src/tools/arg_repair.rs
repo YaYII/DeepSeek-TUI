@@ -1,22 +1,22 @@
 //! 参数修复 — 修复格式错误的 JSON 工具参数。
 //!
-//! DeepSeek streams `tool_calls.function.arguments` as deltas. Two failure
-//! shapes are common: (a) SSE chunk boundary cuts inside a JSON string and
-//! reassembly leaves a trailing comma or unclosed brace; (b) some local
-//! backends emit literal control characters inside JSON string values.
+//! DeepSeek 流式传输 `tool_calls.function.arguments` 作为增量。
+//! 两种失败情况很常见：(a) SSE 块边界在 JSON 字符串内切割，重新组装后
+//! 留下尾部逗号或未闭合的括号；(b) 一些本地后端在 JSON 字符串值中
+//! 发出字面控制字符。
 //!
-//! The repair ladder runs five stages before falling back to an empty object:
+//! 修复阶梯在回退到空对象之前运行五个阶段：
 //!
-//!  1. Strict parse — done if it parses.
-//!  2. Strip literal control chars inside string values.
-//!  3. Strip trailing commas before `}` or `]`.
-//!  4. Balance braces/brackets (append closers).
-//!  5. Strip excess closers if delta is negative.
-//!  6. Fallback: empty object `{}`.
+//!  1. 严格解析——如果能解析则完成。
+//!  2. 去除字符串值中的字面控制字符。
+//!  3. 去除 `}` 或 `]` 前的尾部逗号。
+//!  4. 平衡括号/方括号（附加闭合符号）。
+//!  5. 如果增量为负，去除多余的闭合符号。
+//!  6. 回退：空对象 `{}`。
 
 use serde_json::{Map, Value};
 
-/// Maximum raw argument length we'll attempt to repair (1 MiB).
+/// 我们尝试修复的最大原始参数长度（1 MiB）。
 const MAX_ARG_LEN: usize = 1024 * 1024;
 
 #[derive(Debug, thiserror::Error)]
@@ -25,10 +25,10 @@ pub enum ArgRepairError {
     TooLarge(usize),
 }
 
-/// Repair a raw JSON argument string into a valid `serde_json::Value`.
+/// 将原始 JSON 参数字符串修复为有效的 `serde_json::Value`。
 ///
-/// Runs the deterministic ladder; on success returns the parsed value.
-/// The final fallback is an empty object `{}` so dispatch always proceeds.
+/// 运行确定性阶梯；成功时返回解析后的值。
+/// 最终回退是空对象 `{}`，以便调度始终进行。
 pub fn repair(raw: &str) -> Result<Value, ArgRepairError> {
     if raw.len() > MAX_ARG_LEN {
         return Err(ArgRepairError::TooLarge(raw.len()));
@@ -61,9 +61,8 @@ pub fn repair(raw: &str) -> Result<Value, ArgRepairError> {
     Ok(Value::Object(Map::new()))
 }
 
-/// Strip ASCII control characters (0x00–0x1F except \t, \n, \r) that appear
-/// inside JSON string values. We walk character-by-character tracking whether
-/// we're inside a string (between unescaped double-quotes).
+/// 去除出现在 JSON 字符串值内部的 ASCII 控制字符（0x00–0x1F 除 \t、\n、\r 外）。
+/// 我们逐字符遍历，跟踪是否在字符串内部（在未转义的双引号之间）。
 fn strip_control_chars_in_strings(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     let mut in_string = false;
@@ -93,7 +92,7 @@ fn strip_control_chars_in_strings(s: &str) -> String {
     out
 }
 
-/// Strip trailing commas before `}` or `]`.
+/// 去除 `}` 或 `]` 前的尾部逗号。
 fn strip_trailing_commas(s: &str) -> String {
     // Repeatedly replace ",}" and ",]" until stable (handles nested cases).
     let mut out = s.to_string();
@@ -109,9 +108,8 @@ fn strip_trailing_commas(s: &str) -> String {
     out
 }
 
-/// Balance braces and brackets: count `{`/`}` and `[`/`]`, append closers if
-/// positive delta (more opens than closes). Caps iterations so a
-/// catastrophically broken input doesn't loop forever.
+/// 平衡大括号和方括号：统计 `{`/`}` 和 `[`/`]` 数量，如果增量为正（开比闭多）
+/// 则附加闭合符号。限制迭代次数，以防灾难性损坏的输入永远循环。
 fn balance_braces(s: &str, max_iter: usize) -> String {
     let mut out = s.to_string();
     for _ in 0..max_iter {
@@ -146,7 +144,7 @@ fn balance_braces(s: &str, max_iter: usize) -> String {
     out
 }
 
-/// Strip excess closers when the delta is negative (more closes than opens).
+/// 当增量为负时（闭比开多），去除多余的闭合符号。
 fn strip_excess_closers(s: &str) -> String {
     let mut brace_depth: i32 = 0;
     let mut bracket_depth: i32 = 0;

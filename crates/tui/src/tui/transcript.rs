@@ -1,20 +1,20 @@
 //! 转录本 — 会话消息历史的可滚动视图。
 //!
-//! ## Per-cell revision caching
+//! ## 每个单元格的修订缓存
 //!
-//! Naive caching invalidates the whole transcript whenever ANY cell mutates.
-//! During streaming the assistant content cell mutates on every delta — that
-//! would force a re-wrap of every cell on every chunk. Codex avoids this by
-//! tracking a per-cell revision counter; we mirror that pattern here.
+//! 朴素缓存在任何单元格发生变化时会使整个转录本失效。
+//! 在流式传输期间，助手内容单元格在每个数据块上都会发生变化 —
+//! 这将强制在每个块上重新包装每个单元格。Codex 通过跟踪每个单元格的
+//! 修订计数器来避免这种情况；我们在此镜像该模式。
 //!
-//! Each cell index has a paired `revision: u64`. The cache stores
-//! `Vec<CachedCell>` with `(cell_index, revision, lines, line_meta)`. On
-//! `ensure`, walk the cells; if a cell's current `revision` matches the cached
-//! one (and width/options haven't changed), reuse the rendered lines.
-//! Otherwise re-render that cell only and reassemble.
+//! 每个单元格索引都有一个配对的 `revision: u64`。缓存存储
+//! `Vec<CachedCell>`，包含 `(cell_index, revision, lines, line_meta)`。
+//! 在 `ensure` 上，遍历单元格；如果单元格当前的 `revision` 与缓存的
+//! 匹配（且宽度/选项未更改），则重用渲染的行。
+//! 否则仅重新渲染该单元格并重新组装。
 //!
-//! Width or render-option changes still bust the entire cache (correct: wrap
-//! layout depends on width and which cells are visible at all).
+//! 宽度或渲染选项的更改仍会使整个缓存失效（正确的行为：
+//! 换行布局取决于宽度以及哪些单元格整体可见）。
 
 use std::sync::Arc;
 
@@ -27,37 +27,34 @@ use crate::tui::app::TranscriptSpacing;
 use crate::tui::history::{HistoryCell, TranscriptRenderOptions};
 use crate::tui::scrolling::TranscriptLineMeta;
 
-/// Per-cell cached render output. Reused across `ensure` calls when the
-/// upstream cell's revision counter hasn't changed.
+/// 每个单元格的缓存渲染输出。当上游单元格的修订计数器未更改时，
+/// 在 `ensure` 调用中重用。
 ///
-/// Lines are stored behind an `Arc` so that cloning a `CachedCell` during
-/// cache-ensure (which touches every cell every frame) is O(1) rather than
-/// O(rendered_line_count). Without this, scrolling on a long transcript
-/// pays the cost of deep-cloning every cell's `Vec<Line>` per frame, which
-/// is the surface-level symptom of issue #78. The flatten step uses
-/// `Arc::make_mut` to produce an owned `Vec` for the final `lines`
-/// assembly, so the only deep-clone occurs on the flattened output — once
-/// per frame instead of once per cell.
+/// 行存储在 `Arc` 后面，以便在缓存确保期间克隆 `CachedCell`
+///（每帧触及每个单元格）是 O(1) 而非 O(rendered_line_count)。
+/// 没有这个，在长转录本上滚动需要为每帧深克隆每个单元格的 `Vec<Line>`，
+/// 这是 issue #78 的表面症状。扁平化步骤使用 `Arc::make_mut`
+/// 为最终的 `lines` 组装生成拥有的 `Vec`，
+/// 因此唯一的深克隆发生在扁平化输出上 — 每帧一次而不是每个单元格一次。
 #[derive(Debug, Clone)]
 struct CachedCell {
-    /// Revision the cell was at when the lines/meta were rendered.
+    /// 渲染此行/元数据时该单元格所处的修订版本。
     revision: u64,
-    /// Rendered lines for this cell (without trailing inter-cell spacers),
-    /// shared via `Arc` so cache enumeration is O(N) not O(N*lines).
+    /// 此单元格的渲染行（不包含尾部单元格间分隔符），
+    /// 通过 `Arc` 共享，因此缓存枚举为 O(N) 而非 O(N*lines)。
     lines: Arc<Vec<Line<'static>>>,
-    /// Whether this cell's rendered output was empty (e.g. Thinking hidden).
-    /// Cached so we can skip empty cells without re-rendering.
+    /// 此单元格的渲染输出是否为空（例如 Thinking 隐藏时）。
+    /// 缓存以便跳过空单元格而无需重新渲染。
     is_empty: bool,
-    /// Whether this cell is a stream continuation. Determines spacer rules.
-    /// Cached because `is_stream_continuation` is cheap but reading via the
-    /// cache lets us decide spacers without touching the cell.
+    /// 此单元格是否为流式延续。决定分隔符规则。
+    /// 缓存该值是因为 `is_stream_continuation` 方法本身成本低，
+    /// 但通过缓存读取可以免于触碰单元格来决定分隔符。
     is_stream_continuation: bool,
-    /// Whether this cell is conversational (User/Assistant/Thinking). Used
-    /// for spacer calculations.
+    /// 此单元格是否为会话类型（User/Assistant/Thinking）。用于分隔符计算。
     is_conversational: bool,
-    /// Whether this cell is a System or Tool cell (affects spacer rules).
+    /// 此单元格是否为 System 或 Tool 单元格（影响分隔符规则）。
     is_system_or_tool: bool,
-    /// Whether this cell participates in the compact tool-card rail group.
+    /// 此单元格是否参与紧凑的工具卡片导轨组。
     is_tool_groupable: bool,
 }
 
@@ -66,17 +63,17 @@ struct CachedCell {
 pub struct TranscriptViewCache {
     width: u16,
     options: TranscriptRenderOptions,
-    /// Per-cell rendered output, indexed by current cell position.
-    /// Length always equals the cell count seen on the last `ensure` call.
+    /// 每个单元格的渲染输出，按当前单元格位置索引。
+    /// 长度始终等于上次 `ensure` 调用时看到的单元格数量。
     per_cell: Vec<CachedCell>,
-    /// Flattened lines reassembled from `per_cell` plus spacers.
+    /// 从 `per_cell` 加上分隔符重新组装后的扁平行。
     lines: Vec<Line<'static>>,
-    /// Per-line metadata aligned with `lines`.
+    /// 与 `lines` 对齐的每行元数据。
     line_meta: Vec<TranscriptLineMeta>,
 }
 
 impl TranscriptViewCache {
-    /// Create an empty cache.
+    /// 创建一个空缓存。
     #[must_use]
     pub fn new() -> Self {
         Self {
@@ -88,19 +85,17 @@ impl TranscriptViewCache {
         }
     }
 
-    /// Ensure cached lines match the provided cells/widths/per-cell revisions.
+    /// 确保缓存行与提供的单元格/宽度/每单元格修订版本匹配。
     ///
-    /// Reuses rendered lines for cells whose `cell_revisions[i]` matches the
-    /// previously cached revision (when the cell shape — empty/spacer flags —
-    /// also matches). Width or option changes bust the entire cache.
+    /// 对于 `cell_revisions[i]` 与先前缓存的修订版本匹配的单元格，
+    /// 重用其渲染行（当单元格形状 — 空/分隔符标志 — 也匹配时）。
+    /// 宽度或选项的更改会使整个缓存失效。
     ///
-    /// `cell_revisions.len()` is expected to equal `cells.len()`. If they
-    /// disagree (shouldn't happen in normal use) the cache treats every cell
-    /// as dirty.
+    /// `cell_revisions.len()` 应与 `cells.len()` 相等。如果它们
+    /// 不一致（正常使用中不应发生），缓存会将每个单元格视为脏的。
     ///
-    /// Retained for tests and external use; the live render path uses the
-    /// `ensure_split` variant to avoid concatenating history + active-cell
-    /// entries every frame.
+    /// 为测试和外部使用保留；实时渲染路径使用
+    /// `ensure_split` 变体以避免每帧连接历史记录 + 活动单元格条目。
     #[allow(dead_code)]
     pub fn ensure(
         &mut self,
@@ -112,10 +107,9 @@ impl TranscriptViewCache {
         self.ensure_split(&[cells], cell_revisions, width, options);
     }
 
-    /// Ensure cached lines match the provided cell shards (logically
-    /// concatenated) plus per-cell revisions. Avoids the
-    /// `concat-into-Vec<HistoryCell>` clone the caller would otherwise pay
-    /// every frame on long transcripts.
+    /// 确保缓存行与提供的单元格分片（逻辑上拼接）加上每单元格修订版本匹配。
+    /// 避免了调用方在长转录本上每帧都要付出的
+    /// `concat-into-Vec<HistoryCell>` 克隆开销。
     pub fn ensure_split(
         &mut self,
         cell_shards: &[&[HistoryCell]],
@@ -132,8 +126,8 @@ impl TranscriptViewCache {
         self.width = width;
         self.options = options;
 
-        // Track whether anything actually changed; if all cells are reused at
-        // the same indices, we can skip the reflatten.
+        // 跟踪是否有任何内容发生更改；如果所有单元格都在同一索引处被重用，
+        // 我们可以跳过重新扁平化。
         let old_len = self.per_cell.len();
         let mut any_dirty = layout_changed || old_len != total_cells;
         let mut first_dirty: Option<usize> = if old_len != total_cells {
@@ -151,14 +145,13 @@ impl TranscriptViewCache {
                 let current_rev = if revisions_match {
                     cell_revisions[idx]
                 } else {
-                    // No matching revisions — force a re-render this cycle.
+                    // 没有匹配的修订版本 — 强制在此周期重新渲染。
                     u64::MAX
                 };
 
-                // Reuse cached entry if the revision matches AND it's at the
-                // same index (cells can shift on insert/remove, so we only
-                // reuse when the index is identical — a stricter invariant
-                // codex also uses for its active-cell tail).
+                // 如果修订版本匹配且在相同索引处，则重用缓存条目
+                //（单元格在插入/删除时可能移动，因此我们仅在索引相同时
+                // 才重用 — codex 对其活动单元格尾部也使用此更严格的不变条件）。
                 if let Some(prev) = self.per_cell.get(idx)
                     && !layout_changed
                     && prev.revision == current_rev
@@ -202,8 +195,8 @@ impl TranscriptViewCache {
         self.per_cell = new_per_cell;
 
         if !any_dirty {
-            // All cells reused at the same indices: nothing to reflatten.
-            // (Width didn't change either, since that bumps `layout_changed`.)
+            // 所有单元格都在相同索引处被重用：无需重新扁平化。
+            //（宽度也未改变，因为那会触发 `layout_changed`。）
             return;
         }
 
@@ -215,18 +208,18 @@ impl TranscriptViewCache {
         self.flatten_from(options.spacing, rebuild_from);
     }
 
-    /// Reassemble flat `lines` / `line_meta` from `per_cell` plus spacers.
+    /// 从 `per_cell` 加上分隔符重新组装扁平的 `lines` / `line_meta`。
     fn flatten(&mut self, spacing: TranscriptSpacing) {
         self.lines.clear();
         self.line_meta.clear();
         self.append_flattened_cells(spacing, 0);
     }
 
-    /// Reassemble only the suffix starting at `first_cell`.
+    /// 仅重新组装从 `first_cell` 开始的后缀。
     ///
-    /// Streaming usually mutates the active tail cell. Rebuilding from the
-    /// previous cell preserves spacer correctness while avoiding a full
-    /// O(total transcript lines) flatten on every token chunk.
+    /// 流式传输通常会修改活动尾部单元格。
+    /// 从前一个单元格开始重建可保持分隔符正确性，
+    /// 同时避免在每个令牌块上进行完整的 O(总转录行数) 扁平化。
     fn flatten_from(&mut self, spacing: TranscriptSpacing, first_cell: usize) {
         if first_cell == 0 || self.lines.is_empty() || self.line_meta.is_empty() {
             self.flatten(spacing);
@@ -251,9 +244,8 @@ impl TranscriptViewCache {
             if cached.is_empty {
                 continue;
             }
-            // Arc::make_mut would deep-clone only on write; since we just
-            // rebuilt `lines` from scratch we always need the owned data.
-            // Deref is zero-cost and gives us &[Line].
+            // Arc::make_mut 仅在写入时深克隆；由于我们从头重建了 `lines`，
+            // 我们始终需要拥有数据。Deref 是零成本的，并给我们 &[Line]。
             let rendered_line_count = cached.lines.len();
             for (line_in_cell, line) in cached.lines.iter().enumerate() {
                 self.lines.push(line_with_group_rail(
@@ -282,19 +274,19 @@ impl TranscriptViewCache {
         }
     }
 
-    /// Return cached lines.
+    /// 返回缓存行。
     #[must_use]
     pub fn lines(&self) -> &[Line<'static>] {
         &self.lines
     }
 
-    /// Return cached line metadata.
+    /// 返回缓存的行元数据。
     #[must_use]
     pub fn line_meta(&self) -> &[TranscriptLineMeta] {
         &self.line_meta
     }
 
-    /// Return total cached lines.
+    /// 返回缓存行总数。
     #[must_use]
     pub fn total_lines(&self) -> usize {
         self.lines.len()
@@ -491,9 +483,9 @@ mod tests {
             .map(|l| l.spans.iter().map(|s| s.content.as_ref()).collect())
             .collect();
         let first_total = cache.total_lines();
-        assert!(first_total > 0, "expected non-empty render");
+        assert!(first_total > 0, "期望非空渲染");
 
-        // Capture per-cell lines snapshot to verify reuse.
+        // 捕获每个单元格的行快照以验证重用。
         let snapshot_per_cell: Vec<Vec<String>> = cache
             .per_cell
             .iter()
@@ -505,7 +497,7 @@ mod tests {
             })
             .collect();
 
-        // Same revisions => everything reused, output identical.
+        // 相同修订版本 => 一切重用，输出相同。
         cache.ensure(&cells, &revisions, 80, TranscriptRenderOptions::default());
         let second_lines: Vec<String> = cache
             .lines()
@@ -530,10 +522,10 @@ mod tests {
 
     #[test]
     fn bumping_one_cell_revision_only_rerenders_that_cell() {
-        // Track render counts per cell using a custom HistoryCell wrapper
-        // would require trait changes; instead, we detect reuse by inspecting
-        // CachedCell instances. After a bump, only the bumped cell's stored
-        // revision should differ from before; others remain identical.
+        // 使用自定义 HistoryCell 包装器跟踪每个单元格的渲染次数
+        // 需要 trait 更改；相反，我们通过检查 CachedCell 实例来检测重用。
+        // 修订版本增加后，只有被修改的单元格的存储修订版本应与之前不同；
+        // 其他单元格保持不变。
 
         let cells_v1 = vec![
             user_cell("hello"),

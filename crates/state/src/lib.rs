@@ -140,7 +140,7 @@ impl StateStore {
             .join("session_index.jsonl");
         if let Some(parent) = db_path.parent() {
             fs::create_dir_all(parent).with_context(|| {
-                format!("failed to create state directory {}", parent.display())
+                format!("无法创建状态目录 {}", parent.display())
             })?;
         }
         let store = Self {
@@ -157,7 +157,7 @@ impl StateStore {
 
     fn conn(&self) -> Result<Connection> {
         Connection::open(&self.db_path)
-            .with_context(|| format!("failed to open state db {}", self.db_path.display()))
+            .with_context(|| format!("无法打开状态数据库 {}", self.db_path.display()))
     }
 
     fn init_schema(&self) -> Result<()> {
@@ -234,7 +234,7 @@ impl StateStore {
             CREATE INDEX IF NOT EXISTS idx_jobs_updated_at ON jobs(updated_at DESC);
             "#,
         )
-        .context("failed to initialize thread schema")?;
+        .context("无法初始化线程模式")?;
         Ok(())
     }
 
@@ -297,7 +297,7 @@ impl StateStore {
                 thread.memory_mode,
             ],
         )
-        .context("failed to upsert thread metadata")?;
+        .context("无法更新线程元数据")?;
 
         self.append_thread_name(
             &thread.id,
@@ -322,7 +322,7 @@ impl StateStore {
             row_to_thread,
         )
         .optional()
-        .context("failed to read thread")
+        .context("无法读取线程")
     }
 
     pub fn list_threads(&self, filters: ThreadListFilters) -> Result<Vec<ThreadMetadata>> {
@@ -333,13 +333,13 @@ impl StateStore {
             "SELECT id, rollout_path, preview, ephemeral, model_provider, created_at, updated_at, status, path, cwd, cli_version, source, title, sandbox_policy, approval_mode, archived, archived_at, git_sha, git_branch, git_origin_url, memory_mode FROM threads WHERE archived = 0 ORDER BY updated_at DESC LIMIT ?1"
         };
 
-        let mut stmt = conn.prepare(sql).context("failed to prepare list query")?;
+        let mut stmt = conn.prepare(sql).context("无法准备列表查询")?;
         let limit = i64::try_from(filters.limit.unwrap_or(50)).unwrap_or(50);
         let mut rows = stmt
             .query(params![limit])
-            .context("failed to query threads")?;
+            .context("无法查询线程")?;
         let mut out = Vec::new();
-        while let Some(row) = rows.next().context("failed to iterate thread rows")? {
+        while let Some(row) = rows.next().context("无法遍历线程行")? {
             out.push(row_to_thread(row)?);
         }
         Ok(out)
@@ -355,7 +355,7 @@ impl StateStore {
                 thread_status_to_str(&ThreadStatus::Archived)
             ],
         )
-        .context("failed to archive thread")?;
+        .context("无法归档线程")?;
         Ok(())
     }
 
@@ -365,14 +365,14 @@ impl StateStore {
             "UPDATE threads SET archived = 0, archived_at = NULL WHERE id = ?1",
             params![id],
         )
-        .context("failed to unarchive thread")?;
+        .context("无法取消归档线程")?;
         Ok(())
     }
 
     pub fn delete_thread(&self, id: &str) -> Result<()> {
         let conn = self.conn()?;
         conn.execute("DELETE FROM threads WHERE id = ?1", params![id])
-            .context("failed to delete thread")?;
+            .context("无法删除线程")?;
         Ok(())
     }
 
@@ -382,7 +382,7 @@ impl StateStore {
             "UPDATE threads SET memory_mode = ?2 WHERE id = ?1",
             params![id, mode],
         )
-        .context("failed to update thread memory mode")?;
+        .context("无法更新线程记忆模式")?;
         Ok(())
     }
 
@@ -394,7 +394,7 @@ impl StateStore {
             |row| row.get::<_, Option<String>>(0),
         )
         .optional()
-        .context("failed to read thread memory mode")
+        .context("无法读取线程记忆模式")
         .map(Option::flatten)
     }
 
@@ -406,12 +406,12 @@ impl StateStore {
         let mut conn = self.conn()?;
         let tx = conn
             .transaction()
-            .context("failed to begin dynamic tools transaction")?;
+            .context("无法开始动态工具事务")?;
         tx.execute(
             "DELETE FROM thread_dynamic_tools WHERE thread_id = ?1",
             params![thread_id],
         )
-        .context("failed to clear dynamic tools")?;
+        .context("无法清除动态工具")?;
         for tool in tools {
             tx.execute(
                 "INSERT INTO thread_dynamic_tools(thread_id, position, name, description, input_schema) VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -423,9 +423,9 @@ impl StateStore {
                     tool.input_schema.to_string()
                 ],
             )
-            .with_context(|| format!("failed to persist dynamic tool {}", tool.name))?;
+            .with_context(|| format!("无法持久化动态工具 {}", tool.name))?;
         }
-        tx.commit().context("failed to commit dynamic tools")?;
+        tx.commit().context("无法提交动态工具事务")?;
         Ok(())
     }
 
@@ -435,22 +435,22 @@ impl StateStore {
             .prepare(
                 "SELECT position, name, description, input_schema FROM thread_dynamic_tools WHERE thread_id = ?1 ORDER BY position ASC",
             )
-            .context("failed to prepare get dynamic tools query")?;
+            .context("无法准备获取动态工具查询")?;
         let mut rows = stmt
             .query(params![thread_id])
-            .context("failed to query dynamic tools")?;
+            .context("无法查询动态工具")?;
         let mut out = Vec::new();
-        while let Some(row) = rows.next().context("failed to iterate dynamic tools")? {
+        while let Some(row) = rows.next().context("无法遍历动态工具")? {
             let input_schema_raw: String =
-                row.get(3).context("failed to read tool input schema")?;
+                row.get(3).context("无法读取工具输入模式")?;
             let input_schema: Value =
                 serde_json::from_str(&input_schema_raw).with_context(|| {
-                    format!("failed to parse input schema for dynamic tool in thread {thread_id}")
+                    format!("无法解析线程 {thread_id} 中动态工具的输入模式")
                 })?;
             out.push(DynamicToolRecord {
-                position: row.get(0).context("failed to read tool position")?,
-                name: row.get(1).context("failed to read tool name")?,
-                description: row.get(2).context("failed to read tool description")?,
+                position: row.get(0).context("无法读取工具位置")?,
+                name: row.get(1).context("无法读取工具名称")?,
+                description: row.get(2).context("无法读取工具描述")?,
                 input_schema,
             });
         }
@@ -470,12 +470,12 @@ impl StateStore {
             .as_ref()
             .map(serde_json::to_string)
             .transpose()
-            .context("failed to serialize message item payload")?;
+            .context("无法序列化消息条目负载")?;
         conn.execute(
             "INSERT INTO messages(thread_id, role, content, item_json, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
             params![thread_id, role, content, item_json, created_at],
         )
-        .with_context(|| format!("failed to append message for thread {thread_id}"))?;
+        .with_context(|| format!("无法为线程 {thread_id} 追加消息"))?;
         Ok(conn.last_insert_rowid())
     }
 
@@ -490,27 +490,27 @@ impl StateStore {
             .prepare(
                 "SELECT id, thread_id, role, content, item_json, created_at FROM messages WHERE thread_id = ?1 ORDER BY created_at ASC LIMIT ?2",
             )
-            .context("failed to prepare message listing query")?;
+            .context("无法准备消息列表查询")?;
         let mut rows = stmt
             .query(params![thread_id, limit])
-            .with_context(|| format!("failed to list messages for thread {thread_id}"))?;
+            .with_context(|| format!("无法列出线程 {thread_id} 的消息"))?;
         let mut out = Vec::new();
-        while let Some(row) = rows.next().context("failed to iterate message rows")? {
-            let item_json: Option<String> = row.get(4).context("failed to read item json")?;
+        while let Some(row) = rows.next().context("无法遍历消息行")? {
+            let item_json: Option<String> = row.get(4).context("无法读取条目 JSON")?;
             let item = item_json
                 .as_deref()
                 .map(serde_json::from_str)
                 .transpose()
                 .with_context(|| {
-                    format!("failed to parse message item json in thread {thread_id}")
+                    format!("无法解析线程 {thread_id} 中的消息条目 JSON")
                 })?;
             out.push(MessageRecord {
-                id: row.get(0).context("failed to read message id")?,
-                thread_id: row.get(1).context("failed to read message thread id")?,
-                role: row.get(2).context("failed to read message role")?,
-                content: row.get(3).context("failed to read message content")?,
+                id: row.get(0).context("无法读取消息 ID")?,
+                thread_id: row.get(1).context("无法读取消息线程 ID")?,
+                role: row.get(2).context("无法读取消息角色")?,
+                content: row.get(3).context("无法读取消息内容")?,
                 item,
-                created_at: row.get(5).context("failed to read message timestamp")?,
+                created_at: row.get(5).context("无法读取消息时间戳")?,
             });
         }
         Ok(out)
@@ -522,7 +522,7 @@ impl StateStore {
             "DELETE FROM messages WHERE thread_id = ?1",
             params![thread_id],
         )
-        .with_context(|| format!("failed to clear messages for thread {thread_id}"))
+        .with_context(|| format!("无法清除线程 {thread_id} 的消息"))
     }
 
     pub fn save_checkpoint(
@@ -533,7 +533,7 @@ impl StateStore {
     ) -> Result<()> {
         let conn = self.conn()?;
         let state_json =
-            serde_json::to_string(state).context("failed to encode checkpoint state")?;
+            serde_json::to_string(state).context("无法编码检查点状态")?;
         conn.execute(
             r#"
             INSERT INTO checkpoints(thread_id, checkpoint_id, state_json, created_at)
@@ -545,7 +545,7 @@ impl StateStore {
             params![thread_id, checkpoint_id, state_json, Utc::now().timestamp()],
         )
         .with_context(|| {
-            format!("failed to save checkpoint {checkpoint_id} for thread {thread_id}")
+            format!("无法保存线程 {thread_id} 的检查点 {checkpoint_id}")
         })?;
         Ok(())
     }
@@ -574,7 +574,7 @@ impl StateStore {
                 )
                 .optional()
                 .with_context(|| {
-                    format!("failed to load checkpoint {checkpoint_id} for thread {thread_id}")
+                    format!("无法加载线程 {thread_id} 的检查点 {checkpoint_id}")
                 })?;
             return Ok(row);
         }
@@ -594,7 +594,7 @@ impl StateStore {
             },
         )
         .optional()
-        .with_context(|| format!("failed to load latest checkpoint for thread {thread_id}"))
+        .with_context(|| format!("无法加载线程 {thread_id} 的最新检查点"))
     }
 
     pub fn list_checkpoints(
@@ -608,20 +608,20 @@ impl StateStore {
             .prepare(
                 "SELECT thread_id, checkpoint_id, state_json, created_at FROM checkpoints WHERE thread_id = ?1 ORDER BY created_at DESC LIMIT ?2",
             )
-            .context("failed to prepare checkpoint list query")?;
+            .context("无法准备检查点列表查询")?;
         let mut rows = stmt
             .query(params![thread_id, limit])
-            .with_context(|| format!("failed to list checkpoints for thread {thread_id}"))?;
+            .with_context(|| format!("无法列出线程 {thread_id} 的检查点"))?;
 
         let mut out = Vec::new();
-        while let Some(row) = rows.next().context("failed to iterate checkpoint rows")? {
-            let state_json: String = row.get(2).context("failed to read checkpoint state json")?;
+        while let Some(row) = rows.next().context("无法遍历检查点行")? {
+            let state_json: String = row.get(2).context("无法读取检查点状态 JSON")?;
             let state = serde_json::from_str(&state_json).unwrap_or(Value::Null);
             out.push(CheckpointRecord {
-                thread_id: row.get(0).context("failed to read checkpoint thread id")?,
-                checkpoint_id: row.get(1).context("failed to read checkpoint id")?,
+                thread_id: row.get(0).context("无法读取检查点线程 ID")?,
+                checkpoint_id: row.get(1).context("无法读取检查点 ID")?,
                 state,
-                created_at: row.get(3).context("failed to read checkpoint timestamp")?,
+                created_at: row.get(3).context("无法读取检查点时间戳")?,
             });
         }
         Ok(out)
@@ -634,7 +634,7 @@ impl StateStore {
             params![thread_id, checkpoint_id],
         )
         .with_context(|| {
-            format!("failed to delete checkpoint {checkpoint_id} for thread {thread_id}")
+            format!("无法删除线程 {thread_id} 的检查点 {checkpoint_id}")
         })?;
         Ok(())
     }
@@ -663,7 +663,7 @@ impl StateStore {
                 job.updated_at
             ],
         )
-        .with_context(|| format!("failed to upsert job {}", job.id))?;
+        .with_context(|| format!("无法更新作业 {}", job.id))?;
         Ok(())
     }
 
@@ -687,7 +687,7 @@ impl StateStore {
             },
         )
         .optional()
-        .with_context(|| format!("failed to read job {id}"))
+        .with_context(|| format!("无法读取作业 {id}"))
     }
 
     pub fn list_jobs(&self, limit: Option<usize>) -> Result<Vec<JobStateRecord>> {
@@ -697,22 +697,22 @@ impl StateStore {
             .prepare(
                 "SELECT id, name, status, progress, detail, created_at, updated_at FROM jobs ORDER BY updated_at DESC LIMIT ?1",
             )
-            .context("failed to prepare job list query")?;
+            .context("无法准备作业列表查询")?;
         let mut rows = stmt
             .query(params![limit])
-            .context("failed to query persisted jobs")?;
+            .context("无法查询持久化作业")?;
         let mut out = Vec::new();
-        while let Some(row) = rows.next().context("failed to iterate persisted jobs")? {
-            let status_raw: String = row.get(2).context("failed to read job status")?;
-            let progress: Option<i64> = row.get(3).context("failed to read job progress")?;
+        while let Some(row) = rows.next().context("无法遍历持久化作业")? {
+            let status_raw: String = row.get(2).context("无法读取作业状态")?;
+            let progress: Option<i64> = row.get(3).context("无法读取作业进度")?;
             out.push(JobStateRecord {
-                id: row.get(0).context("failed to read job id")?,
-                name: row.get(1).context("failed to read job name")?,
+                id: row.get(0).context("无法读取作业 ID")?,
+                name: row.get(1).context("无法读取作业名称")?,
                 status: job_state_status_from_str(&status_raw),
                 progress: progress.and_then(|v| u8::try_from(v).ok()),
-                detail: row.get(4).context("failed to read job detail")?,
-                created_at: row.get(5).context("failed to read job created_at")?,
-                updated_at: row.get(6).context("failed to read job updated_at")?,
+                detail: row.get(4).context("无法读取作业详情")?,
+                created_at: row.get(5).context("无法读取作业创建时间")?,
+                updated_at: row.get(6).context("无法读取作业更新时间")?,
             });
         }
         Ok(out)
@@ -721,7 +721,7 @@ impl StateStore {
     pub fn delete_job(&self, id: &str) -> Result<()> {
         let conn = self.conn()?;
         conn.execute("DELETE FROM jobs WHERE id = ?1", params![id])
-            .with_context(|| format!("failed to delete job {id}"))?;
+            .with_context(|| format!("无法删除作业 {id}"))?;
         Ok(())
     }
 
@@ -733,7 +733,7 @@ impl StateStore {
             |row| row.get::<_, Option<String>>(0),
         )
         .optional()
-        .context("failed to lookup rollout path")
+        .context("无法查找 rollout 路径")
         .map(|opt| opt.flatten().map(PathBuf::from))
     }
 
@@ -747,7 +747,7 @@ impl StateStore {
         if let Some(parent) = self.session_index_path.parent() {
             fs::create_dir_all(parent).with_context(|| {
                 format!(
-                    "failed to create session index directory {}",
+                    "无法创建会话索引目录 {}",
                     parent.display()
                 )
             })?;
@@ -759,18 +759,18 @@ impl StateStore {
             rollout_path,
         };
         let encoded =
-            serde_json::to_string(&entry).context("failed to serialize session index entry")?;
+            serde_json::to_string(&entry).context("无法序列化会话索引条目")?;
         let mut file = OpenOptions::new()
             .create(true)
             .append(true)
             .open(&self.session_index_path)
             .with_context(|| {
                 format!(
-                    "failed to open session index {}",
+                    "无法打开会话索引 {}",
                     self.session_index_path.display()
                 )
             })?;
-        writeln!(file, "{encoded}").context("failed to append session index entry")?;
+        writeln!(file, "{encoded}").context("无法追加会话索引条目")?;
         Ok(())
     }
 
@@ -817,19 +817,19 @@ impl StateStore {
             .open(&self.session_index_path)
             .with_context(|| {
                 format!(
-                    "failed to read session index {}",
+                    "无法读取会话索引 {}",
                     self.session_index_path.display()
                 )
             })?;
         let reader = BufReader::new(file);
         let mut latest = HashMap::<String, SessionIndexEntry>::new();
         for line in reader.lines() {
-            let line = line.context("failed to read session index line")?;
+            let line = line.context("无法读取会话索引行")?;
             if line.trim().is_empty() {
                 continue;
             }
             let parsed: SessionIndexEntry =
-                serde_json::from_str(&line).context("failed to parse session index entry")?;
+                serde_json::from_str(&line).context("无法解析会话索引条目")?;
             latest.insert(parsed.thread_id.clone(), parsed);
         }
         Ok(latest)

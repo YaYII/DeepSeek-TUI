@@ -1382,18 +1382,18 @@ fn thread_response_from_new(status: &str, new: NewThread) -> ThreadResponse {
 
 fn preview_from_initial_history(initial_history: &InitialHistory) -> String {
     match initial_history {
-        InitialHistory::New => "New conversation".to_string(),
+        InitialHistory::New => "新对话".to_string(),
         InitialHistory::Forked(items) => truncate_preview(
             &items
                 .first()
                 .map(Value::to_string)
-                .unwrap_or_else(|| "Forked conversation".to_string()),
+                .unwrap_or_else(|| "复刻对话".to_string()),
         ),
         InitialHistory::Resumed { history, .. } => truncate_preview(
             &history
                 .first()
                 .map(Value::to_string)
-                .unwrap_or_else(|| "Resumed conversation".to_string()),
+                .unwrap_or_else(|| "恢复的对话".to_string()),
         ),
     }
 }
@@ -1564,19 +1564,19 @@ fn policy_precheck_payload(
 
 fn tool_payload_value(payload: &ToolPayload) -> Value {
     serde_json::to_value(payload).unwrap_or_else(
-        |_| json!({"type":"serialization_error","message":"tool payload unavailable"}),
+        |_| json!({"type":"serialization_error","message":"工具载荷不可用"}),
     )
 }
 
 fn tool_output_value(output: &deepseek_protocol::ToolOutput) -> Value {
     serde_json::to_value(output).unwrap_or_else(
-        |_| json!({"type":"serialization_error","message":"tool output unavailable"}),
+        |_| json!({"type":"serialization_error","message":"工具输出不可用"}),
     )
 }
 
 fn event_frame_payload(frame: &EventFrame) -> Value {
     serde_json::to_value(frame)
-        .unwrap_or_else(|_| json!({"event":"error","message":"failed to encode event frame"}))
+        .unwrap_or_else(|_| json!({"event":"error","message":"无法编码事件帧"}))
 }
 
 fn json_optional_string(value: &Value) -> Option<String> {

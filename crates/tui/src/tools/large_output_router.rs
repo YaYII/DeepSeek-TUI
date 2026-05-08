@@ -59,11 +59,10 @@ impl WorkshopConfig {
 
 // ── Token estimation ──────────────────────────────────────────────────────────
 
-/// Estimate the number of tokens in `text` using a character-count heuristic.
+/// 使用字符计数启发式估算 `text` 中的 token 数量。
 ///
-/// This avoids a real tokeniser dependency; the estimate is deliberately
-/// conservative (under-counts tokens) so we route aggressively rather than
-/// letting a 5K-token blob slip through.
+/// 这避免了对真实分词器的依赖；估算故意保守（少算 token），
+/// 以便我们积极路由，而不是让 5K token 的数据块漏过。
 #[must_use]
 pub fn estimate_tokens(text: &str) -> usize {
     let chars = text.chars().count();
@@ -73,40 +72,39 @@ pub fn estimate_tokens(text: &str) -> usize {
 
 // ── Router ────────────────────────────────────────────────────────────────────
 
-/// Decision returned by [`LargeOutputRouter::route`].
+/// 由 [`LargeOutputRouter::route`] 返回的决策。
 #[derive(Debug, Clone, PartialEq)]
 pub enum RouteDecision {
-    /// The output is small enough; pass it through unmodified.
+    /// 输出足够小；原样传递。
     PassThrough,
-    /// The output exceeded the threshold and was (or should be) synthesised.
+    /// 输出超过阈值，已被（或应该被）合成。
     Synthesise {
-        /// Estimated token count of the raw output.
+        /// 原始输出的估计 token 数量。
         estimated_tokens: usize,
-        /// The threshold that was breached.
+        /// 被超过的阈值。
         threshold: usize,
     },
 }
 
-/// Intercepts tool results and routes large ones through the workshop.
+/// 拦截工具结果并将大结果路由到 workshop。
 ///
-/// This type is intentionally `Clone` and `Default` so it can be embedded
-/// cheaply in [`ToolContext`](crate::tools::spec::ToolContext) without
-/// requiring `Arc` wrappers.
+/// 此类型特意设为 `Clone` 和 `Default`，以便可以低成本地嵌入
+/// [`ToolContext`](crate::tools::spec::ToolContext) 中，无需 `Arc` 包装。
 #[derive(Debug, Clone, Default)]
 pub struct LargeOutputRouter {
     config: WorkshopConfig,
 }
 
 impl LargeOutputRouter {
-    /// Construct a router from the resolved workshop config.
+    /// 从解析后的 workshop 配置构造路由器。
     #[must_use]
     pub fn new(config: WorkshopConfig) -> Self {
         Self { config }
     }
 
-    /// Decide whether `result` for `tool_name` should be synthesised.
+    /// 判断 `tool_name` 的 `result` 是否应该被合成。
     ///
-    /// Pass `raw_bypass = true` when the tool call included `raw = true`.
+    /// 当工具调用包含 `raw = true` 时传递 `raw_bypass = true`。
     #[must_use]
     pub fn route(&self, tool_name: &str, result: &ToolResult, raw_bypass: bool) -> RouteDecision {
         if raw_bypass || !result.success {
@@ -124,15 +122,12 @@ impl LargeOutputRouter {
         }
     }
 
-    /// Build the synthesis prompt sent to the V4-Flash workshop sub-agent.
+    /// 构建发送给 V4-Flash workshop 子代理的合成提示。
     ///
-    /// The prompt is intentionally terse — Flash is a fast model and we just
-    /// want a faithful summary, not deep reasoning.
+    /// 提示有意保持简洁——Flash 是一个快速模型，我们只需要忠实的摘要，而非深入推理。
     ///
-    /// This is the building block for the live LLM synthesis call wired in
-    /// the follow-up (once the async Flash client is safe to call from the
-    /// registry layer). The method is public so callers outside this crate
-    /// can unit-test the prompt shape.
+    /// 这是后续 LLM 实时合成调用的构建块（一旦异步 Flash 客户端可以从注册表层安全调用）。
+    /// 该方法公开，以便此 crate 外部的调用者可以对提示结构进行单元测试。
     #[must_use]
     #[allow(dead_code)] // used by future Flash synthesis call; keep for API stability
     pub fn synthesis_prompt(tool_name: &str, raw_output: &str, estimated_tokens: usize) -> String {
@@ -146,8 +141,7 @@ impl LargeOutputRouter {
         )
     }
 
-    /// Wrap a synthesis result with a workshop provenance header and a hint
-    /// about the stored raw output.
+    /// 用 workshop 来源标头和关于存储的原始输出的提示来包装合成结果。
     #[must_use]
     pub fn wrap_synthesis(
         tool_name: &str,
@@ -164,32 +158,31 @@ impl LargeOutputRouter {
 
 // ── Workshop variable store ───────────────────────────────────────────────────
 
-/// In-process store for workshop variables that persist across tool calls
-/// within a session. The only variable exposed today is `last_tool_result`
-/// which holds the most recent raw large-tool output for `promote_to_context`.
+/// workshop 变量的进程内存储，跨会话内的工具调用持久化。
+/// 目前暴露的唯一变量是 `last_tool_result`，它保存最近的原始大工具输出，
+/// 供 `promote_to_context` 使用。
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct WorkshopVariables {
-    /// Raw content of the most recent large tool output that was routed
-    /// through the workshop. Empty string when no routing has occurred.
+    /// 最近通过 workshop 路由的大工具输出的原始内容。
+    /// 未发生路由时为空字符串。
     #[serde(default)]
     pub last_tool_result: String,
 
-    /// Name of the tool that produced `last_tool_result`.
+    /// 产生 `last_tool_result` 的工具名称。
     #[serde(default)]
     pub last_tool_name: String,
 }
 
 impl WorkshopVariables {
-    /// Store the raw output from a large-tool routing event.
+    /// 存储来自大工具路由事件的原始输出。
     pub fn store_raw(&mut self, tool_name: &str, raw: &str) {
         self.last_tool_result = raw.to_string();
         self.last_tool_name = tool_name.to_string();
     }
 
-    /// Retrieve and clear the stored raw output (consume semantics so the
-    /// variable is not accidentally promoted twice).
+    /// 检索并清除存储的原始输出（消费语义，防止变量被意外提升两次）。
     ///
-    /// Called by the `promote_to_context` tool (not yet wired in this PR).
+    /// 由 `promote_to_context` 工具调用（尚未在此 PR 中连接）。
     #[must_use]
     #[allow(dead_code)] // consumed by promote_to_context tool in follow-up
     pub fn take_raw(&mut self) -> Option<(String, String)> {

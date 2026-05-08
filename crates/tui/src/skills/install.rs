@@ -1,37 +1,30 @@
 //! 社区技能安装器（#140）。
 //!
-//! Pulls user-authored skills from GitHub or direct tarball URLs, validates them
-//! against a path-traversal- and size-bounded extractor, and writes them into
-//! `<skills_dir>/<name>/`. No backend service, no auto-execution: every install
-//! is gated by the per-domain [`crate::network_policy::NetworkPolicy`] and
-//! validation rejects any tarball entry that escapes the destination directory.
+//! 从 GitHub 或直接 tarball URL 拉取用户创作的技能，通过路径遍历和大小限制
+//! 的提取器进行验证，并写入 `<skills_dir>/<name>/`。无需后端服务，无需自动执行：
+//! 每次安装都由每个域名的 [`crate::network_policy::NetworkPolicy`] 控制，
+//! 验证会拒绝任何逃逸目标目录的 tarball 条目。
 //!
-//! Public surface:
+//! 公开接口：
 //!
-//! * [`InstallSource`] — `github:owner/repo`, raw URL, or curated registry
-//!   name. Parsed from a single string with [`InstallSource::parse`].
-//! * [`install`] / [`update`] / [`uninstall`] — async install, atomic update,
-//!   and clean uninstall. All three preserve a `.installed-from` marker so the
-//!   bundled `skill-creator` (which lacks the marker) is never touched.
+//! * [`InstallSource`] — `github:owner/repo`、原始 URL 或精选注册表名称。
+//!   通过 [`InstallSource::parse`] 从单个字符串解析。
+//! * [`install`] / [`update`] / [`uninstall`] — 异步安装、原子更新和干净卸载。
+//!   三者都保留 `.installed-from` 标记，以便捆绑的 `skill-creator`（没有该标记）
+//!   永远不会被触及。
 //! * [`InstallOutcome`] — `Installed` / `NeedsApproval(host)` /
-//!   `NetworkDenied(host)`. The `NeedsApproval` variant is returned without
-//!   side effects so the caller (slash-command, runtime API, etc.) can route
-//!   through its own approval flow.
+//!   `NetworkDenied(host)`。`NeedsApproval` 变体在无副作用的情况下返回，
+//!   以便调用者（斜杠命令、运行时 API 等）可以通过自己的审批流程路由。
 //!
-//! # Hard rules
+//! # 硬性规则
 //!
-//! * Validation extracts to a temp directory first. The destination path is
-//!   only created (via atomic rename) once the tarball clears every check.
-//!   Half-installed skills can never appear on disk.
-//! * Path traversal rejection covers both `..` segments and absolute paths.
-//!   Symlinks inside the selected skill subtree are rejected — there's no use
-//!   case for them in a SKILL.md bundle and they're a notorious foothold for
-//!   escape. Multi-skill repository archives may contain unrelated symlinks
-//!   outside that selected subtree; those entries are ignored and never
-//!   extracted.
-//! * No `+x` is granted on extracted files. The optional `/skill trust <name>`
-//!   command writes a `.trusted` marker; tool-execution gating is a separate
-//!   concern that lives next to the tool registry.
+//! * 验证首先提取到临时目录。只有在 tarball 通过所有检查后，
+//!   目标路径才会被创建（通过原子重命名）。半安装的技能永远不会出现在磁盘上。
+//! * 路径遍历拒绝同时涵盖 `..` 段和绝对路径。所选技能子树内的符号链接
+//!   被拒绝——在 SKILL.md 捆绑中没有它们的用例，而且它们是臭名昭著的逃逸据点。
+//!   多技能仓库存档可能包含所选子树外的不相关符号链接；这些条目被忽略且从不提取。
+//! * 提取的文件不会被授予 `+x` 权限。可选的 `/skill trust <name>` 命令
+//!   写入 `.trusted` 标记；工具执行门控是一个单独的关注点，位于工具注册表旁边。
 
 use std::fs;
 use std::io::{Read, Write};
@@ -45,10 +38,10 @@ use thiserror::Error;
 
 use crate::network_policy::{Decision, NetworkPolicy, host_from_url};
 
-/// Cache directory for registry-synced skills.
+/// 注册表同步技能的缓存目录。
 ///
-/// Lives at `~/.deepseek/cache/skills/` so it's separate from user-installed
-/// skills and can be blown away without losing anything irreplaceable.
+/// 位于 `~/.deepseek/cache/skills/`，与用户安装的技能分开存放，
+/// 可以随时清除而不会丢失任何不可替代的内容。
 pub fn default_cache_skills_dir() -> PathBuf {
     dirs::home_dir().map_or_else(
         || PathBuf::from("/tmp/deepseek/cache/skills"),
@@ -56,50 +49,47 @@ pub fn default_cache_skills_dir() -> PathBuf {
     )
 }
 
-/// Default registry. Falls back to a community-curated `index.json` hosted on
-/// GitHub raw; users can override via `[skills] registry_url` in config.toml.
+/// 默认注册表。回退到托管在 GitHub raw 上的社区维护的 `index.json`；
+/// 用户可以通过 config.toml 中的 `[skills] registry_url` 覆盖。
 pub const DEFAULT_REGISTRY_URL: &str =
     "https://raw.githubusercontent.com/Hmbown/deepseek-skills/main/index.json";
 
-/// Default per-skill size cap (5 MiB). Honored at unpack time so a malicious
-/// gzip bomb can't blow up RAM.
+/// 默认每个技能的大小上限（5 MiB）。在解包时执行，以防止恶意 gzip 炸弹耗尽内存。
 pub const DEFAULT_MAX_SIZE_BYTES: u64 = 5 * 1024 * 1024;
 
-/// File written under each installed skill so [`update`] / [`uninstall`] can
-/// recover the original [`InstallSource`] without re-parsing user input.
+/// 在每个已安装技能下写入的文件，使 [`update`] / [`uninstall`] 可以
+/// 恢复原始 [`InstallSource`]，而无需重新解析用户输入。
 pub const INSTALLED_FROM_MARKER: &str = ".installed-from";
 
-/// File written under each trusted skill. Currently advisory (the install path
-/// never auto-runs anything) — the runtime tool-invocation gate consults this
-/// marker before executing scripts that ship with the skill.
+/// 在每个受信任技能下写入的文件。目前是咨询性质的（安装路径从不自动运行任何东西）——
+/// 运行时工具调用门在执行技能附带的脚本之前会查阅此标记。
 pub const TRUSTED_MARKER: &str = ".trusted";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Source parsing
+// 来源解析
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Where a skill is being installed from. See [`InstallSource::parse`] for the
-/// accepted spec syntax.
+/// 技能安装的来源。接受的规范语法请参见 [`InstallSource::parse`]。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InstallSource {
-    /// `github:owner/repo`. Resolved to
-    /// `https://github.com/<owner>/<repo>/archive/refs/heads/main.tar.gz`
-    /// with a `master.tar.gz` fallback on 404.
+    /// `github:owner/repo`。解析为
+    /// `https://github.com/<owner>/<repo>/archive/refs/heads/main.tar.gz`，
+    /// 并在 404 时回退到 `master.tar.gz`。
     GitHubRepo(String),
-    /// Raw `http(s)://…` tarball URL. Used as-is.
+    /// 原始 `http(s)://…` tarball URL。按原样使用。
     DirectUrl(String),
-    /// Curated registry lookup key. Looked up via the configured `registry_url`.
+    /// 精选注册表查找键。通过配置的 `registry_url` 查找。
     Registry(String),
 }
 
 impl InstallSource {
-    /// Parse a user-supplied spec. Empty / whitespace-only input is rejected.
+    /// 解析用户提供的规范。空或仅空白字符的输入被拒绝。
     ///
     /// * `github:owner/repo` → [`InstallSource::GitHubRepo`]
-    /// * `https://github.com/owner/repo[.git]` (no path past the repo) →
+    /// * `https://github.com/owner/repo[.git]`（仓库路径后无其他路径）→
     ///   [`InstallSource::GitHubRepo`]
-    /// * any other `http://` or `https://` prefix → [`InstallSource::DirectUrl`]
-    /// * anything else → [`InstallSource::Registry`]
+    /// * 任何其他 `http://` 或 `https://` 前缀 → [`InstallSource::DirectUrl`]
+    /// * 其他任何内容 → [`InstallSource::Registry`]
     pub fn parse(spec: &str) -> Result<Self> {
         let trimmed = spec.trim();
         if trimmed.is_empty() {
@@ -132,10 +122,9 @@ impl InstallSource {
     }
 }
 
-/// Detect bare `https://github.com/<owner>/<repo>` URLs (with or without a
-/// trailing `.git`) and return `owner/repo`. Returns `None` for any URL that
-/// already points at a specific archive / blob / tree path — those are real
-/// direct URLs and the caller fetches them as-is.
+/// 检测裸 `https://github.com/<owner>/<repo>` URL（带或不带尾部 `.git`）
+/// 并返回 `owner/repo`。对于已指向特定存档/blob/树路径的任何 URL 返回 `None`——
+/// 这些是真正的直接 URL，调用者按原样获取它们。
 fn parse_github_browser_url(url: &str) -> Option<String> {
     let after_scheme = url
         .strip_prefix("https://")
@@ -151,9 +140,8 @@ fn parse_github_browser_url(url: &str) -> Option<String> {
     if owner.is_empty() || repo.is_empty() {
         return None;
     }
-    // If there is a third segment, the URL points at a sub-resource
-    // (`/archive/...`, `/blob/...`, `/tree/...`). Treat that as a real direct
-    // URL — the user explicitly wants whatever lives at that path.
+    // 如果有第三个段，则 URL 指向子资源（`/archive/...`、`/blob/...`、`/tree/...`）。
+    // 将其视为真正的直接 URL——用户显式想要该路径下的内容。
     if parts.next().is_some() {
         return None;
     }
@@ -161,99 +149,91 @@ fn parse_github_browser_url(url: &str) -> Option<String> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Outcome / result types
+// 结果类型
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Outcome of an install attempt.
+/// 安装尝试的结果。
 #[derive(Debug)]
 pub enum InstallOutcome {
-    /// The skill was installed (or already present and idempotent).
+    /// 技能已安装（或已存在且幂等）。
     Installed(InstalledSkill),
-    /// The host requires user approval before the install can proceed. The
-    /// caller should surface this through whatever approval pathway it has and
-    /// retry once approved (typically by adding the host to the policy's
-    /// allow list).
+    /// 主机需要用户批准后才能继续安装。调用者应通过其拥有的任何批准途径
+    /// 展示此信息，并在批准后重试（通常通过将主机添加到策略的允许列表）。
     NeedsApproval(String),
-    /// The host is denied by network policy. The install is aborted.
+    /// 主机被网络策略拒绝。安装已中止。
     NetworkDenied(String),
 }
 
-/// Metadata for a successfully installed skill.
+/// 成功安装的技能元数据。
 #[derive(Debug, Clone)]
 pub struct InstalledSkill {
-    /// Skill name (taken from SKILL.md frontmatter).
+    /// 技能名称（从 SKILL.md 前置元数据中获取）。
     pub name: String,
-    /// Final on-disk path: `<skills_dir>/<name>/`.
+    /// 最终磁盘路径：`<skills_dir>/<name>/`。
     pub path: PathBuf,
-    /// SHA-256 over the downloaded tarball bytes. Used by [`update`] to detect
-    /// upstream changes without re-extracting; also surfaced for telemetry /
-    /// future signature-verification work.
+    /// 下载的 tarball 字节的 SHA-256 哈希。由 [`update`] 用于检测上游变更而无需重新提取；
+    /// 也用于遥测/未来签名验证工作。
     #[allow(dead_code)]
     pub source_checksum: String,
 }
 
-/// Result of an [`update`] call.
+/// [`update`] 调用的结果。
 #[derive(Debug)]
 pub enum UpdateResult {
-    /// Upstream tarball is byte-identical to the on-disk checksum; no action.
+    /// 上游 tarball 与磁盘校验和字节相同；无需操作。
     NoChange,
-    /// Upstream changed and the on-disk install was atomically replaced.
+    /// 上游已变更，磁盘上的安装已原子替换。
     Updated(InstalledSkill),
-    /// Network policy short-circuited the update. Same semantics as
-    /// [`InstallOutcome::NeedsApproval`].
+    /// 网络策略短路了更新。与 [`InstallOutcome::NeedsApproval`] 语义相同。
     NeedsApproval(String),
-    /// Network policy denied the update.
+    /// 网络策略拒绝了更新。
     NetworkDenied(String),
 }
 
-/// Errors that can happen during install. Most variants are flattened into
-/// `anyhow::Error` at the public boundary; this enum is used internally so
-/// tests can pattern-match without parsing strings.
+/// 安装过程中可能发生的错误。大多数变体在公共边界被展平为 `anyhow::Error`；
+/// 此枚举在内部使用，以便测试无需解析字符串即可进行模式匹配。
 #[derive(Debug, Error)]
 pub enum InstallError {
-    #[error("entry escapes destination directory: {0}")]
+    #[error("条目逃逸出目标目录：{0}")]
     PathTraversal(String),
-    #[error("entry is too large; uncompressed total would exceed {limit} bytes")]
+    #[error("条目过大；解压后总量将超过 {limit} 字节")]
     OversizedTarball { limit: u64 },
-    #[error("missing SKILL.md in archive")]
+    #[error("归档中缺少 SKILL.md")]
     MissingSkillMd,
-    #[error("SKILL.md frontmatter missing required field: {0}")]
+    #[error("SKILL.md 前置元数据缺少必填字段：{0}")]
     MissingFrontmatterField(&'static str),
-    #[error("symlinks are not allowed in skill tarballs")]
+    #[error("技能 tarball 中不允许使用符号链接")]
     SymlinkRejected,
-    #[error("skill '{0}' is already installed; use update or remove it first")]
+    #[error("技能 '{0}' 已安装；请先更新或移除它")]
     AlreadyInstalled(String),
-    #[error("skill '{0}' was not installed via /skill install (no .installed-from marker)")]
+    #[error("技能 '{0}' 未通过 /skill install 安装（没有 .installed-from 标记）")]
     NotInstalledHere(String),
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Public API
+// 公开 API
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Install a community skill into `skills_dir`.
+/// 将社区技能安装到 `skills_dir`。
 ///
-/// Steps:
+/// 步骤：
 ///
-/// 1. Resolve `source` to one or more candidate URLs (GitHub adds a
-///    `master` fallback after `main`).
-/// 2. Consult `network` for the host. `Allow` proceeds; `Deny` returns
-///    [`InstallOutcome::NetworkDenied`]; `Prompt` returns
-///    [`InstallOutcome::NeedsApproval`] without touching disk.
-/// 3. Stream the tarball into a tempfile (capped at `max_size`).
-/// 4. Validate the archive (path-traversal, size, no symlinks in the selected
-///    skill subtree, SKILL.md present with required frontmatter fields) into a
-///    sibling `<name>.tmp/` directory.
-/// 5. Atomic-rename `<name>.tmp/` → `<name>/`.
-/// 6. Write `.installed-from` and return [`InstalledSkill`].
+/// 1. 将 `source` 解析为一个或多个候选 URL（GitHub 在 `main` 之后添加 `master` 回退）。
+/// 2. 咨询 `network` 关于主机的信息。`Allow` 继续；`Deny` 返回
+///    [`InstallOutcome::NetworkDenied`]；`Prompt` 返回
+///    [`InstallOutcome::NeedsApproval`] 而不触碰磁盘。
+/// 3. 将 tarball 流式传输到临时文件（上限为 `max_size`）。
+/// 4. 验证存档（路径遍历、大小、所选技能子树中无符号链接、
+///    SKILL.md 存在并包含所需的前置元数据字段）到同级 `<name>.tmp/` 目录。
+/// 5. 原子重命名 `<name>.tmp/` → `<name>/`。
+/// 6. 写入 `.installed-from` 并返回 [`InstalledSkill`]。
 ///
-/// `update = false` rejects an existing destination. Pass `update = true`
-/// from [`update`] to allow replacement.
+/// `update = false` 拒绝已存在的目标。从 [`update`] 传递 `update = true`
+/// 以允许替换。
 ///
-/// Convenience wrapper over [`install_with_registry`] that uses the bundled
-/// [`DEFAULT_REGISTRY_URL`]. Public for downstream consumers (tests, runtime
-/// API) even though the slash-command path always goes through
-/// [`install_with_registry`] so the user's configured registry wins.
+/// 使用捆绑的 [`DEFAULT_REGISTRY_URL`] 的 [`install_with_registry`] 的便利包装。
+/// 对下游消费者（测试、运行时 API）公开，尽管斜杠命令路径始终经过
+/// [`install_with_registry`]，以便用户的配置注册表胜出。
 #[allow(dead_code)]
 pub async fn install(
     source: InstallSource,
@@ -273,8 +253,8 @@ pub async fn install(
     .await
 }
 
-/// Same as [`install`] but lets the caller override the registry URL. Useful
-/// for tests; the slash-command path always uses the configured registry.
+/// 与 [`install`] 相同，但允许调用者覆盖注册表 URL。对测试有用；
+/// 斜杠命令路径始终使用配置的注册表。
 pub async fn install_with_registry(
     source: InstallSource,
     skills_dir: &Path,
@@ -365,14 +345,13 @@ pub async fn install_with_registry(
     }))
 }
 
-/// Re-fetch a previously installed skill and replace it on disk if the
-/// upstream tarball changed.
+/// 重新获取先前安装的技能，如果上游 tarball 已变更则替换磁盘上的内容。
 ///
-/// Reads `.installed-from` to recover the original [`InstallSource`], so
-/// a skill installed via `/skill install github:foo/bar` can be updated via
-/// `/skill update bar` without the user re-typing the spec.
+/// 读取 `.installed-from` 以恢复原始 [`InstallSource`]，因此通过
+/// `/skill install github:foo/bar` 安装的技能可以通过 `/skill update bar`
+/// 更新，用户无需重新输入规范。
 ///
-/// Convenience wrapper over [`update_with_registry`].
+/// 基于 [`update_with_registry`] 的便利包装。
 #[allow(dead_code)]
 pub async fn update(
     name: &str,
@@ -383,7 +362,7 @@ pub async fn update(
     update_with_registry(name, skills_dir, max_size, network, DEFAULT_REGISTRY_URL).await
 }
 
-/// Same as [`update`] but lets the caller override the registry URL.
+/// 与 [`update`] 相同，但允许调用者覆盖注册表 URL。
 pub async fn update_with_registry(
     name: &str,
     skills_dir: &Path,
@@ -434,10 +413,10 @@ pub async fn update_with_registry(
     }
 }
 
-/// Remove a community-installed skill.
+/// 移除社区安装的技能。
 ///
-/// Refuses to touch any directory that doesn't carry the `.installed-from`
-/// marker — that's our cue that it's user-owned and not a system skill.
+/// 拒绝触碰任何没有 `.installed-from` 标记的目录——这是我们判断它是用户拥有
+/// 而非系统技能的依据。
 pub fn uninstall(name: &str, skills_dir: &Path) -> Result<()> {
     let target = skills_dir.join(name);
     if !target.exists() {
@@ -451,12 +430,12 @@ pub fn uninstall(name: &str, skills_dir: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Mark a community-installed skill as trusted. Currently a marker file only;
-/// callers that wire tool execution against `<name>/scripts/` consult the file
-/// before invoking anything. No-op if already trusted.
+/// 将社区安装的技能标记为受信任。目前仅是一个标记文件；
+/// 针对 `<name>/scripts/` 进行工具执行的调用者在调用任何内容之前会查阅该文件。
+/// 如果已受信任则为空操作。
 ///
-/// Refuses to mark system skills (no `.installed-from`) so the bundled
-/// `skill-creator` doesn't accidentally inherit elevated tool privileges.
+/// 拒绝标记系统技能（没有 `.installed-from`），以便捆绑的 `skill-creator`
+/// 不会意外继承提升的工具权限。
 pub fn trust(name: &str, skills_dir: &Path) -> Result<()> {
     let target = skills_dir.join(name);
     if !target.exists() {
@@ -476,9 +455,9 @@ pub fn trust(name: &str, skills_dir: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Fetch the curated registry and return the parsed entries.
+/// 获取精选注册表并返回解析后的条目。
 ///
-/// Honours `network` (skipping the call entirely on Deny / Prompt).
+/// 遵循 `network`（在 Deny / Prompt 时完全跳过调用）。
 pub async fn fetch_registry(
     network: &NetworkPolicy,
     registry_url: &str,
@@ -506,61 +485,58 @@ pub async fn fetch_registry(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Registry sync (issue #433)
+// 注册表同步（issue #433）
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Outcome of a single skill entry during [`sync_registry`].
+/// [`sync_registry`] 期间单个技能条目的结果。
 #[derive(Debug, Clone)]
 pub enum SkillSyncOutcome {
-    /// Skill downloaded and written to the cache directory.
+    /// 技能已下载并写入缓存目录。
     Downloaded { name: String, path: PathBuf },
-    /// Cached bytes match the upstream ETag / SHA-256; nothing written.
+    /// 缓存的字节与上游 ETag / SHA-256 匹配；未写入任何内容。
     Fresh { name: String },
-    /// Skill download failed; the error is non-fatal so the sync continues.
+    /// 技能下载失败；错误非致命，因此同步继续。
     Failed { name: String, reason: String },
-    /// Network policy blocked the download host.
+    /// 网络策略阻止了下载主机。
     Denied { name: String, host: String },
-    /// Network policy requires user approval for the download host.
+    /// 网络策略要求用户批准下载主机。
     NeedsApproval { name: String, host: String },
 }
 
-/// Overall result of [`sync_registry`].
+/// [`sync_registry`] 的总体结果。
 #[derive(Debug)]
 pub enum SyncResult {
-    /// Sync completed. `outcomes` contains one entry per skill in the index.
+    /// 同步完成。`outcomes` 包含索引中每个技能的一个条目。
     Done { outcomes: Vec<SkillSyncOutcome> },
-    /// The registry fetch was blocked by network policy.
+    /// 注册表获取被网络策略阻止。
     RegistryDenied(String),
-    /// The registry fetch requires user approval.
+    /// 注册表获取需要用户批准。
     RegistryNeedsApproval(String),
 }
 
-/// Freshness metadata written alongside each cached skill so subsequent syncs
-/// can skip unchanged content.
+/// 与每个缓存技能一起写入的新鲜度元数据，以便后续同步可以跳过未变更的内容。
 #[derive(Debug, Serialize, Deserialize)]
 struct CacheMeta {
-    /// ETag returned by the server for the primary asset, if any.
+    /// 服务器为主资源返回的 ETag（如果有）。
     #[serde(default)]
     etag: Option<String>,
-    /// SHA-256 hex digest of the downloaded bytes.
+    /// 下载字节的 SHA-256 十六进制摘要。
     sha256: String,
-    /// Source URL the asset was fetched from.
+    /// 获取资源的源 URL。
     url: String,
 }
 
-/// Sync the remote registry to the local cache.
+/// 将远程注册表同步到本地缓存。
 ///
-/// For every skill listed in `index.json` this function:
+/// 对于 `index.json` 中列出的每个技能，此函数：
 ///
-/// 1. Resolves the download URL (same logic as `install`).
-/// 2. Checks the cached [`CacheMeta`] (etag + sha256) for freshness; skips
-///    the download if unchanged.
-/// 3. Downloads SKILL.md (and any companion files if the source is a tarball)
-///    into `<cache_dir>/<name>/`.
-/// 4. Writes updated [`CacheMeta`] so the next sync is fast.
+/// 1. 解析下载 URL（与 `install` 相同的逻辑）。
+/// 2. 检查缓存的 [`CacheMeta`]（etag + sha256）以确认新鲜度；如果未变更则跳过下载。
+/// 3. 将 SKILL.md（如果源是 tarball 则包括任何配套文件）下载到 `<cache_dir>/<name>/`。
+/// 4. 写入更新的 [`CacheMeta`] 以便下次同步更快。
 ///
-/// Failures per-skill are non-fatal: [`SkillSyncOutcome::Failed`] is recorded
-/// and the sync continues. The caller decides how to surface per-skill errors.
+/// 每个技能的失败是非致命的：记录 [`SkillSyncOutcome::Failed`] 并继续同步。
+/// 调用者决定如何呈现每个技能的错误。
 pub async fn sync_registry(
     network: &NetworkPolicy,
     registry_url: &str,
@@ -585,7 +561,7 @@ pub async fn sync_registry(
     Ok(SyncResult::Done { outcomes })
 }
 
-/// Sync a single skill entry from the registry into the cache directory.
+/// 将注册表中的单个技能条目同步到缓存目录。
 async fn sync_one_skill(
     name: &str,
     entry: &RegistryEntry,
@@ -815,7 +791,7 @@ async fn sync_one_skill(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Internal helpers
+// 内部辅助函数
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[derive(Debug, Deserialize)]
@@ -825,8 +801,8 @@ struct InstalledFromMarker {
     checksum: String,
 }
 
-/// Curated-registry document. The shape is intentionally minimal so adding
-/// optional metadata later (homepage, version, signature) is forward-compatible.
+/// 精选注册表文档。其形状故意保持最小，以便日后添加可选元数据
+///（主页、版本、签名）时保持向前兼容。
 #[derive(Debug, Clone, Deserialize)]
 pub struct RegistryDocument {
     /// Map of skill name → entry.
@@ -834,8 +810,7 @@ pub struct RegistryDocument {
     pub skills: std::collections::BTreeMap<String, RegistryEntry>,
 }
 
-/// One row in the curated registry. `description` is optional so old indices
-/// keep parsing.
+/// 精选注册表中的一行。`description` 是可选的，以便旧索引仍能解析。
 #[derive(Debug, Clone, Deserialize)]
 pub struct RegistryEntry {
     /// Source spec (e.g. `github:owner/repo`).
@@ -845,8 +820,8 @@ pub struct RegistryEntry {
     pub description: Option<String>,
 }
 
-/// Successful registry fetch result. Same shape as [`InstallOutcome`] for the
-/// network-policy outcomes so the caller can drop directly into approval flow.
+/// 成功的注册表获取结果。与 [`InstallOutcome`] 的网络策略结果形状相同，
+/// 以便调用者可以直接进入审批流程。
 #[derive(Debug)]
 pub enum RegistryFetchResult {
     Loaded(RegistryDocument),
@@ -866,7 +841,7 @@ enum DownloadOutcome {
     Denied(String),
 }
 
-/// Resolve the source spec into one or more candidate URLs to try in order.
+/// 将源规范解析为一个或多个按顺序尝试的候选 URL。
 async fn candidate_urls(
     source: &InstallSource,
     network: &NetworkPolicy,
@@ -914,9 +889,8 @@ async fn candidate_urls(
     }
 }
 
-/// Download the first URL whose host the policy allows and which returns 2xx.
-/// Returns `NeedsApproval` if every candidate hit `Prompt`, or `Denied` if every
-/// candidate was denied.
+/// 下载策略允许主机且返回 2xx 的第一个 URL。
+/// 如果每个候选都命中了 `Prompt` 则返回 `NeedsApproval`，或者如果每个候选都被拒绝则返回 `Denied`。
 async fn download_first_success(
     urls: &[String],
     network: &NetworkPolicy,
@@ -973,9 +947,8 @@ enum DownloadAttempt {
     NotFound(reqwest::StatusCode),
 }
 
-/// Stream a URL into memory with a size cap. Aborts on the first read that
-/// would push the buffer over `max_size * 4` (the *4 accounts for compression;
-/// the unpack step still enforces `max_size` on the *uncompressed* bytes).
+/// 将 URL 流式传输到内存中并带大小上限。在第一次读取会将缓冲区推到
+/// `max_size * 4` 以上时中止（*4 考虑了压缩；解包步骤仍在*未压缩*字节上强制执行 `max_size`）。
 async fn download_with_cap(url: &str, max_size: u64) -> Result<DownloadAttempt> {
     let resp = reqwest::get(url)
         .await
@@ -1005,7 +978,7 @@ struct StagedSkill {
     staged_path: PathBuf,
 }
 
-/// Validate a tarball and extract it into `<skills_dir>/<name>.tmp/`.
+/// 验证 tarball 并将其提取到 `<skills_dir>/<name>.tmp/`。
 fn stage_tarball(bytes: &[u8], skills_dir: &Path, max_size: u64) -> Result<StagedSkill> {
     fs::create_dir_all(skills_dir)
         .with_context(|| format!("failed to create skills directory {}", skills_dir.display()))?;
@@ -1047,18 +1020,18 @@ fn stage_tarball(bytes: &[u8], skills_dir: &Path, max_size: u64) -> Result<Stage
 }
 
 struct TarballScan {
-    /// Skill name from SKILL.md frontmatter.
+    /// 来自 SKILL.md 前置元数据的技能名称。
     skill_name: String,
-    /// Archive prefix to strip from each entry (e.g. `repo-main/`). May be empty.
+    /// 要从每个条目中去除的存档前缀（例如 `repo-main/`）。可能为空。
     prefix: String,
-    /// Sub-directory inside `prefix` that the SKILL.md lives in (`""` if root,
-    /// or `skills/<name>` for repos that bundle multiple skills).
+    /// `prefix` 内 SKILL.md 所在的子目录（如果在根目录则为 `""`，
+    /// 或对于捆绑多个技能的仓库为 `skills/<name>`）。
     skill_root: String,
 }
 
-/// First pass: locate SKILL.md, validate frontmatter, compute total size,
-/// reject path-traversal entries and symlinks inside the selected install
-/// subtree. We do not write anything in this pass; that's the second pass's job.
+/// 第一遍：定位 SKILL.md，验证前置元数据，计算总大小，
+/// 拒绝所选安装子树内的路径遍历条目和符号链接。
+/// 在此遍中我们不做任何写入；那是第二遍的任务。
 fn scan_tarball(bytes: &[u8], max_size: u64) -> Result<TarballScan> {
     let cursor = std::io::Cursor::new(bytes);
     let gz = GzDecoder::new(cursor);
@@ -1329,7 +1302,7 @@ fn is_within_selected_root(path: &str, prefix: &str, skill_root: &str) -> bool {
     path == root || path.starts_with(&format!("{root}/"))
 }
 
-/// Ensure a tar path has no `..` segments and is not absolute.
+/// 确保 tar 路径没有 `..` 段且不是绝对路径。
 fn is_safe_path(path: &Path) -> bool {
     if path.is_absolute() {
         return false;
@@ -1344,7 +1317,7 @@ fn is_safe_path(path: &Path) -> bool {
     true
 }
 
-/// Strip a leading directory prefix (e.g. `repo-main/`) from a tarball path.
+/// 从 tarball 路径中去除前导目录前缀（例如 `repo-main/`）。
 fn strip_prefix<'a>(path: &'a str, prefix: &str) -> std::borrow::Cow<'a, str> {
     if prefix.is_empty() {
         return std::borrow::Cow::Borrowed(path);
@@ -1359,8 +1332,8 @@ fn strip_prefix<'a>(path: &'a str, prefix: &str) -> std::borrow::Cow<'a, str> {
     }
 }
 
-/// Extract `name:` and ensure `description:` exist in the SKILL.md frontmatter.
-/// Also verifies the leading `---` fence so we reject malformed files early.
+/// 提取 `name:` 并确保 `description:` 存在于 SKILL.md 前置元数据中。
+/// 还验证前导的 `---` 围栏，以便我们尽早拒绝格式错误的文件。
 fn parse_frontmatter_name(bytes: &[u8]) -> Result<String> {
     let content = std::str::from_utf8(bytes).context("SKILL.md is not valid UTF-8")?;
     let trimmed = content.trim_start();
@@ -1416,7 +1389,7 @@ fn source_spec_string(source: &InstallSource) -> String {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Tests
+// 测试
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]

@@ -24,8 +24,8 @@ use super::ui::truncate_line_to_width;
 
 pub fn render_sidebar(f: &mut Frame, area: Rect, app: &App) {
     if area.width < 24 || area.height < 8 {
-        // Paint a styled block over the area so stale cells from a previous
-        // (wider) frame don't persist as bleed-through artifacts (#400).
+        // 在区域上绘制样式化块，以便来自前一（更宽）帧的过时单元格
+        // 不会作为渗透伪影持续存在 (#400)。
         Block::default()
             .style(Style::default().bg(app.ui_theme.surface_bg))
             .render(area, f.buffer_mut());
@@ -42,11 +42,10 @@ pub fn render_sidebar(f: &mut Frame, area: Rect, app: &App) {
     }
 }
 
-/// Build the Auto-mode panel stack. Empty panels collapse to zero height so
-/// non-empty ones get the full sidebar real estate. Without this, Plan got
-/// clipped because Todos/Tasks/Agents each reserved 25% of the height even
-/// when they had nothing to show. Plan is always rendered (it owns the
-/// session-wide empty-state hint).
+/// 构建自动模式面板堆栈。空面板折叠为零高度，
+/// 因此非空面板获得整个侧边栏空间。没有这个，Plan 会被裁剪，
+/// 因为 Todos/Tasks/Agents 即使无内容也会各保留 25% 的高度。
+/// Plan 始终渲染（它拥有会话范围的空状态提示）。
 fn render_sidebar_auto(f: &mut Frame, area: Rect, app: &App) {
     #[derive(Clone, Copy)]
     enum Panel {
@@ -122,21 +121,18 @@ fn render_sidebar_auto(f: &mut Frame, area: Rect, app: &App) {
     }
 }
 
-/// The Plan section is the **single source of truth for the
-/// `update_plan` tool's output** (#408). It is intentionally distinct
-/// from the Todos section: todos are checklist work items the user
-/// or model is tracking; plan steps are the model's higher-level
-/// strategy as recorded by `update_plan`. The panel also hosts two
-/// session-wide indicators that don't fit the other sections — Goal
-/// (`/goal`) and the cycle counter (#124) — because they share the
-/// "what's the agent trying to do, big-picture" theme.
+/// 计划部分是 `update_plan` 工具输出的**唯一真实来源** (#408)。
+/// 它与待办部分截然不同：待办是用户或模型正在跟踪的检查清单工作项；
+/// 计划步骤是模型通过 `update_plan` 记录的更高级策略。
+/// 该面板还承载两个不属于其他部分的会话范围指示器 —
+/// 目标（`/goal`）和周期计数器（#124）— 因为它们共享
+/// "代理正在尝试做什么，宏观图景"这一主题。
 ///
-/// When the panel is fully empty (no goal, no cycles, no plan) it
-/// renders as a quiet section with a single dim hint at the bottom
-/// rather than the blunt "No active plan" placeholder it used to show.
-/// That kept the user wondering whether the panel was broken; the
-/// hint instead tells them what the panel is for and how to populate
-/// it.
+/// 当面板完全为空（无目标、无周期、无计划）时，
+/// 它会渲染为一个安静的部分，底部有一条暗淡的提示，
+/// 而不是过去显示的直白的"无活动计划"占位符。
+/// 那会让用户怀疑面板是否坏了；
+/// 而这条提示会告诉他们该面板的作用以及如何填充它。
 fn render_sidebar_plan(f: &mut Frame, area: Rect, app: &App) {
     if area.height < 3 {
         return;
@@ -146,7 +142,7 @@ fn render_sidebar_plan(f: &mut Frame, area: Rect, app: &App) {
     let content_width = area.width.saturating_sub(4) as usize;
     let mut lines: Vec<Line<'static>> = Vec::with_capacity(usize::from(area.height).max(4));
 
-    // === Goal Mode (#397) — gold outline matching todo items ===
+    // === 目标模式 (#397) — 金色轮廓，与待办项匹配 ===
     if let Some(ref objective) = app.goal.goal_objective {
         lines.push(Line::from(Span::styled(
             format!(
@@ -177,15 +173,15 @@ fn render_sidebar_plan(f: &mut Frame, area: Rect, app: &App) {
                 Style::default().fg(palette::TEXT_MUTED),
             )));
         }
-        // Gold separator
+        // 金色分隔线
         lines.push(Line::from(Span::styled(
             "─".repeat(content_width.min(24)),
             Style::default().fg(palette::STATUS_WARNING),
         )));
     }
 
-    // Cycle indicator (issue #124). Only shown once a boundary has fired —
-    // first-time users with cycle_count == 0 don't need this row of chrome.
+    // 周期指示器（issue #124）。仅在边界触发后显示 —
+    // cycle_count == 0 的新用户不需要这行装饰。
     if app.cycle_count > 0 {
         lines.push(Line::from(Span::styled(
             format!(
@@ -200,14 +196,14 @@ fn render_sidebar_plan(f: &mut Frame, area: Rect, app: &App) {
     match app.plan_state.try_lock() {
         Ok(plan) => {
             if plan.is_empty() {
-                // The blunt "No active plan" placeholder used to land
-                // here on every render with no plan steps, even when the
-                // user had a goal set or had cycled — making the panel
-                // look broken. After #408 we instead emit a quiet hint
-                // that explains what the panel is for, but only when
-                // *all* of the panel's signals are empty so we don't
-                // crowd a panel that already has a goal / cycle
-                // indicator above.
+                // 过去，每当渲染时如果没有计划步骤，这里就会显示直白的
+                // "无活动计划"占位符，即使
+                // 用户设置了目标或已经历周期 — 这让面板
+                // 看起来像是坏了。#408 之后我们改为发出一个安静的提示，
+                // 解释该面板的作用，但仅当
+                // *所有*面板信号都为空时，这样不会
+                // 挤占已经有目标/周期
+                // 指示器的面板。
                 let nothing_above = app.goal.goal_objective.is_none() && app.cycle_count == 0;
                 if nothing_above {
                     lines.push(Line::from(Span::styled(
@@ -258,7 +254,7 @@ fn render_sidebar_plan(f: &mut Frame, area: Rect, app: &App) {
                 let remaining = plan.steps().len().saturating_sub(max_steps);
                 if remaining > 0 {
                     lines.push(Line::from(Span::styled(
-                        format!("+{remaining} more steps"),
+                        format!("还有 {remaining} 步"),
                         Style::default().fg(theme.plan_summary_color),
                     )));
                 }
@@ -266,13 +262,13 @@ fn render_sidebar_plan(f: &mut Frame, area: Rect, app: &App) {
         }
         Err(_) => {
             lines.push(Line::from(Span::styled(
-                "Plan state updating...",
+                "计划状态更新中...",
                 Style::default().fg(theme.plan_summary_color),
             )));
         }
     }
 
-    render_sidebar_section(f, area, "Plan", lines, app);
+    render_sidebar_section(f, area, "计划", lines, app);
 }
 
 /// One-line hint shown when the Plan section has nothing to display
@@ -282,7 +278,7 @@ fn render_sidebar_plan(f: &mut Frame, area: Rect, app: &App) {
 /// YOLO; only its content does.
 #[must_use]
 fn plan_panel_empty_hint(content_width: usize) -> String {
-    let full = "tracks update_plan / /goal / cycles";
+    let full = "跟踪 update_plan / /goal / 周期";
     truncate_line_to_width(full, content_width)
 }
 
@@ -299,7 +295,7 @@ fn render_sidebar_todos(f: &mut Frame, area: Rect, app: &App) {
             let snapshot = todos.snapshot();
             if snapshot.items.is_empty() {
                 lines.push(Line::from(Span::styled(
-                    "No todos",
+                    "无待办",
                     Style::default().fg(palette::TEXT_MUTED),
                 )));
             } else {
@@ -338,7 +334,7 @@ fn render_sidebar_todos(f: &mut Frame, area: Rect, app: &App) {
                 let remaining = snapshot.items.len().saturating_sub(max_items);
                 if remaining > 0 {
                     lines.push(Line::from(Span::styled(
-                        format!("+{remaining} more todos"),
+                        format!("还有 {remaining} 个待办"),
                         Style::default().fg(palette::TEXT_MUTED),
                     )));
                 }
@@ -346,13 +342,13 @@ fn render_sidebar_todos(f: &mut Frame, area: Rect, app: &App) {
         }
         Err(_) => {
             lines.push(Line::from(Span::styled(
-                "Todo list updating...",
+                "待办列表更新中...",
                 Style::default().fg(palette::TEXT_MUTED),
             )));
         }
     }
 
-    render_sidebar_section(f, area, "Todos", lines, app);
+    render_sidebar_section(f, area, "待办", lines, app);
 }
 
 fn render_sidebar_tasks(f: &mut Frame, area: Rect, app: &App) {
@@ -380,7 +376,7 @@ fn render_sidebar_tasks(f: &mut Frame, area: Rect, app: &App) {
 
     if app.task_panel.is_empty() {
         lines.push(Line::from(Span::styled(
-            "No active tasks",
+            "无活动任务",
             Style::default().fg(palette::TEXT_MUTED),
         )));
     } else {
@@ -446,7 +442,7 @@ fn render_sidebar_tasks(f: &mut Frame, area: Rect, app: &App) {
         }
     }
 
-    render_sidebar_section(f, area, "Tasks", lines, app);
+    render_sidebar_section(f, area, "任务", lines, app);
 }
 
 fn render_sidebar_subagents(f: &mut Frame, area: Rect, app: &App) {
@@ -456,10 +452,10 @@ fn render_sidebar_subagents(f: &mut Frame, area: Rect, app: &App) {
 
     let content_width = area.width.saturating_sub(4) as usize;
 
-    // Demoted to navigator (issue #128): the in-transcript DelegateCard /
-    // FanoutCard now carries the live action tree and dot-grid. The sidebar
-    // shows just count + role-mix so the user can scan parallel work at a
-    // glance and scroll to the matching transcript card for detail.
+    // 降级为导航器（issue #128）：位于转录本中的 DelegateCard /
+    // FanoutCard 现在承载实时操作树和点阵网格。侧边栏
+    // 仅显示计数 + 角色组合，以便用户一目了然地扫描并行工作，
+    // 并滚动到匹配的转录卡片以了解详情。
     let cached_ids: std::collections::HashSet<&str> = app
         .subagent_cache
         .iter()
@@ -499,12 +495,12 @@ fn render_sidebar_subagents(f: &mut Frame, area: Rect, app: &App) {
     };
     let lines = subagent_navigator_lines(&summary, content_width);
 
-    render_sidebar_section(f, area, "Agents", lines, app);
+    render_sidebar_section(f, area, "代理", lines, app);
 }
 
-/// Minimal projection of the data the sub-agent sidebar needs. Lifted out
-/// of `render_sidebar_subagents` so the rendering can be snapshot-tested
-/// without a full `App`.
+/// 子代理侧边栏所需数据的最小投影。从
+/// `render_sidebar_subagents` 中提取出来，以便无需完整的
+/// `App` 即可对渲染进行快照测试。
 #[derive(Debug, Clone, Default)]
 pub struct SidebarSubagentSummary {
     pub cached_total: usize,
@@ -528,8 +524,8 @@ fn foreground_rlm_running(app: &App) -> bool {
     })
 }
 
-/// Build the demoted navigator lines from a summary projection. Public
-/// for the snapshot test in this module.
+/// 从摘要投影构建降级导航器行。公开
+/// 供此模块中的快照测试使用。
 pub fn subagent_navigator_lines(
     summary: &SidebarSubagentSummary,
     content_width: usize,
@@ -543,7 +539,7 @@ pub fn subagent_navigator_lines(
         && !summary.foreground_rlm_running
     {
         lines.push(Line::from(Span::styled(
-            "No agents",
+            "无代理",
             Style::default().fg(palette::TEXT_MUTED),
         )));
         return lines;
@@ -594,26 +590,26 @@ pub fn subagent_navigator_lines(
         lines.push(Line::from(vec![
             Span::styled("RLM", Style::default().fg(palette::DEEPSEEK_SKY).bold()),
             Span::styled(
-                " foreground work active",
+                " 前台工作活动中",
                 Style::default().fg(palette::TEXT_DIM),
             ),
         ]));
     }
 
     lines.push(Line::from(Span::styled(
-        "(see transcript card for detail)",
+        "（参见转录卡片了解详情）",
         Style::default().fg(palette::TEXT_MUTED).italic(),
     )));
 
     lines
 }
 
-/// Session-context panel (#504) — consolidated session state overview.
+/// 会话上下文面板 (#504) — 整合的会话状态概览。
 ///
-/// Surfaces at-a-glance: working set, token usage / context %, running
-/// cost, MCP server count, LSP toggle state, cycle count, and memory
-/// file size + mtime. Each section is a compact one-liner so the panel
-/// reads as a dashboard rather than a scrolling list.
+/// 一目了然：工作集、令牌用量 / 上下文百分比、运行中
+/// 成本、MCP 服务器数量、LSP 切换状态、周期计数和内存
+/// 文件大小 + 修改时间。每个部分都是紧凑的单行，
+/// 使面板读起来像仪表板而不是滚动列表。
 fn render_context_panel(f: &mut Frame, area: Rect, app: &App) {
     if area.height < 3 {
         return;
@@ -622,12 +618,12 @@ fn render_context_panel(f: &mut Frame, area: Rect, app: &App) {
     let content_width = area.width.saturating_sub(4) as usize;
     let mut lines: Vec<Line<'static>> = Vec::with_capacity(usize::from(area.height).max(4));
 
-    // ── Working set ──────────────────────────────────────────────
+    // ── 工作集 ──────────────────────────────────────────────
     let ws_name = app
         .workspace
         .file_name()
         .and_then(|s| s.to_str())
-        .unwrap_or("(root)")
+        .unwrap_or("(根目录)")
         .to_string();
     lines.push(Line::from(vec![
         Span::styled(
@@ -640,7 +636,7 @@ fn render_context_panel(f: &mut Frame, area: Rect, app: &App) {
         ),
     ]));
 
-    // ── Token usage ──────────────────────────────────────────────
+    // ── 令牌用量 ──────────────────────────────────────────────
     let total_tokens = app.session.total_conversation_tokens;
     let window = crate::models::context_window_for_model(&app.model).unwrap_or(1_048_576);
     let pct = if window > 0 {
@@ -666,7 +662,7 @@ fn render_context_panel(f: &mut Frame, area: Rect, app: &App) {
         Style::default().fg(palette::TEXT_MUTED),
     )));
 
-    // ── Session cost ─────────────────────────────────────────────
+    // ── 会话成本 ─────────────────────────────────────────────
     let total_cost = app.displayed_session_cost_for_currency(app.cost_currency);
     let session_cost = app.session_cost_for_currency(app.cost_currency);
     let agent_cost = app.subagent_cost_for_currency(app.cost_currency);
@@ -680,10 +676,10 @@ fn render_context_panel(f: &mut Frame, area: Rect, app: &App) {
         Style::default().fg(palette::TEXT_MUTED),
     )));
 
-    // ── MCP servers ──────────────────────────────────────────────
+    // ── MCP 服务器 ──────────────────────────────────────────────
     if app.mcp_configured_count > 0 {
         let restart_hint = if app.mcp_restart_required {
-            " (restart needed)"
+            " (需要重启)"
         } else {
             ""
         };
@@ -697,13 +693,13 @@ fn render_context_panel(f: &mut Frame, area: Rect, app: &App) {
     }
 
     // ── LSP ──────────────────────────────────────────────────────
-    let lsp_label = if app.lsp_enabled { "on" } else { "off" };
+    let lsp_label = if app.lsp_enabled { "开" } else { "关" };
     lines.push(Line::from(Span::styled(
         format!("lsp: {}", lsp_label),
         Style::default().fg(palette::TEXT_MUTED),
     )));
 
-    // ── Cycles ───────────────────────────────────────────────────
+    // ── 周期 ───────────────────────────────────────────────────
     if app.cycle_count > 0 {
         lines.push(Line::from(Span::styled(
             format!(
@@ -715,7 +711,7 @@ fn render_context_panel(f: &mut Frame, area: Rect, app: &App) {
         )));
     }
 
-    // ── Memory ───────────────────────────────────────────────────
+    // ── 记忆 ───────────────────────────────────────────────────
     if app.use_memory {
         let size_hint = std::fs::metadata(&app.memory_path)
             .map(|m| m.len())
@@ -735,7 +731,7 @@ fn render_context_panel(f: &mut Frame, area: Rect, app: &App) {
         )));
     }
 
-    render_sidebar_section(f, area, "Session", lines, app);
+    render_sidebar_section(f, area, "会话", lines, app);
 }
 
 fn render_sidebar_section(
@@ -746,7 +742,7 @@ fn render_sidebar_section(
     app: &App,
 ) {
     if area.width < 4 || area.height < 3 {
-        // Clear stale cells before bailing out (#400).
+        // 在退出前清除过期单元格 (#400)。
         Block::default()
             .style(Style::default().bg(app.ui_theme.surface_bg))
             .render(area, f.buffer_mut());
@@ -754,16 +750,16 @@ fn render_sidebar_section(
     }
 
     let theme = Theme::for_palette_mode(app.ui_theme.mode);
-    // Truncate the panel title so it always fits within the section width
-    // even after a resize. The title occupies up to 4 chars of border chrome
-    // (two spaces + one space on each side), so the max title length is
-    // area.width.saturating_sub(4) when borders are enabled.
+    // 截断面板标题，使其始终适合部分宽度，
+    // 即使在调整大小后也是如此。标题占用最多 4 个字符的边框装饰
+    //（每侧两个空格 + 一个空格），因此启用边框时
+    // 最大标题长度为 area.width.saturating_sub(4)。
     let max_title_width = area.width.saturating_sub(4).max(1) as usize;
     let display_title = truncate_line_to_width(title, max_title_width);
 
-    // Constrain lines to the visible section area so a Paragraph wrap
-    // overflow can't write cells outside the Block bounds (#400). The
-    // border + padding consume 2 rows; budget the rest for content.
+    // 将行限制在可见部分区域内，使得 Paragraph 换行
+    // 溢出无法在 Block 边界外写入单元格 (#400)。边框 + 内边距占用 2 行；
+    // 其余空间用于内容。
     let visible_content_rows = area
         .height
         .saturating_sub(2) // top + bottom border
@@ -809,44 +805,42 @@ mod tests {
             .collect()
     }
 
-    // ---- #408 Plan panel empty-state hint ----
+    // ---- #408 计划面板空状态提示 ----
 
     #[test]
     fn plan_panel_empty_hint_mentions_panels_role() {
-        // The hint replaces the old "No active plan" placeholder; it
-        // should explain what the panel tracks so the user can tell
-        // whether the panel is broken vs simply unused this turn.
+        // 该提示替换了旧的"无活动计划"占位符；它应解释面板跟踪的内容，
+        // 以便用户判断面板是坏了还是本轮未被使用。
         let hint = plan_panel_empty_hint(80);
         assert!(
             hint.contains("update_plan"),
-            "hint should name the tool: {hint:?}"
+            "提示应提及工具名称：{hint:?}"
         );
         assert!(
             hint.contains("/goal") || hint.contains("goal"),
-            "hint should mention /goal: {hint:?}"
+            "提示应提及 /goal：{hint:?}"
         );
     }
 
     #[test]
     fn plan_panel_empty_hint_truncates_to_narrow_widths() {
-        // Width 16 forces an ellipsis; the hint should still fit.
+        // 宽度 16 强制使用省略号；提示仍应能容纳。
         let hint = plan_panel_empty_hint(16);
         assert!(
             hint.chars().count() <= 16,
-            "hint width {} > 16: {hint:?}",
+            "提示宽度 {} > 16：{hint:?}",
             hint.chars().count()
         );
     }
 
     #[test]
     fn plan_panel_empty_hint_does_not_say_no_active_plan() {
-        // Regression guard: the placeholder used to say "No active
-        // plan" which made the panel look broken. The hint should
-        // never re-introduce that wording.
+        // 回归防护：占位符过去显示"无活动计划"，
+        // 这让面板看起来像是坏了。提示不应重新引入该措辞。
         let hint = plan_panel_empty_hint(80);
         assert!(
             !hint.to_ascii_lowercase().contains("no active plan"),
-            "hint regressed to old placeholder: {hint:?}"
+            "提示回归到旧占位符：{hint:?}"
         );
     }
 
@@ -855,12 +849,12 @@ mod tests {
         let summary = SidebarSubagentSummary::default();
         let lines = subagent_navigator_lines(&summary, 32);
         let text = lines_to_text(&lines);
-        assert_eq!(text, vec!["No agents".to_string()]);
+        assert_eq!(text, vec!["无代理".to_string()]);
     }
 
     #[test]
     fn navigator_running_state_renders_count_role_and_navigator_hint() {
-        // Two general agents (one running, one done) + one explore (running).
+        // 两个 general 代理（一个运行中，一个已完成）+ 一个 explore（运行中）。
         let mut role_counts = std::collections::BTreeMap::new();
         role_counts.insert("general".to_string(), 2);
         role_counts.insert("explore".to_string(), 1);
@@ -874,16 +868,16 @@ mod tests {
             role_counts,
         };
         let text = lines_to_text(&subagent_navigator_lines(&summary, 64));
-        assert!(text[0].contains("2 running"), "header: {:?}", text[0]);
-        assert!(text[0].contains("/ 3"), "total in header: {:?}", text[0]);
+        assert!(text[0].contains("2 running"), "header 内容：{:?}", text[0]);
+        assert!(text[0].contains("/ 3"), "header 中的总数：{:?}", text[0]);
         assert!(
             text[1].contains("1 explore") && text[1].contains("2 general"),
-            "role mix line: {:?}",
+            "角色组合行：{:?}",
             text[1]
         );
         assert!(
             text.iter().any(|l| l.contains("transcript card")),
-            "navigator hint must defer to transcript: {text:?}",
+            "导航提示必须引用转录本：{text:?}",
         );
     }
 
@@ -902,7 +896,7 @@ mod tests {
         let text = lines_to_text(&subagent_navigator_lines(&summary, 64));
 
         assert!(text[0].contains("1 running"), "header: {:?}", text[0]);
-        assert!(text[0].contains("/ 6"), "fanout total: {:?}", text[0]);
+        assert!(text[0].contains("/ 6"), "fanout 总数：{:?}", text[0]);
     }
 
     #[test]
@@ -919,7 +913,7 @@ mod tests {
             role_counts,
         };
         let text = lines_to_text(&subagent_navigator_lines(&summary, 32));
-        assert!(text[0].contains("1 done"), "settled header: {:?}", text[0]);
+        assert!(text[0].contains("1 done"), "已完成 header：{:?}", text[0]);
     }
 
     #[test]
@@ -946,7 +940,7 @@ mod tests {
             .unwrap_or("");
         assert!(
             role_line.chars().count() <= 16,
-            "role line {role_line:?} exceeded content_width"
+            "角色行 {role_line:?} 超过了内容宽度"
         );
     }
 
@@ -958,11 +952,11 @@ mod tests {
         };
         let text = lines_to_text(&subagent_navigator_lines(&summary, 64));
 
-        assert!(!text[0].contains("No agents"), "header: {:?}", text);
+        assert!(!text[0].contains("无代理"), "header 内容：{:?}", text);
         assert!(
             text.iter()
-                .any(|line| line.contains("RLM foreground work active")),
-            "RLM work must be visible in Agents panel: {text:?}"
+                .any(|line| line.contains("RLM 前台工作活动中")),
+            "RLM 工作必须在代理面板中可见：{text:?}"
         );
     }
 }

@@ -97,8 +97,7 @@ pub struct TaskToolCallSummary {
     pub patch_ref: Option<PathBuf>,
 }
 
-/// Checklist item stored on durable tasks. This is the durable form behind the
-/// model-visible checklist/todo compatibility tools.
+/// 存储在持久化任务上的清单项。这是模型可见的清单/待办兼容工具背后的持久化形式。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TaskChecklistItem {
     pub id: u32,
@@ -106,7 +105,7 @@ pub struct TaskChecklistItem {
     pub status: String,
 }
 
-/// Checklist state associated with a task.
+/// 与任务关联的清单状态。
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct TaskChecklistState {
     pub items: Vec<TaskChecklistItem>,
@@ -115,7 +114,7 @@ pub struct TaskChecklistState {
     pub updated_at: Option<DateTime<Utc>>,
 }
 
-/// Structured verification evidence attached to a task.
+/// 附加到任务的结构化验证证据。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TaskGateRecord {
     pub id: String,
@@ -132,7 +131,7 @@ pub struct TaskGateRecord {
     pub recorded_at: DateTime<Utc>,
 }
 
-/// PR-attempt metadata and artifacts attached to a task.
+/// 附加到任务的 PR 尝试元数据和产物。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TaskAttemptRecord {
     pub id: String,
@@ -156,7 +155,7 @@ pub struct TaskAttemptRecord {
     pub recorded_at: DateTime<Utc>,
 }
 
-/// Durable artifact reference produced by task-aware tools.
+/// 由任务感知工具产生的持久化产物引用。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TaskArtifactRef {
     pub label: String,
@@ -165,7 +164,7 @@ pub struct TaskArtifactRef {
     pub created_at: DateTime<Utc>,
 }
 
-/// GitHub write/read evidence attached to a task timeline.
+/// 附加到任务时间线的 GitHub 写入/读取证据。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TaskGithubEvent {
     pub id: String,
@@ -177,7 +176,7 @@ pub struct TaskGithubEvent {
     pub recorded_at: DateTime<Utc>,
 }
 
-/// Durable task record.
+/// 持久化任务记录。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TaskRecord {
     #[serde(default = "default_task_schema_version")]
@@ -222,7 +221,7 @@ pub struct TaskRecord {
     pub timeline: Vec<TaskTimelineEntry>,
 }
 
-/// Lightweight task view.
+/// 轻量级任务视图。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TaskSummary {
     pub id: String,
@@ -261,7 +260,7 @@ impl From<&TaskRecord> for TaskSummary {
     }
 }
 
-/// Count totals by status for task dashboards.
+/// 按状态统计任务仪表板的总数。
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
 pub struct TaskCounts {
     pub queued: usize,
@@ -271,7 +270,7 @@ pub struct TaskCounts {
     pub canceled: usize,
 }
 
-/// Request to enqueue a new task.
+/// 入队新任务的请求。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NewTaskRequest {
     pub prompt: String,
@@ -299,7 +298,7 @@ impl NewTaskRequest {
     }
 }
 
-/// Task manager startup options.
+/// 任务管理器启动选项。
 #[derive(Debug, Clone)]
 pub struct TaskManagerConfig {
     pub data_dir: PathBuf,
@@ -351,7 +350,7 @@ pub struct ExecutionTask {
     auto_approve: bool,
 }
 
-/// Event stream produced by an executor while a task runs.
+/// 执行器在任务运行时产生的事件流。
 #[derive(Debug, Clone)]
 pub enum TaskExecutionEvent {
     ThreadLinked {
@@ -390,7 +389,7 @@ pub enum TaskExecutionEvent {
     },
 }
 
-/// Final executor result.
+/// 最终执行器结果。
 #[derive(Debug, Clone)]
 pub struct TaskExecutionResult {
     pub status: TaskStatus,
@@ -398,7 +397,7 @@ pub struct TaskExecutionResult {
     pub error: Option<String>,
 }
 
-/// Abstraction for task execution.
+/// 任务执行的抽象。
 #[async_trait]
 pub trait TaskExecutor: Send + Sync {
     async fn execute(
@@ -409,7 +408,7 @@ pub trait TaskExecutor: Send + Sync {
     ) -> TaskExecutionResult;
 }
 
-/// Engine-backed executor (DeepSeek-only).
+/// 引擎支持的执行器（仅限 DeepSeek）。
 pub struct EngineTaskExecutor {
     runtime_threads: SharedRuntimeThreadManager,
 }
@@ -696,7 +695,7 @@ impl TaskExecutor for EngineTaskExecutor {
     }
 }
 
-/// Thread-safe task manager.
+/// 线程安全的任务管理器。
 pub type SharedTaskManager = Arc<TaskManager>;
 
 pub struct TaskManager {
@@ -722,7 +721,7 @@ struct QueueFile {
 }
 
 impl TaskManager {
-    /// Start the manager with the default DeepSeek executor.
+    /// 使用默认的 DeepSeek 执行器启动管理器。
     pub async fn start(cfg: TaskManagerConfig, api_config: Config) -> Result<SharedTaskManager> {
         let runtime_threads = Arc::new(RuntimeThreadManager::open(
             api_config.clone(),
@@ -732,7 +731,7 @@ impl TaskManager {
         Self::start_with_runtime_manager(cfg, api_config, runtime_threads).await
     }
 
-    /// Start the manager with an injected runtime thread manager.
+    /// 使用注入的运行时线程管理器启动管理器。
     pub async fn start_with_runtime_manager(
         cfg: TaskManagerConfig,
         _api_config: Config,
@@ -745,7 +744,7 @@ impl TaskManager {
         Ok(manager)
     }
 
-    /// Start the manager with a custom executor (used for tests).
+    /// 使用自定义执行器启动管理器（用于测试）。
     pub async fn start_with_executor(
         cfg: TaskManagerConfig,
         executor: Arc<dyn TaskExecutor>,
@@ -810,7 +809,7 @@ impl TaskManager {
         self.cancel_token.is_cancelled()
     }
 
-    /// Enqueue a new task.
+    /// 入队新任务。
     pub async fn add_task(&self, req: NewTaskRequest) -> Result<TaskRecord> {
         let prompt = req.prompt.trim().to_string();
         if prompt.is_empty() {
@@ -864,7 +863,7 @@ impl TaskManager {
         Ok(task)
     }
 
-    /// List tasks, newest first.
+    /// 列出任务，最新的在前。
     pub async fn list_tasks(&self, limit: Option<usize>) -> Vec<TaskSummary> {
         let state = self.state.lock().await;
         let mut items = state
@@ -879,7 +878,7 @@ impl TaskManager {
         items
     }
 
-    /// Retrieve a task by full id or prefix.
+    /// 通过完整 ID 或前缀检索任务。
     pub async fn get_task(&self, id_or_prefix: &str) -> Result<TaskRecord> {
         let state = self.state.lock().await;
         let id = resolve_task_id(&state.tasks, id_or_prefix)?;
@@ -890,7 +889,7 @@ impl TaskManager {
             .ok_or_else(|| anyhow!("Task not found: {id_or_prefix}"))
     }
 
-    /// Cancel a queued or running task by id/prefix.
+    /// 通过 ID/前缀取消已排队或正在运行的任务。
     pub async fn cancel_task(&self, id_or_prefix: &str) -> Result<TaskRecord> {
         let mut state = self.state.lock().await;
         let id = resolve_task_id(&state.tasks, id_or_prefix)?;
@@ -940,7 +939,7 @@ impl TaskManager {
             .ok_or_else(|| anyhow!("Task not found: {id}"))
     }
 
-    /// Return aggregate status counters.
+    /// 返回聚合状态计数器。
     pub async fn counts(&self) -> TaskCounts {
         let state = self.state.lock().await;
         let mut counts = TaskCounts::default();
@@ -956,13 +955,13 @@ impl TaskManager {
         counts
     }
 
-    /// Root directory for durable task state.
+    /// 持久化任务状态的根目录。
     #[must_use]
     pub fn data_dir(&self) -> PathBuf {
         self.cfg.data_dir.clone()
     }
 
-    /// Resolve a task artifact reference to an absolute path.
+    /// 将任务产物引用解析为绝对路径。
     #[must_use]
     pub fn artifact_absolute_path(&self, path: &Path) -> PathBuf {
         if path.is_absolute() {
@@ -972,7 +971,7 @@ impl TaskManager {
         }
     }
 
-    /// Write a durable task artifact and return the persisted path reference.
+    /// 写入持久化任务产物并返回持久化路径引用。
     pub fn write_task_artifact(
         &self,
         task_id: &str,
@@ -982,7 +981,7 @@ impl TaskManager {
         self.write_artifact(task_id, label, content)
     }
 
-    /// Apply model-visible tool metadata to a task and persist it.
+    /// 将模型可见的工具元数据应用到任务并持久化。
     pub async fn record_tool_metadata(
         &self,
         id_or_prefix: &str,
@@ -1624,7 +1623,7 @@ fn default_auto_approve() -> bool {
     true
 }
 
-/// Default task persistence location (`~/.deepseek/tasks`).
+/// 默认任务持久化位置（`~/.deepseek/tasks`）。
 #[must_use]
 pub fn default_tasks_dir() -> PathBuf {
     if let Ok(path) = std::env::var("DEEPSEEK_TASKS_DIR")
@@ -1638,7 +1637,7 @@ pub fn default_tasks_dir() -> PathBuf {
     PathBuf::from(".deepseek").join("tasks")
 }
 
-/// Wait for a task to reach a terminal status (tests and API helpers).
+/// 等待任务达到终端状态（测试和 API 辅助）。
 #[cfg(test)]
 pub async fn wait_for_terminal_state(
     manager: &TaskManager,

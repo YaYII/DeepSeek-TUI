@@ -714,10 +714,9 @@ fn is_safe_command(command: &str) -> bool {
     false
 }
 
-/// Build/test/source-control commands that are reasonable to chain in a
-/// trusted workspace (`cd /tmp/foo && cargo build`, `cargo test --workspace
-/// && cargo clippy`, etc.). The match is by leading token, not full string,
-/// so flags don't trip the check.
+/// 在受信任的工作区中合理链式调用的构建/测试/源码控制命令
+///（`cd /tmp/foo && cargo build`、`cargo test --workspace && cargo clippy` 等）。
+/// 匹配依据是前导令牌而非完整字符串，因此标志不会干扰检查。
 const KNOWN_SAFE_CHAIN_PREFIXES: &[&str] = &[
     "cargo", "rustc", "rustup", "git", "gh", "hub", "npm", "yarn", "pnpm", "node", "npx", "zig",
     "go", "deno", "bun", "make", "cmake", "ninja", "meson", "python", "python3", "pip", "pip3",
@@ -725,9 +724,9 @@ const KNOWN_SAFE_CHAIN_PREFIXES: &[&str] = &[
     "wc", "sort", "uniq", "which", "env", "true", "false",
 ];
 
-/// Return true when every segment of a chained command (`a && b ; c || d`)
-/// has a leading token in `KNOWN_SAFE_CHAIN_PREFIXES`. Used to permit routine
-/// build+test chains without escalating to Dangerous.
+/// 当链式命令的每个段（`a && b ; c || d`）的前导令牌都在
+/// `KNOWN_SAFE_CHAIN_PREFIXES` 中时返回 true。用于允许常规的构建+测试链
+/// 而不升级到 Dangerous 级别。
 fn all_segments_known_safe(command: &str) -> bool {
     let normalized = command
         .replace("&&", "\n")
@@ -752,7 +751,7 @@ fn all_segments_known_safe(command: &str) -> bool {
     })
 }
 
-/// Check if a command is safe within the workspace
+/// 检查命令在工作区内是否安全
 fn is_workspace_safe_command(command: &str) -> bool {
     let command_lower = command.to_lowercase();
 
@@ -765,12 +764,12 @@ fn is_workspace_safe_command(command: &str) -> bool {
     false
 }
 
-/// Check if a path escapes the workspace
+/// 检查路径是否逃逸工作区
 pub fn path_escapes_workspace(path: &str, workspace: &str) -> bool {
     let path_lower = normalize_safety_path(path);
     let workspace_lower = normalize_safety_path(workspace);
 
-    // Check for obvious escape patterns
+    // 检查明显的逃逸模式
     if path_lower.starts_with("~/") || path_lower.starts_with("$home") {
         return true;
     }
@@ -781,11 +780,10 @@ pub fn path_escapes_workspace(path: &str, workspace: &str) -> bool {
         return !components_start_with(&path_components, &workspace_components);
     }
 
-    // Walk the path components. Track depth relative to the workspace root:
-    // non-`..` components increment depth, `..` components decrement it.
-    // If depth ever goes negative, the path escapes the workspace boundary.
-    // This correctly distinguishes genuine traversal like `../outside` from
-    // names that happen to contain consecutive dots like `foo..bar`.
+    // 遍历路径组件。追踪相对于工作区根目录的深度：
+    // 非 `..` 组件增加深度，`..` 组件减少深度。
+    // 如果深度变为负数，则路径逃逸出工作区边界。
+    // 这正确区分了真正的遍历（如 `../outside`）和恰好包含连续点的名称（如 `foo..bar`）。
     let mut depth: i32 = 0;
     for component in path_lower.split('/') {
         match component {
@@ -831,13 +829,13 @@ fn components_start_with(path: &[&str], prefix: &[&str]) -> bool {
     path.len() >= prefix.len() && path.iter().zip(prefix.iter()).all(|(a, b)| a == b)
 }
 
-/// Parse a command and extract the primary command name
+/// 解析命令并提取主要命令名称
 pub fn extract_primary_command(command: &str) -> Option<&str> {
     let trimmed = command.trim();
 
-    // Handle env vars at start
+    // 处理开头处的环境变量
     if trimmed.starts_with("env ") || trimmed.starts_with("ENV=") {
-        // Skip env setup - find first token that's not an env var
+        // 跳过环境变量设置 - 找到第一个不是环境变量的令牌
         trimmed
             .split_whitespace()
             .find(|s| !s.contains('=') && *s != "env")
@@ -846,7 +844,7 @@ pub fn extract_primary_command(command: &str) -> Option<&str> {
     }
 }
 
-/// Categorize commands into groups
+/// 将命令分类到组
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CommandCategory {
     FileSystem,
@@ -860,7 +858,7 @@ pub enum CommandCategory {
     Other,
 }
 
-/// Get the category of a command
+/// 获取命令的分类
 pub fn categorize_command(command: &str) -> CommandCategory {
     let primary = match extract_primary_command(command) {
         Some(cmd) => cmd.to_lowercase(),
@@ -896,7 +894,7 @@ pub fn categorize_command(command: &str) -> CommandCategory {
     }
 }
 
-// === Unit Tests ===
+// === 单元测试 ===
 
 #[cfg(test)]
 mod tests {
@@ -944,7 +942,7 @@ mod tests {
         assert_eq!(
             analyze_command("ls\0 -la").level,
             SafetyLevel::Dangerous,
-            "embedded NUL byte must be rejected as dangerous"
+            "嵌入的 NUL 字节必须被拒绝为危险"
         );
         assert_eq!(
             analyze_command("echo hello\0world").level,
@@ -954,21 +952,21 @@ mod tests {
 
     #[test]
     fn test_eval_substring_is_not_misclassified() {
-        // Words like `evaluate` / `evaluation` / `cargo run -- eval`
-        // contain the substring "eval" but are not eval invocations.
-        // Guard against the naive `command.contains("eval")` regression
-        // — these should stay safe / workspace-safe, never Dangerous.
+        // 像 `evaluate` / `evaluation` / `cargo run -- eval` 这样的词
+        // 包含子串 "eval" 但并非 eval 调用。
+        // 防止幼稚的 `command.contains("eval")` 回归
+        // — 这些应保持 safe / workspace-safe，绝不 Dangerous。
         let evaluate_safe = analyze_command("cargo run --bin deepseek -- eval").level;
         assert_ne!(
             evaluate_safe,
             SafetyLevel::Dangerous,
-            "running the eval harness should not be classified as dangerous"
+            "运行 eval 工具不应被归类为危险"
         );
         let evaluator = analyze_command("python evaluator.py --suite default").level;
         assert_ne!(
             evaluator,
             SafetyLevel::Dangerous,
-            "running an evaluator script should not be classified as dangerous"
+            "运行评估脚本不应被归类为危险"
         );
     }
 
@@ -1109,16 +1107,15 @@ mod tests {
         );
     }
 
-    // ── classify_command tests ────────────────────────────────────────────────
+    // ── classify_command 测试 ────────────────────────────────────────────────
 
-    /// Helper: split a string on whitespace into a `Vec<&str>` and call
-    /// `classify_command`.
+    /// 辅助函数：将字符串按空白分割为 `Vec<&str>` 并调用 `classify_command`。
     fn classify(s: &str) -> String {
         let tokens: Vec<&str> = s.split_whitespace().collect();
         classify_command(&tokens)
     }
 
-    // ── git (arity 2 each) ────────────────────────────────────────────────────
+    // ── git（每个元数 2）────────────────────────────────────────────────────
 
     #[test]
     fn classify_git_status_bare() {
@@ -1147,7 +1144,7 @@ mod tests {
 
     #[test]
     fn classify_git_push_force() {
-        // --force is a flag, so it is stripped; prefix is still "git push"
+        // --force 是标志，因此被剥离；前缀仍然是 "git push"
         assert_eq!(classify("git push --force"), "git push");
     }
 
@@ -1181,7 +1178,7 @@ mod tests {
         assert_eq!(classify("git rebase -i HEAD~3"), "git rebase");
     }
 
-    // ── cargo (arity 2 each) ─────────────────────────────────────────────────
+    // ── cargo（每个元数 2）─────────────────────────────────────────────────
 
     #[test]
     fn classify_cargo_check_bare() {
@@ -1217,7 +1214,7 @@ mod tests {
 
     #[test]
     fn classify_npm_run_dev_arity_3() {
-        // "npm run" has arity 3: base="npm", sub="run", script="dev"
+        // "npm run" 的元数为 3：base="npm"，sub="run"，script="dev"
         assert_eq!(classify("npm run dev"), "npm run dev");
     }
 
@@ -1267,7 +1264,7 @@ mod tests {
 
     #[test]
     fn classify_kubectl_get_pods() {
-        // arity 3: "kubectl get pods"
+        // 元数 3："kubectl get pods"
         assert_eq!(classify("kubectl get pods"), "kubectl get pods");
     }
 
@@ -1295,11 +1292,11 @@ mod tests {
 
     #[test]
     fn classify_go_mod_tidy() {
-        // arity 3: "go mod tidy"
+        // 元数 3："go mod tidy"
         assert_eq!(classify("go mod tidy"), "go mod tidy");
     }
 
-    // ── pip ──────────────────────────────────────────────────────────────────
+    // ── pip ───────────────────────────────────────────────────────────────────
 
     #[test]
     fn classify_pip_install() {
@@ -1311,7 +1308,7 @@ mod tests {
         assert_eq!(classify("pip list --outdated"), "pip list");
     }
 
-    // ── unknown commands fall back to single-word prefix ──────────────────────
+    // ── 未知命令回退到单字前缀 ─────────────────────────────────────────────
 
     #[test]
     fn classify_unknown_single_word() {
@@ -1320,7 +1317,7 @@ mod tests {
 
     #[test]
     fn classify_unknown_with_flags() {
-        // "ls" is not in the dict with an arity entry; falls back to base word
+        // "ls" 不在字典的元数条目中；回退到基本词
         assert_eq!(classify("ls -la"), "ls");
     }
 
@@ -1329,14 +1326,14 @@ mod tests {
         assert_eq!(classify_command(&[]), "");
     }
 
-    // ── auto_allow semantics ──────────────────────────────────────────────────
+    // ── auto_allow 语义 ──────────────────────────────────────────────────────
 
-    /// Core requirement from the issue: `auto_allow = ["git status"]` must match
-    /// `git status -s` and `git status --porcelain` but NOT `git push`.
+    /// 问题的核心要求：`auto_allow = ["git status"]` 必须匹配
+    /// `git status -s` 和 `git status --porcelain` 但不匹配 `git push`。
     #[test]
     fn auto_allow_git_status_matches_variants() {
         let allow_list = ["git status"];
-        // These should all match the "git status" prefix.
+        // 这些应都匹配 "git status" 前缀。
         let approved_commands = [
             "git status",
             "git status -s",
@@ -1348,7 +1345,7 @@ mod tests {
             let prefix = classify_command(&tokens);
             assert!(
                 allow_list.contains(&prefix.as_str()),
-                "Expected 'git status' to match command '{cmd}', got prefix '{prefix}'"
+                "期望 'git status' 匹配命令 '{cmd}'，但得到前缀 '{prefix}'"
             );
         }
     }
@@ -1362,7 +1359,7 @@ mod tests {
             let prefix = classify_command(&tokens);
             assert!(
                 !allow_list.contains(&prefix.as_str()),
-                "Expected 'git push'/'git checkout' NOT to match 'git status' allow_list, but got prefix '{prefix}' for '{cmd}'"
+                "期望 'git push'/'git checkout' 不匹配 'git status' allow_list，但命令 '{cmd}' 得到前缀 '{prefix}'"
             );
         }
     }

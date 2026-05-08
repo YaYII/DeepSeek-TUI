@@ -1,15 +1,12 @@
-//! Secret storage for DeepSeek API keys.
+//! DeepSeek API 密钥的秘密存储。
 //!
-//! Provides a small abstraction (`KeyringStore`) plus a default
-//! implementation backed by the OS keyring (`DefaultKeyringStore`),
-//! a file-based fallback for headless or unsupported platforms
-//! (`FileKeyringStore`), and an in-memory store for tests
-//! (`InMemoryKeyringStore`).
+//! 提供一个小的抽象（`KeyringStore`），加上由 OS 密钥环支持的默认实现
+//! （`DefaultKeyringStore`）、用于无头或不支持平台的文件后备方案
+//! （`FileKeyringStore`），以及用于测试的内存存储（`InMemoryKeyringStore`）。
 //!
-//! Higher-level lookup through [`Secrets::resolve`] checks the keyring first
-//! and falls back to environment variables. Config-file precedence lives in the
-//! config crate so user-facing commands can keep `config -> keyring -> env`
-//! explicit at the call site.
+//! 通过 [`Secrets::resolve`] 的更高级查找先检查密钥环，
+//! 然后回退到环境变量。配置文件优先级存在于 config crate 中，
+//! 因此面向用户的命令可以在调用点保持 `config -> keyring -> env` 的显式顺序。
 #![deny(missing_docs)]
 
 use std::collections::HashMap;
@@ -20,53 +17,51 @@ use std::sync::{Arc, Mutex};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-/// Default OS keychain service name. macOS users can verify entries with
-/// `security find-generic-password -s deepseek -a <provider>`.
+/// 默认 OS 密钥链服务名称。macOS 用户可以使用
+/// `security find-generic-password -s deepseek -a <provider>` 验证条目。
 pub const DEFAULT_SERVICE: &str = "deepseek";
 
-/// Errors that may arise from a [`KeyringStore`] backend.
+/// 可能从 [`KeyringStore`] 后端产生的错误。
 #[derive(Debug, Error)]
 pub enum SecretsError {
-    /// Underlying OS keyring backend reported an error.
-    #[error("keyring backend error: {0}")]
+    /// 底层 OS 密钥环后端报告错误。
+    #[error("密钥环后端错误: {0}")]
     Keyring(String),
-    /// File-backed fallback I/O error.
-    #[error("file-backed secret store I/O error: {0}")]
+    /// 文件后端回退 I/O 错误。
+    #[error("文件后端秘密存储 I/O 错误: {0}")]
     Io(#[from] std::io::Error),
-    /// File-backed fallback JSON (de)serialisation error.
-    #[error("file-backed secret store JSON error: {0}")]
+    /// 文件后端回退 JSON（反）序列化错误。
+    #[error("文件后端秘密存储 JSON 错误: {0}")]
     Json(#[from] serde_json::Error),
-    /// Caught when a stored secret on disk has unsafe permissions.
-    #[error("file-backed secret store at {path} has insecure permissions {mode:o} (expected 0600)")]
+    /// 当磁盘上存储的秘密具有不安全的权限时捕获。
+    #[error("文件后端秘密存储 {path} 的权限 {mode:o} 不安全（应为 0600）")]
     InsecurePermissions {
-        /// Absolute path to the secrets file.
+        /// 秘密文件的绝对路径。
         path: PathBuf,
-        /// Observed unix permission mode.
+        /// 观察到的 unix 权限模式。
         mode: u32,
     },
 }
 
-/// Abstract secret store; concrete implementations may use the OS
-/// keyring, a JSON file under `~/.deepseek/secrets/`, or an in-memory
-/// map (tests).
+/// 抽象秘密存储；具体实现可以使用 OS 密钥环、`~/.deepseek/secrets/` 下的 JSON 文件，
+/// 或内存映射（测试）。
 pub trait KeyringStore: Send + Sync {
-    /// Read a secret. Returns `Ok(None)` if no entry exists.
+    /// 读取秘密。如果没有条目则返回 `Ok(None)`。
     fn get(&self, key: &str) -> Result<Option<String>, SecretsError>;
-    /// Write a secret, replacing any existing value.
+    /// 写入秘密，替换任何现有值。
     fn set(&self, key: &str, value: &str) -> Result<(), SecretsError>;
-    /// Remove a secret. Should not error if the entry is absent.
+    /// 移除秘密。如果条目不存在则不应报错。
     fn delete(&self, key: &str) -> Result<(), SecretsError>;
-    /// Short, human-readable name of the backend (used by `doctor`).
+    /// 后端的简短、人类可读名称（由 `doctor` 使用）。
     fn backend_name(&self) -> &'static str;
 }
 
-/// OS keyring backend (macOS Keychain, Windows Credential Manager,
-/// Linux Secret Service / kwallet). On platforms without a configured
-/// native keyring dependency, probing this backend returns an unsupported
-/// error so [`Secrets::auto_detect`] can fall back to [`FileKeyringStore`].
+/// OS 密钥环后端（macOS Keychain、Windows Credential Manager、
+/// Linux Secret Service / kwallet）。在没有配置本机密钥环依赖的平台上，
+/// 探测此后端会返回不支持的错误，以便 [`Secrets::auto_detect`] 可以回退到 [`FileKeyringStore`]。
 #[derive(Debug, Clone)]
 pub struct DefaultKeyringStore {
-    /// Keyring service name (defaults to [`DEFAULT_SERVICE`]).
+    /// 密钥环服务名称（默认为 [`DEFAULT_SERVICE`]）。
     service: String,
 }
 
@@ -77,7 +72,7 @@ impl Default for DefaultKeyringStore {
 }
 
 impl DefaultKeyringStore {
-    /// Build a new store with the given service name.
+    /// 使用给定的服务名称构建新的存储。
     #[must_use]
     pub fn new(service: impl Into<String>) -> Self {
         Self {
@@ -85,8 +80,8 @@ impl DefaultKeyringStore {
         }
     }
 
-    /// Probe the OS keyring without writing anything. Returns `Ok(())` if
-    /// a backend is reachable, otherwise an error describing why not.
+    /// 探测 OS 密钥环而不写入任何内容。如果后端可达则返回 `Ok(())`，
+    /// 否则返回描述原因的错误。
     pub fn probe(&self) -> Result<(), SecretsError> {
         #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
         {
@@ -174,16 +169,16 @@ impl KeyringStore for DefaultKeyringStore {
     }
 
     fn backend_name(&self) -> &'static str {
-        "system keyring"
+        "系统密钥环"
     }
 }
 
 #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
 fn unsupported_keyring_message() -> String {
-    "system keyring backend is unsupported on this platform".to_string()
+    "此平台不支持系统密钥环后端".to_string()
 }
 
-/// In-memory keyring (tests only).
+/// 内存密钥环（仅测试）。
 #[derive(Debug, Default)]
 pub struct InMemoryKeyringStore {
     entries: Mutex<HashMap<String, String>>,
@@ -216,13 +211,12 @@ impl KeyringStore for InMemoryKeyringStore {
     }
 
     fn backend_name(&self) -> &'static str {
-        "in-memory (test)"
+        "内存（测试）"
     }
 }
 
-/// JSON-on-disk fallback for headless environments without a Secret
-/// Service / dbus. Stored at `<home>/.deepseek/secrets/secrets.json`
-/// with mode `0600`.
+/// 用于无头环境的 JSON-on-disk 回退方案，适用于没有 Secret Service / dbus 的环境。
+/// 存储在 `<home>/.deepseek/secrets/secrets.json`，权限为 `0600`。
 #[derive(Debug, Clone)]
 pub struct FileKeyringStore {
     /// Absolute path to the JSON file.
@@ -236,14 +230,14 @@ struct FileSecretsBlob {
 }
 
 impl FileKeyringStore {
-    /// Build a store backed by the given JSON file path.
+    /// 构建由给定 JSON 文件路径支持的存储。
     #[must_use]
     pub fn new(path: impl Into<PathBuf>) -> Self {
         Self { path: path.into() }
     }
 
-    /// Default path: `<home>/.deepseek/secrets/secrets.json`. Honours
-    /// `HOME` (Unix) and `USERPROFILE` (Windows) via the `dirs` crate.
+    /// 默认路径：`<home>/.deepseek/secrets/secrets.json`。通过 `dirs` crate
+    /// 使用 `HOME`（Unix）和 `USERPROFILE`（Windows）。
     pub fn default_path() -> Result<PathBuf, SecretsError> {
         let home = dirs::home_dir().ok_or_else(|| {
             SecretsError::Io(std::io::Error::new(
@@ -254,7 +248,7 @@ impl FileKeyringStore {
         Ok(home.join(".deepseek").join("secrets").join("secrets.json"))
     }
 
-    /// Path used for storage.
+    /// 用于存储的路径。
     #[must_use]
     pub fn path(&self) -> &Path {
         &self.path
@@ -345,32 +339,29 @@ impl KeyringStore for FileKeyringStore {
     }
 
     fn backend_name(&self) -> &'static str {
-        "file-based (~/.deepseek/secrets/)"
+        "文件后端 (~/.deepseek/secrets/)"
     }
 }
 
-/// High-level façade combining a [`KeyringStore`] with environment
-/// variable fallbacks.
+/// 高层外观，结合 [`KeyringStore`] 与环境变量回退。
 ///
-/// Lookup precedence: **keyring → env → none**. Callers that also have
-/// a TOML config layer must wire that themselves at the very end of
-/// the chain.
+/// 查找优先级：**keyring → env → none**。同时具有 TOML 配置层的调用者
+/// 必须自己在链的最后连接该层。
 #[derive(Clone)]
 pub struct Secrets {
-    /// Underlying secret store.
+    /// 底层秘密存储。
     pub store: Arc<dyn KeyringStore>,
-    /// Owner identifier within the keyring (typically "deepseek"); the
-    /// `key` parameter passed to `resolve` is mapped to a slot in the
-    /// store as-is, while envs are looked up by canonical name.
+    /// 密钥环中的所有者标识符（通常为 "deepseek"）；传递给 `resolve` 的
+    /// `key` 参数按原样映射到存储槽位，而环境变量则通过规范名称查找。
     service: String,
 }
 
-/// Source layer that provided a resolved secret.
+/// 提供已解析秘密的源层。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SecretSource {
-    /// The configured keyring backend returned the secret.
+    /// 配置的密钥环后端返回了秘密。
     Keyring,
-    /// A process environment variable returned the secret.
+    /// 进程环境变量返回了秘密。
     Env,
 }
 
@@ -384,7 +375,7 @@ impl std::fmt::Debug for Secrets {
 }
 
 impl Secrets {
-    /// Build a new façade around a store.
+    /// 在存储周围构建新的外观。
     #[must_use]
     pub fn new(store: Arc<dyn KeyringStore>) -> Self {
         Self {
@@ -393,10 +384,9 @@ impl Secrets {
         }
     }
 
-    /// Construct the platform-appropriate default backend. On platforms
-    /// where an OS keyring backend is reachable this returns
-    /// [`DefaultKeyringStore`]; otherwise it falls back to
-    /// [`FileKeyringStore`] under `~/.deepseek/secrets/`.
+    /// 构造平台适配合适的默认后端。在有可用的 OS 密钥环后端的平台上
+    /// 返回 [`DefaultKeyringStore`]；否则回退到
+    /// `~/.deepseek/secrets/` 下的 [`FileKeyringStore`]。
     pub fn auto_detect() -> Self {
         let default_store = DefaultKeyringStore::default();
         match default_store.probe() {
@@ -412,13 +402,13 @@ impl Secrets {
         }
     }
 
-    /// Backend label, suitable for `doctor` output.
+    /// 后端标签，适用于 `doctor` 输出。
     #[must_use]
     pub fn backend_name(&self) -> &'static str {
         self.store.backend_name()
     }
 
-    /// Resolve a secret with `keyring → env → none` precedence.
+    /// 使用 `keyring → env → none` 优先级解析秘密。
     ///
     /// `name` is the canonical provider name (`"deepseek"`,
     /// `"openrouter"`, `"novita"`, `"nvidia"`/`"nvidia-nim"`, `"openai"`).
@@ -428,7 +418,7 @@ impl Secrets {
         self.resolve_with_source(name).map(|(value, _)| value)
     }
 
-    /// Resolve a secret and report which layer supplied it.
+    /// 解析秘密并报告哪个层提供了它。
     #[must_use]
     pub fn resolve_with_source(&self, name: &str) -> Option<(String, SecretSource)> {
         if let Ok(Some(v)) = self.store.get(name)
@@ -439,33 +429,32 @@ impl Secrets {
         env_for(name).map(|value| (value, SecretSource::Env))
     }
 
-    /// Convenience: write a secret through the underlying store.
+    /// 便捷方法：通过底层存储写入秘密。
     pub fn set(&self, name: &str, value: &str) -> Result<(), SecretsError> {
         self.store.set(name, value)
     }
 
-    /// Convenience: delete a secret through the underlying store.
+    /// 便捷方法：通过底层存储删除秘密。
     pub fn delete(&self, name: &str) -> Result<(), SecretsError> {
         self.store.delete(name)
     }
 
-    /// Convenience: read a secret directly (no env fallback).
+    /// 便捷方法：直接读取秘密（无环境变量回退）。
     pub fn get(&self, name: &str) -> Result<Option<String>, SecretsError> {
         self.store.get(name)
     }
 }
 
-/// Map a canonical provider name to its environment variable, returning
-/// the value if non-empty.
+/// 将规范提供商名称映射到其环境变量，如果非空则返回值。
 #[must_use]
 pub fn env_for(name: &str) -> Option<String> {
     let candidates: &[&str] = match name.to_ascii_lowercase().as_str() {
         "deepseek" => &["DEEPSEEK_API_KEY"],
         "openrouter" => &["OPENROUTER_API_KEY"],
         "novita" => &["NOVITA_API_KEY"],
-        // NVIDIA NIM falls back to `DEEPSEEK_API_KEY` last because the
-        // catalog endpoint accepts the same DeepSeek-issued key when no
-        // dedicated NVIDIA token is set. This mirrors pre-v0.7 behaviour.
+        // NVIDIA NIM 最后回退到 `DEEPSEEK_API_KEY`，因为当没有设置专用
+        // NVIDIA 令牌时，目录端点接受相同 DeepSeek 颁发的密钥。
+        // 这反映了 v0.7 之前的行为。
         "nvidia" | "nvidia-nim" | "nvidia_nim" | "nim" => {
             &["NVIDIA_API_KEY", "NVIDIA_NIM_API_KEY", "DEEPSEEK_API_KEY"]
         }
@@ -491,8 +480,8 @@ mod tests {
     use super::*;
     use std::sync::{Mutex, OnceLock};
 
-    /// Serialise env-mutating tests: tests in this module poke
-    /// `DEEPSEEK_API_KEY` etc., which is process-global.
+    /// 序列化环境变异测试：此模块中的测试操作 `DEEPSEEK_API_KEY` 等，
+    /// 它们是进程全局的。
     fn env_lock() -> std::sync::MutexGuard<'static, ()> {
         static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
         LOCK.get_or_init(|| Mutex::new(()))

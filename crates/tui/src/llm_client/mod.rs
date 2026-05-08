@@ -3,15 +3,15 @@
 //! 本模块为 LLM 提供者提供统一接口，具有健壮的重试逻辑、
 //! 指数退避和正确的错误分类。
 //!
-//! # Architecture
+//! # 架构
 //!
-//! - `LlmClient` trait: Async interface for LLM providers (DeepSeek, `OpenAI`, etc.)
-//! - `RetryConfig`: Configurable retry behavior with exponential backoff and jitter
-//! - `LlmError`: Classified errors with retryability information
+//! - `LlmClient` trait：LLM 提供者（DeepSeek、`OpenAI` 等）的异步接口
+//! - `RetryConfig`：具有指数退避和抖动的可配置重试行为
+//! - `LlmError`：带有可重试性信息的分类错误
 
-//! - `with_retry`: Generic retry wrapper for any async operation
+//! - `with_retry`：任何异步操作的通用重试包装器
 //!
-//! # Example
+//! # 示例
 //!
 //! ```ignore
 //! use crate::llm_client::{LlmClient, RetryConfig, with_retry};
@@ -35,46 +35,46 @@ pub mod mock;
 
 // === LlmClient Trait ===
 
-/// Type alias for boxed stream of SSE events
+/// SSE 事件的盒装流类型别名
 pub type StreamEventBox =
     Pin<Box<dyn futures_util::Stream<Item = Result<StreamEvent>> + Send + 'static>>;
 
-/// Unified interface for LLM providers.
+/// LLM 提供者的统一接口。
 ///
-/// This trait abstracts over different LLM APIs (DeepSeek, `OpenAI`, etc.)
-/// allowing the agent to work with any provider that implements this interface.
+/// 此 trait 抽象了不同的 LLM API（DeepSeek、`OpenAI` 等），
+/// 允许代理与实现此接口的任何提供者一起工作。
 ///
-/// # Implementation Notes
+/// # 实现说明
 ///
-/// - All methods are async and require `Send + Sync` for thread safety
-/// - The `create_message_stream` method returns a pinned boxed stream for SSE
-/// - Implementations should handle their own authentication and base URL configuration
+/// - 所有方法都是异步的，需要 `Send + Sync` 以保证线程安全
+/// - `create_message_stream` 方法返回一个用于 SSE 的固定盒装流
+/// - 实现应处理自己的身份验证和基本 URL 配置
 #[allow(async_fn_in_trait, dead_code)] // Trait methods are part of the LLM provider interface
 pub trait LlmClient: Send + Sync {
-    /// Returns the provider name (e.g., "openai", "deepseek")
+    /// 返回提供者名称（例如 "openai"、"deepseek"）
     fn provider_name(&self) -> &'static str;
 
-    /// Returns the model identifier being used
+    /// 返回正在使用的模型标识符
     fn model(&self) -> &str;
 
-    /// Creates a non-streaming message completion
+    /// 创建非流式消息补全
     fn create_message(
         &self,
         request: MessageRequest,
     ) -> impl Future<Output = Result<MessageResponse>> + Send;
 
-    /// Creates a streaming message completion
+    /// 创建流式消息补全
     ///
-    /// Returns a stream of SSE events that should be consumed until completion.
+    /// 返回应消费直到完成的 SSE 事件流。
     async fn create_message_stream(&self, request: MessageRequest) -> Result<StreamEventBox>;
 
-    /// Optional health check to verify API connectivity
+    /// 可选健康检查，用于验证 API 连接性
     async fn health_check(&self) -> Result<bool> {
         Ok(true)
     }
 }
 
-/// Trait for clients that support configurable retry behavior
+/// 支持可配置重试行为的客户端的 Trait
 #[allow(dead_code)] // Part of LLM provider interface, will be used by additional providers
 pub trait RetryConfigurable {
     fn retry_config(&self) -> &RetryConfig;
@@ -83,48 +83,48 @@ pub trait RetryConfigurable {
 
 // === LlmError - Classified Error Types ===
 
-/// Classified LLM errors with retryability information.
+/// 带有可重试性信息的分类 LLM 错误。
 ///
-/// This enum categorizes API errors to enable smart retry decisions.
-/// Some errors (rate limits, transient server errors) are retryable,
-/// while others (auth failures, invalid requests) should fail immediately.
+/// 此枚举对 API 错误进行分类以支持智能重试决策。
+/// 某些错误（速率限制、瞬时服务器错误）是可重试的，
+/// 而其他错误（认证失败、无效请求）应立即失败。
 #[derive(Debug)]
 pub enum LlmError {
-    /// Rate limit exceeded (HTTP 429)
-    /// Contains optional Retry-After duration from server
+    /// 超过速率限制（HTTP 429）
+    /// 包含可选的服务器 Retry-After 持续时间
     RateLimited {
         message: String,
         retry_after: Option<Duration>,
     },
 
-    /// Server error (HTTP 5xx)
+    /// 服务器错误（HTTP 5xx）
     ServerError { status: u16, message: String },
 
-    /// Network connectivity error
+    /// 网络连接错误
     NetworkError(String),
 
-    /// Request timed out
+    /// 请求超时
     Timeout(Duration),
 
-    /// Authentication failed (HTTP 401, 403)
+    /// 认证失败（HTTP 401、403）
     AuthenticationError(String),
 
-    /// Invalid request parameters (HTTP 400)
+    /// 无效的请求参数（HTTP 400）
     InvalidRequest { status: u16, message: String },
 
-    /// Model-specific error (model not found, etc.)
+    /// 模型特定错误（模型未找到等）
     ModelError(String),
 
-    /// Content policy violation (safety filters)
+    /// 内容策略违规（安全过滤器）
     ContentPolicyError(String),
 
-    /// Failed to parse API response
+    /// 解析 API 响应失败
     ParseError(String),
 
-    /// Context length exceeded
+    /// 上下文长度超出
     ContextLengthError(String),
 
-    /// Catch-all for other errors
+    /// 其他错误的捕获-all
     Other(String),
 }
 
@@ -153,19 +153,19 @@ impl std::fmt::Display for LlmError {
 impl std::error::Error for LlmError {}
 
 impl LlmError {
-    /// Determines if this error is potentially transient and worth retrying.
+    /// 判断此错误是否可能是瞬时的并且值得重试。
     ///
-    /// Retryable errors:
-    /// - Rate limits (with backoff)
-    /// - Server errors (5xx)
-    /// - Network errors (connection issues)
-    /// - Timeouts
+    /// 可重试的错误：
+    /// - 速率限制（带退避）
+    /// - 服务器错误（5xx）
+    /// - 网络错误（连接问题）
+    /// - 超时
     ///
-    /// Non-retryable errors:
-    /// - Authentication failures
-    /// - Invalid requests
-    /// - Content policy violations
-    /// - Context length errors
+    /// 不可重试的错误：
+    /// - 认证失败
+    /// - 无效请求
+    /// - 内容策略违规
+    /// - 上下文长度错误
     pub fn is_retryable(&self) -> bool {
         matches!(
             self,
@@ -176,10 +176,9 @@ impl LlmError {
         )
     }
 
-    /// Returns the server-suggested retry delay if available.
+    /// 返回服务器建议的重试延迟（如果可用）。
     ///
-    /// This is typically present for rate limit errors when the server
-    /// provides a Retry-After header.
+    /// 对于速率限制错误，当服务器提供 Retry-After 标头时通常存在。
     pub fn suggested_retry_delay(&self) -> Option<Duration> {
         match self {
             LlmError::RateLimited { retry_after, .. } => *retry_after,
@@ -187,11 +186,11 @@ impl LlmError {
         }
     }
 
-    /// Constructs an `LlmError` from HTTP status code and response body.
+    /// 从 HTTP 状态码和响应体构造 `LlmError`。
     ///
-    /// Performs heuristic classification based on:
-    /// - Status code (429 = rate limit, 401/403 = auth, 5xx = server error)
-    /// - Response body keywords (`context_length`, `content_policy`, safety, etc.)
+    /// 基于以下条件执行启发式分类：
+    /// - 状态码（429 = 速率限制、401/403 = 认证、5xx = 服务器错误）
+    /// - 响应体关键词（`context_length`、`content_policy`、safety 等）
     pub fn from_http_response(status: u16, body: &str) -> Self {
         match status {
             429 => LlmError::RateLimited {
@@ -286,59 +285,59 @@ impl From<serde_json::Error> for LlmError {
 
 // === RetryConfig - Exponential Backoff Configuration ===
 
-/// Configuration for retry behavior with exponential backoff.
+/// 具有指数退避的重试行为配置。
 ///
-/// This struct controls how retries are performed:
-/// - Number of retry attempts
-/// - Delay calculation (exponential backoff with optional jitter)
-/// - Which HTTP status codes are retryable
-/// - Timeout handling
+/// 此结构控制重试的执行方式：
+/// - 重试尝试次数
+/// - 延迟计算（带可选抖动的指数退避）
+/// - 哪些 HTTP 状态码可重试
+/// - 超时处理
 ///
-/// # Default Values
+/// # 默认值
 ///
-/// - `enabled`: true
-/// - `max_retries`: 3
-/// - `initial_delay`: 1.0 seconds
-/// - `max_delay`: 60.0 seconds
-/// - `exponential_base`: 2.0
-/// - `jitter`: true (adds randomness to prevent thundering herd)
-/// - `jitter_factor`: 0.1 (10% variation)
-/// - `retryable_status_codes`: [429, 500, 502, 503, 504]
+/// - `enabled`：true
+/// - `max_retries`：3
+/// - `initial_delay`：1.0 秒
+/// - `max_delay`：60.0 秒
+/// - `exponential_base`：2.0
+/// - `jitter`：true（添加随机性以防止惊群效应）
+/// - `jitter_factor`：0.1（10% 的变化）
+/// - `retryable_status_codes`：[429, 500, 502, 503, 504]
 #[derive(Debug, Clone)]
 pub struct RetryConfig {
-    /// Whether retry logic is enabled
+    /// 重试逻辑是否启用
     pub enabled: bool,
 
-    /// Maximum number of retry attempts (0 = no retries, 3 = up to 4 total attempts)
+    /// 最大重试尝试次数（0 = 不重试，3 = 最多 4 次总尝试）
     pub max_retries: u32,
 
-    /// Initial delay before first retry (seconds)
+    /// 首次重试前的初始延迟（秒）
     pub initial_delay: f64,
 
-    /// Maximum delay between retries (seconds)
+    /// 重试之间的最大延迟（秒）
     pub max_delay: f64,
 
-    /// Base for exponential backoff (delay = initial * base^attempt)
+    /// 指数退避的基数（延迟 = 初始 * 基数^尝试次数）
     pub exponential_base: f64,
 
-    /// Whether to add random jitter to delays
+    /// 是否向延迟添加随机抖动
     pub jitter: bool,
 
-    /// Jitter factor (0.1 = +/- 10% variation)
+    /// 抖动因子（0.1 = +/- 10% 变化）
     pub jitter_factor: f64,
 
-    /// Whether to respect server's Retry-After header
+    /// 是否尊重服务器的 Retry-After 标头
     pub respect_retry_after: bool,
 
-    /// HTTP status codes that should trigger a retry
+    /// 应触发重试的 HTTP 状态码
     #[allow(dead_code)] // Used in tests via is_retryable_status()
     pub retryable_status_codes: Vec<u16>,
 
-    /// Timeout for individual requests (seconds, 0 = no timeout)
+    /// 单个请求的超时时间（秒，0 = 无超时）
     #[allow(dead_code)] // Configuration field for retry consumers
     pub request_timeout: f64,
 
-    /// Total timeout for all retry attempts (seconds, 0 = no total timeout)
+    /// 所有重试尝试的总超时时间（秒，0 = 无总超时）
     pub total_timeout: f64,
 }
 
@@ -362,12 +361,12 @@ impl Default for RetryConfig {
 
 #[allow(dead_code)] // Public builder API, used in tests
 impl RetryConfig {
-    /// Creates a new `RetryConfig` with default values
+    /// 使用默认值创建新的 `RetryConfig`
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Creates a config with retry disabled
+    /// 创建一个禁用重试的配置
     pub fn disabled() -> Self {
         Self {
             enabled: false,
@@ -375,7 +374,7 @@ impl RetryConfig {
         }
     }
 
-    /// Builder method to set max retries
+    /// Builder 方法，用于设置最大重试次数
     pub fn with_max_retries(mut self, max_retries: u32) -> Self {
         self.max_retries = max_retries;
         self
@@ -480,16 +479,16 @@ impl From<RetryConfig> for RetryPolicy {
 
 // === Retry Error and Result Types ===
 
-/// Error returned when all retry attempts have been exhausted.
+/// 当所有重试尝试已耗尽时返回的错误。
 #[derive(Debug)]
 pub struct RetryError {
-    /// The last error encountered
+    /// 遇到的最后一个错误
     pub last_error: LlmError,
 
-    /// Total number of attempts made
+    /// 进行的总尝试次数
     pub attempts: u32,
 
-    /// Total time spent across all attempts
+    /// 所有尝试花费的总时间
     pub total_time: Duration,
 }
 
@@ -509,34 +508,34 @@ impl std::error::Error for RetryError {
     }
 }
 
-/// Result type for retry operations
+/// 重试操作的结果类型
 pub type RetryResult<T> = Result<T, RetryError>;
 
-/// Callback type for retry notifications
+/// 重试通知的回调类型
 ///
-/// Called before each retry with:
-/// - The error that triggered the retry
-/// - The attempt number (0-based)
-/// - The delay before the next attempt
+/// 在每次重试前调用，参数为：
+/// - 触发重试的错误
+/// - 尝试次数（从 0 开始）
+/// - 下次尝试前的延迟
 pub type RetryCallback = Box<dyn Fn(&LlmError, u32, Duration) + Send + Sync>;
 
 // === with_retry - Generic Retry Wrapper ===
 
-/// Executes an async operation with configurable retry logic.
+/// 使用可配置的重试逻辑执行异步操作。
 ///
-/// This function wraps any async operation that returns `Result<T, LlmError>`
-/// and automatically retries on transient failures using exponential backoff.
+/// 此函数包装任何返回 `Result<T, LlmError>` 的异步操作，
+/// 并在瞬时故障时使用指数退避自动重试。
 ///
-/// # Arguments
+/// # 参数
 ///
-/// * `config` - Retry configuration (delays, max attempts, etc.)
-/// * `operation` - Async closure to execute (will be called multiple times on retry)
-/// * `callback` - Optional callback for retry notifications (logging, metrics, etc.)
+/// * `config` — 重试配置（延迟、最大尝试次数等）
+/// * `operation` — 要执行的异步闭包（重试时将多次调用）
+/// * `callback` — 可选的重试通知回调（日志记录、指标等）
 ///
-/// # Returns
+/// # 返回值
 ///
-/// * `Ok(T)` - The successful result from the operation
-/// * `Err(RetryError)` - All retries exhausted or non-retryable error encountered
+/// * `Ok(T)` — 操作的成功结果
+/// * `Err(RetryError)` — 所有重试已耗尽或遇到不可重试的错误
 ///
 /// # Example
 ///
@@ -640,7 +639,7 @@ where
     })
 }
 
-/// Simplified version of `with_retry` without callback
+/// `with_retry` 的简化版本，无回调
 #[allow(dead_code)] // Convenience wrapper for with_retry
 pub async fn with_retry_simple<F, Fut, T>(config: &RetryConfig, operation: F) -> RetryResult<T>
 where
@@ -652,11 +651,11 @@ where
 
 // === Utility Functions ===
 
-/// Parses the Retry-After header value into a Duration.
+/// 将 Retry-After 标头值解析为 Duration。
 ///
-/// Supports both:
-/// - Seconds as integer: "120" -> 120 seconds
-/// - HTTP-date format: "Wed, 21 Oct 2015 07:28:00 GMT" (not implemented, returns None)
+/// 支持两种格式：
+/// - 整型秒数："120" -> 120 秒
+/// - HTTP 日期格式："Wed, 21 Oct 2015 07:28:00 GMT"（未实现，返回 None）
 pub fn parse_retry_after(value: &str) -> Option<Duration> {
     // Try parsing as seconds
     if let Ok(seconds) = value.parse::<u64>() {
@@ -673,7 +672,7 @@ pub fn parse_retry_after(value: &str) -> Option<Duration> {
     None
 }
 
-/// Extracts Retry-After duration from response headers
+/// 从响应标头中提取 Retry-After 持续时间
 pub fn extract_retry_after(headers: &reqwest::header::HeaderMap) -> Option<Duration> {
     headers
         .get(reqwest::header::RETRY_AFTER)

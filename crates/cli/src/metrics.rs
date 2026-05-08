@@ -1,10 +1,10 @@
-//! `deepseek metrics` — reads the audit log and session/task stores and prints
-//! a human-readable usage rollup.
+//! `deepseek metrics` — 读取审计日志和会话/任务存储，并输出
+//! 可读的使用汇总。
 //!
-//! Data sources:
-//! - `~/.deepseek/audit.log`   — one JSON line per event (approvals, credentials)
-//! - `~/.deepseek/sessions/`   — saved session JSON files (tool call history)
-//! - `~/.deepseek/tasks/runtime/events/` — runtime thread JSONL event streams
+//! 数据来源：
+//! - `~/.deepseek/audit.log`   — 每事件一行 JSON（审批、凭证）
+//! - `~/.deepseek/sessions/`   — 已保存的会话 JSON 文件（工具调用历史）
+//! - `~/.deepseek/tasks/runtime/events/` — 运行时线程 JSONL 事件流
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -14,22 +14,22 @@ use chrono::{DateTime, Duration, Utc};
 use serde_json::Value;
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Public entry-point
+// 公共入口
 // ──────────────────────────────────────────────────────────────────────────────
 
-/// Arguments accepted by `deepseek metrics`.
+/// `deepseek metrics` 接受的参数。
 #[derive(Debug, Default)]
 pub struct MetricsArgs {
-    /// Emit machine-readable JSON instead of human text.
+    /// 输出机器可读的 JSON 而非人类文本。
     pub json: bool,
-    /// Restrict to events newer than this cutoff (inclusive).
+    /// 仅包含在此截止时间之后的事件（含）。
     pub since: Option<DateTime<Utc>>,
 }
 
 pub fn run(args: MetricsArgs) -> Result<()> {
     let base = deepseek_home();
 
-    // Collect data from every source; treat missing files as empty.
+    // 从每个来源收集数据；将缺失文件视为空。
     let mut rollup = Rollup::default();
     read_audit_log(&base.join("audit.log"), args.since, &mut rollup);
     read_session_files(&base.join("sessions"), args.since, &mut rollup);
@@ -49,16 +49,16 @@ pub fn run(args: MetricsArgs) -> Result<()> {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Duration-string parser  ("7d", "24h", "30m", "2h", "now-2h", "2h30m")
+// 持续时间字符串解析器 ("7d", "24h", "30m", "2h", "now-2h", "2h30m")
 // ──────────────────────────────────────────────────────────────────────────────
 
-/// Parse a loose humantime-ish duration string into an absolute `DateTime<Utc>`
-/// cutoff (i.e. `Utc::now() - duration`).
+/// 将松散的人类可读持续时间字符串解析为绝对 `DateTime<Utc>`
+/// 截止时间（即 `Utc::now() - duration`）。
 ///
-/// Accepted forms:
+/// 接受的格式：
 /// - `7d` / `24h` / `30m` / `90s`
 /// - `2h30m`, `1d12h`
-/// - `now-2h` (leading `now-` is stripped before parsing)
+/// - `now-2h`（解析前会去除前导 `now-`）
 pub fn parse_since(s: &str) -> Result<DateTime<Utc>> {
     let s = s.trim().to_ascii_lowercase();
     let s = s.strip_prefix("now-").unwrap_or(&s);
@@ -67,7 +67,7 @@ pub fn parse_since(s: &str) -> Result<DateTime<Utc>> {
 }
 
 fn parse_duration_secs(s: &str) -> Result<i64> {
-    // Walk through the string accumulating numbers and consuming unit suffixes.
+    // 遍历字符串，累加数字并消费单位后缀。
     let mut total: i64 = 0;
     let mut num_buf = String::new();
 
@@ -77,7 +77,7 @@ fn parse_duration_secs(s: &str) -> Result<i64> {
             'd' | 'h' | 'm' | 's' => {
                 let n: i64 = num_buf
                     .parse()
-                    .map_err(|_| anyhow::anyhow!("invalid duration component: {:?}", num_buf))?;
+                    .map_err(|_| anyhow::anyhow!("无效的持续时间组件: {:?}", num_buf))?;
                 num_buf.clear();
                 let factor = match ch {
                     'd' => 86_400,
@@ -88,42 +88,42 @@ fn parse_duration_secs(s: &str) -> Result<i64> {
                 };
                 total += n * factor;
             }
-            _ => anyhow::bail!("unrecognised character {:?} in duration {:?}", ch, s),
+            _ => anyhow::bail!("持续时间 {:?} 中存在无法识别的字符 {:?}", s, ch),
         }
     }
 
     if !num_buf.is_empty() {
-        // Trailing bare number — treat as seconds.
+        // 尾部裸露数字 — 视为秒。
         let n: i64 = num_buf.parse()?;
         total += n;
     }
 
     if total == 0 {
-        anyhow::bail!("duration {:?} resolved to zero seconds", s);
+        anyhow::bail!("持续时间 {:?} 解析结果为零秒", s);
     }
 
     Ok(total)
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Rollup data model
+// 汇总数据模型
 // ──────────────────────────────────────────────────────────────────────────────
 
-/// Per-tool aggregated counters.
+/// 按工具聚合的计数器。
 #[derive(Debug, Default, serde::Serialize)]
 pub struct ToolStats {
     pub calls: u64,
-    /// Calls that were auto-approved (no prompt required).
+    /// 自动批准（无需提示）的调用次数。
     pub auto_approved: u64,
-    /// Calls that required a manual prompt.
+    /// 需要手动提示的调用次数。
     pub prompted: u64,
-    /// Total elapsed ms (from events that carry this field).
+    /// 总耗时毫秒（来自携带此字段的事件）。
     pub total_elapsed_ms: u64,
-    /// Number of elapsed_ms samples included in `total_elapsed_ms`.
+    /// `total_elapsed_ms` 中包含的耗时样本数量。
     pub elapsed_samples: u64,
-    /// Successful calls (where we have result data).
+    /// 成功的调用次数（有结果数据的）。
     pub successes: u64,
-    /// Failed calls.
+    /// 失败的调用次数。
     pub failures: u64,
 }
 
@@ -142,11 +142,11 @@ impl ToolStats {
     }
 }
 
-/// Compaction event stats.
+/// 压缩事件统计。
 #[derive(Debug, Default, serde::Serialize)]
 pub struct CompactionStats {
     pub events: u64,
-    /// Sum of `reduction_ratio` from events that carry it (0.0–1.0 each).
+    /// 携带此字段的事件的 `reduction_ratio` 之和（每个 0.0–1.0）。
     pub ratio_sum: f64,
     pub ratio_samples: u64,
 }
@@ -161,7 +161,7 @@ impl CompactionStats {
     }
 }
 
-/// Sub-agent spawn stats.
+/// 子代理生成统计。
 #[derive(Debug, Default, serde::Serialize)]
 pub struct AgentStats {
     pub spawns: u64,
@@ -180,36 +180,36 @@ impl AgentStats {
     }
 }
 
-/// Capacity-controller / rate-limit intervention stats.
+/// 容量控制器/速率限制干预统计。
 #[derive(Debug, Default, serde::Serialize)]
 pub struct CapacityStats {
     pub total: u64,
     pub by_category: HashMap<String, u64>,
 }
 
-/// Credential / session event stats (from audit log).
+/// 凭证/会话事件统计（来自审计日志）。
 #[derive(Debug, Default, serde::Serialize)]
 pub struct CredentialStats {
     pub saves: u64,
     pub clears: u64,
 }
 
-/// Top-level rollup.
+/// 顶层汇总。
 #[derive(Debug, Default, serde::Serialize)]
 pub struct Rollup {
-    /// UTC timestamp of the earliest event we've seen.
+    /// 所见最早事件的 UTC 时间戳。
     pub earliest_ts: Option<DateTime<Utc>>,
-    /// UTC timestamp of the latest event we've seen.
+    /// 所见最新事件的 UTC 时间戳。
     pub latest_ts: Option<DateTime<Utc>>,
-    /// Per-tool stats keyed by tool name.
+    /// 按工具名称分组的各工具统计。
     pub tools: HashMap<String, ToolStats>,
     pub compaction: CompactionStats,
     pub agents: AgentStats,
     pub capacity: CapacityStats,
     pub credentials: CredentialStats,
-    /// Total lines read across all sources.
+    /// 所有来源读取的总行数。
     pub total_lines: u64,
-    /// Lines successfully parsed.
+    /// 成功解析的行数。
     pub parsed_lines: u64,
 }
 
@@ -237,17 +237,17 @@ impl Rollup {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Source readers
+// 来源读取器
 // ──────────────────────────────────────────────────────────────────────────────
 
-/// Read one-JSON-line-per-event audit log.
+/// 读取一行一 JSON 事件的审计日志。
 fn read_audit_log(path: &Path, since: Option<DateTime<Utc>>, rollup: &mut Rollup) {
     let content = match std::fs::read_to_string(path) {
         Ok(c) => c,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return,
         Err(e) => {
             tracing::trace!(
-                "metrics: could not read audit log {}: {}",
+                "metrics: 无法读取审计日志 {}: {}",
                 path.display(),
                 e
             );
@@ -265,12 +265,12 @@ fn read_audit_log(path: &Path, since: Option<DateTime<Utc>>, rollup: &mut Rollup
         let v: Value = match serde_json::from_str(line) {
             Ok(v) => v,
             Err(e) => {
-                tracing::trace!("metrics: skipping malformed audit line: {e}");
+                tracing::trace!("metrics: 跳过格式错误的审计行: {e}");
                 continue;
             }
         };
 
-        // Parse timestamp — field is "ts" in audit log.
+        // 解析时间戳 — 审计日志中的字段为 "ts"。
         let ts = parse_ts_field(&v, "ts");
 
         if let Some(cutoff) = since {
@@ -315,7 +315,7 @@ fn read_audit_log(path: &Path, since: Option<DateTime<Utc>>, rollup: &mut Rollup
                 let stats = rollup.tool_mut(tool_name);
                 stats.calls += 1;
 
-                // Optional elapsed_ms
+                // 可选的 elapsed_ms
                 if let Some(ms) = v
                     .pointer("/details/elapsed_ms")
                     .or_else(|| v.pointer("/payload/elapsed_ms"))
@@ -325,7 +325,7 @@ fn read_audit_log(path: &Path, since: Option<DateTime<Utc>>, rollup: &mut Rollup
                     stats.elapsed_samples += 1;
                 }
 
-                // Success / failure
+                // 成功/失败
                 let success = v
                     .pointer("/details/success")
                     .or_else(|| v.pointer("/payload/success"))
@@ -383,21 +383,21 @@ fn read_audit_log(path: &Path, since: Option<DateTime<Utc>>, rollup: &mut Rollup
                 rollup.credentials.clears += 1;
             }
             _ => {
-                // Unknown event — tracked in parsed_lines but otherwise ignored.
+                // 未知事件 — 计入 parsed_lines 但忽略。
             }
         }
     }
 }
 
-/// Read session JSON files under `sessions/` (one per session).
-/// These carry tool call history with optional elapsed_ms and result data.
+/// 读取 `sessions/` 下的会话 JSON 文件（每个会话一个文件）。
+/// 这些文件携带工具调用历史，包含可选的 elapsed_ms 和结果数据。
 fn read_session_files(sessions_dir: &Path, since: Option<DateTime<Utc>>, rollup: &mut Rollup) {
     let rd = match std::fs::read_dir(sessions_dir) {
         Ok(rd) => rd,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return,
         Err(e) => {
             tracing::trace!(
-                "metrics: could not list sessions dir {}: {}",
+                "metrics: 无法列出会话目录 {}: {}",
                 sessions_dir.display(),
                 e
             );
@@ -407,7 +407,7 @@ fn read_session_files(sessions_dir: &Path, since: Option<DateTime<Utc>>, rollup:
 
     for entry in rd.flatten() {
         let path = entry.path();
-        // Only look at .json files directly in sessions/; skip sub-dirs.
+        // 仅查看 sessions/ 下直接存在的 .json 文件；跳过子目录。
         if path.is_dir() || path.extension().map(|e| e != "json").unwrap_or(true) {
             continue;
         }
@@ -420,7 +420,7 @@ fn read_session_file(path: &Path, since: Option<DateTime<Utc>>, rollup: &mut Rol
         Ok(c) => c,
         Err(e) => {
             tracing::trace!(
-                "metrics: could not read session file {}: {}",
+                "metrics: 无法读取会话文件 {}: {}",
                 path.display(),
                 e
             );
@@ -434,7 +434,7 @@ fn read_session_file(path: &Path, since: Option<DateTime<Utc>>, rollup: &mut Rol
         Ok(v) => v,
         Err(e) => {
             tracing::trace!(
-                "metrics: skipping malformed session file {}: {}",
+                "metrics: 跳过格式错误的会话文件 {}: {}",
                 path.display(),
                 e
             );
@@ -444,7 +444,7 @@ fn read_session_file(path: &Path, since: Option<DateTime<Utc>>, rollup: &mut Rol
 
     rollup.parsed_lines += 1;
 
-    // Session-level timestamp filter (check metadata.created_at or updated_at).
+    // 会话级时间戳过滤（检查 metadata.created_at 或 updated_at）。
     let session_ts = v
         .pointer("/metadata/updated_at")
         .or_else(|| v.pointer("/metadata/created_at"))
@@ -462,13 +462,13 @@ fn read_session_file(path: &Path, since: Option<DateTime<Utc>>, rollup: &mut Rol
         rollup.touch_ts(&ts);
     }
 
-    // Walk messages looking for tool_use calls with associated results.
+    // 遍历消息，查找带有关联结果的 tool_use 调用。
     let messages = match v.get("messages").and_then(|m| m.as_array()) {
         Some(m) => m,
         None => return,
     };
 
-    // Build a map from tool_use_id → (tool_name, elapsed_ms_option, started_at_option).
+    // 构建 tool_use_id → (tool_name, elapsed_ms_option, started_at_option) 映射。
     let mut pending: HashMap<String, (String, Option<u64>)> = HashMap::new();
 
     for msg in messages {
@@ -499,15 +499,15 @@ fn read_session_file(path: &Path, since: Option<DateTime<Utc>>, rollup: &mut Rol
                         .unwrap_or("");
                     if let Some((name, elapsed_ms)) = pending.remove(id) {
                         let stats = rollup.tool_mut(&name);
-                        // Only count if not already counted via audit log (we don't de-dup, so
-                        // session files may double-count approvals; that's acceptable — users who
-                        // want precise counts should use --json and cross-reference).
+                        // 仅在尚未通过审计日志计数时计数（我们不进行去重，所以
+                        // 会话文件可能会重复计算审批；这是可接受的 — 需要精确计数的用户
+                        // 应使用 --json 并交叉引用）。
                         stats.calls += 1;
                         if let Some(ms) = elapsed_ms {
                             stats.total_elapsed_ms += ms;
                             stats.elapsed_samples += 1;
                         }
-                        // Tool result success: absence of "is_error": true
+                        // 工具结果成功：没有 "is_error": true 即为成功
                         let is_error = block
                             .get("is_error")
                             .and_then(|e| e.as_bool())
@@ -524,7 +524,7 @@ fn read_session_file(path: &Path, since: Option<DateTime<Utc>>, rollup: &mut Rol
         }
     }
 
-    // Walk messages for compaction events embedded as special user messages.
+    // 遍历消息，查找嵌入为特殊用户消息的压缩事件。
     for msg in messages {
         if let Some(compaction) = msg
             .get("compaction")
@@ -539,14 +539,14 @@ fn read_session_file(path: &Path, since: Option<DateTime<Utc>>, rollup: &mut Rol
     }
 }
 
-/// Read JSONL event streams from the tasks runtime events directory.
+/// 从任务运行时事件目录读取 JSONL 事件流。
 fn read_runtime_events(events_dir: &Path, since: Option<DateTime<Utc>>, rollup: &mut Rollup) {
     let rd = match std::fs::read_dir(events_dir) {
         Ok(rd) => rd,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return,
         Err(e) => {
             tracing::trace!(
-                "metrics: could not list events dir {}: {}",
+                "metrics: 无法列出事件目录 {}: {}",
                 events_dir.display(),
                 e
             );
@@ -568,7 +568,7 @@ fn read_events_jsonl(path: &Path, since: Option<DateTime<Utc>>, rollup: &mut Rol
         Ok(c) => c,
         Err(e) => {
             tracing::trace!(
-                "metrics: could not read events file {}: {}",
+                "metrics: 无法读取事件文件 {}: {}",
                 path.display(),
                 e
             );
@@ -586,7 +586,7 @@ fn read_events_jsonl(path: &Path, since: Option<DateTime<Utc>>, rollup: &mut Rol
         let v: Value = match serde_json::from_str(line) {
             Ok(v) => v,
             Err(e) => {
-                tracing::trace!("metrics: skipping malformed event line: {e}");
+                tracing::trace!("metrics: 跳过格式错误的事件行: {e}");
                 continue;
             }
         };
@@ -671,7 +671,7 @@ fn read_events_jsonl(path: &Path, since: Option<DateTime<Utc>>, rollup: &mut Rol
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Output formatters
+// 输出格式化器
 // ──────────────────────────────────────────────────────────────────────────────
 
 fn print_json(rollup: &Rollup) -> Result<()> {
@@ -680,29 +680,29 @@ fn print_json(rollup: &Rollup) -> Result<()> {
 }
 
 fn print_human(rollup: &Rollup) {
-    // Period header
+    // 时段标题
     match (rollup.earliest_ts, rollup.latest_ts) {
         (Some(start), Some(end)) => {
             let days = (end - start).num_days();
             println!(
-                "Period: {} → {} ({} days)",
+                "时段: {} → {} ({} 天)",
                 start.format("%Y-%m-%d"),
                 end.format("%Y-%m-%d"),
                 days
             );
         }
         (Some(start), None) | (None, Some(start)) => {
-            println!("Period: {} → (unknown)", start.format("%Y-%m-%d"));
+            println!("时段: {} → (未知)", start.format("%Y-%m-%d"));
         }
         (None, None) => {
-            println!("Period: (no data)");
+            println!("时段: (无数据)");
         }
     }
 
-    // ── Tools ──────────────────────────────────────────────────────────────
+    // ── 工具 ──────────────────────────────────────────────────────────────
     let total_calls = rollup.total_tool_calls();
     if total_calls > 0 {
-        // Overall success rate from session-file data (where we have result info).
+        // 来自会话文件数据的总体成功率（有结果信息）。
         let total_ok: u64 = rollup.tools.values().map(|t| t.successes).sum();
         let total_judged: u64 = rollup
             .tools
@@ -711,41 +711,41 @@ fn print_human(rollup: &Rollup) {
             .sum();
         let overall_rate = if total_judged > 0 {
             format!(
-                "{:.1}% success",
+                "{:.1}% 成功",
                 total_ok as f64 / total_judged as f64 * 100.0
             )
         } else {
-            // Only approval events — show prompt breakdown.
+            // 仅有审批事件 — 显示自动/提示的细分。
             let auto: u64 = rollup.tools.values().map(|t| t.auto_approved).sum();
             let prompted: u64 = rollup.tools.values().map(|t| t.prompted).sum();
-            format!("{auto} auto-approved, {prompted} prompted")
+            format!("{auto} 自动批准, {prompted} 提示")
         };
 
         println!(
-            "Tools: {:>6} calls ({})",
+            "工具: {:>6} 次调用 ({})",
             fmt_num(total_calls),
             overall_rate
         );
 
-        // Sort tools by call count descending, top 15.
+        // 按调用次数降序排列工具，取前 15 个。
         let mut tools: Vec<(&String, &ToolStats)> = rollup.tools.iter().collect();
         tools.sort_by_key(|b| std::cmp::Reverse(b.1.calls));
         for (name, stats) in tools.iter().take(15) {
             let rate_str = match stats.success_rate_pct() {
                 Some(pct) => format!("{pct:5.1}%"),
                 None => {
-                    // Only approval data available — show auto/prompted breakdown.
+                    // 仅有审批数据可用 — 显示自动/提示的细分。
                     let a = stats.auto_approved;
                     let p = stats.prompted;
                     if p == 0 {
-                        format!("auto×{a}  ")
+                        format!("自动×{a}  ")
                     } else {
-                        format!("auto×{a}/prompted×{p}")
+                        format!("自动×{a}/提示×{p}")
                     }
                 }
             };
             let avg_str = match stats.avg_elapsed_ms() {
-                Some(ms) => format!("  avg {ms}ms"),
+                Some(ms) => format!("  平均 {ms}ms"),
                 None => String::new(),
             };
             println!(
@@ -754,43 +754,43 @@ fn print_human(rollup: &Rollup) {
             );
         }
         if tools.len() > 15 {
-            println!("  … and {} more tools", tools.len() - 15);
+            println!("  ……以及 {} 个其他工具", tools.len() - 15);
         }
     } else {
-        println!("Tools: (no data)");
+        println!("工具: (无数据)");
     }
 
-    // ── Compaction ─────────────────────────────────────────────────────────
+    // ── 压缩 ─────────────────────────────────────────────────────────
     if rollup.compaction.events > 0 {
         let avg_str = match rollup.compaction.avg_reduction_pct() {
-            Some(pct) => format!(", avg {pct:.0}% size reduction"),
+            Some(pct) => format!("，平均缩减 {pct:.0}%"),
             None => String::new(),
         };
         println!(
-            "Compaction: {} events{}",
+            "压缩: {} 次事件{}",
             fmt_num(rollup.compaction.events),
             avg_str
         );
     } else {
-        println!("Compaction: (no data)");
+        println!("压缩: (无数据)");
     }
 
-    // ── Sub-agents ─────────────────────────────────────────────────────────
+    // ── 子代理 ─────────────────────────────────────────────────────────
     if rollup.agents.spawns > 0 {
         let rate_str = match rollup.agents.success_rate_pct() {
-            Some(pct) => format!(", {pct:.1}% success"),
+            Some(pct) => format!("，{pct:.1}% 成功"),
             None => String::new(),
         };
         println!(
-            "Sub-agents: {} spawns{}",
+            "子代理: {} 次生成{}",
             fmt_num(rollup.agents.spawns),
             rate_str
         );
     } else {
-        println!("Sub-agents: (no data)");
+        println!("子代理: (无数据)");
     }
 
-    // ── Capacity interventions ─────────────────────────────────────────────
+    // ── 容量干预 ─────────────────────────────────────────────────────────
     if rollup.capacity.total > 0 {
         let cat_str: String = {
             let mut cats: Vec<(&String, &u64)> = rollup.capacity.by_category.iter().collect();
@@ -801,29 +801,29 @@ fn print_human(rollup: &Rollup) {
                 .join(", ")
         };
         println!(
-            "Capacity interventions: {} ({})",
+            "容量干预: {} ({})",
             fmt_num(rollup.capacity.total),
             cat_str
         );
     } else {
-        println!("Capacity interventions: (no data)");
+        println!("容量干预: (无数据)");
     }
 
-    // ── Credentials ────────────────────────────────────────────────────────
+    // ── 凭证 ────────────────────────────────────────────────────────
     if rollup.credentials.saves > 0 || rollup.credentials.clears > 0 {
         println!(
-            "Credentials: {} saves, {} clears",
+            "凭证: {} 次保存, {} 次清除",
             rollup.credentials.saves, rollup.credentials.clears
         );
     }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Helpers
+// 辅助函数
 // ──────────────────────────────────────────────────────────────────────────────
 
 fn deepseek_home() -> PathBuf {
-    // Respect DEEPSEEK_HOME env override; fall back to ~/.deepseek.
+    // 优先使用 DEEPSEEK_HOME 环境变量覆盖；否则使用 ~/.deepseek。
     if let Ok(v) = std::env::var("DEEPSEEK_HOME")
         && !v.is_empty()
     {
@@ -834,12 +834,12 @@ fn deepseek_home() -> PathBuf {
         .join(".deepseek")
 }
 
-/// Parse a timestamp from a JSON value field (tries RFC3339).
+/// 从 JSON 值字段解析时间戳（尝试 RFC3339）。
 fn parse_ts_field(v: &Value, field: &str) -> Option<DateTime<Utc>> {
     v.get(field)?.as_str()?.parse::<DateTime<Utc>>().ok()
 }
 
-/// Format a number with thousands separators.
+/// 使用千位分隔符格式化数字。
 fn fmt_num(n: u64) -> String {
     let s = n.to_string();
     let mut result = String::with_capacity(s.len() + s.len() / 3);
@@ -853,20 +853,20 @@ fn fmt_num(n: u64) -> String {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Tests
+// 测试
 // ──────────────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    // ── Duration parser ──
+    // ── 持续时间解析器 ──
 
     #[test]
     fn parse_since_7d() {
         let cutoff = parse_since("7d").unwrap();
         let expected = Utc::now() - Duration::days(7);
-        // Allow ±2s for test execution time.
+        // 允许 ±2s 的测试执行时间。
         assert!((cutoff - expected).num_seconds().abs() < 2);
     }
 
@@ -886,7 +886,7 @@ mod tests {
 
     #[test]
     fn parse_since_now_prefix() {
-        // "now-2h" should strip "now-" and parse "2h".
+        // "now-2h" 应去除 "now-" 并解析 "2h"。
         let cutoff = parse_since("now-2h").unwrap();
         let expected = Utc::now() - Duration::hours(2);
         assert!((cutoff - expected).num_seconds().abs() < 2);
@@ -926,7 +926,7 @@ mod tests {
         assert_eq!(fmt_num(1_000_000), "1,000,000");
     }
 
-    // ── Rollup from audit log ──
+    // ── 从审计日志汇总 ──
 
     fn make_audit_line(event: &str, tool: &str, ts: &str) -> String {
         format!(
@@ -937,7 +937,7 @@ mod tests {
     #[test]
     fn audit_log_empty_file() {
         let mut rollup = Rollup::default();
-        // Non-existent path — should not panic, rollup stays empty.
+        // 不存在的路径 — 不应 panic，rollup 保持为空。
         read_audit_log(Path::new("/nonexistent/audit.log"), None, &mut rollup);
         assert_eq!(rollup.total_lines, 0);
     }
@@ -982,7 +982,7 @@ mod tests {
         let mut rollup = Rollup::default();
         read_audit_log(tmp.path(), None, &mut rollup);
 
-        // 2 lines total, 1 malformed skipped, 1 parsed.
+        // 共 2 行，1 行格式错误被跳过，1 行被解析。
         assert_eq!(rollup.total_lines, 2);
         assert_eq!(rollup.parsed_lines, 1);
         assert_eq!(rollup.credentials.saves, 1);
@@ -1009,7 +1009,7 @@ mod tests {
         let mut rollup = Rollup::default();
         read_audit_log(tmp.path(), Some(cutoff), &mut rollup);
 
-        // Only the newer line should be counted.
+        // 只有较新的行应被计数。
         assert_eq!(rollup.parsed_lines, 1);
         assert!(!rollup.tools.contains_key("exec_shell"));
         assert_eq!(rollup.tools["read_file"].calls, 1);

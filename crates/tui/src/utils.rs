@@ -1,4 +1,4 @@
-//! Utility helpers shared across the `DeepSeek` CLI.
+//! `DeepSeek` CLI 的通用工具辅助函数。
 
 use std::fs;
 use std::io::Write;
@@ -11,7 +11,7 @@ use serde_json::Value;
 
 // === Project Mapping Helpers ===
 
-/// Identify if a file is a "key" file for project identification.
+/// 判断文件是否为项目识别的"关键"文件。
 #[must_use]
 pub fn is_key_file(path: &Path) -> bool {
     let Some(file_name) = path.file_name().and_then(|n| n.to_str()) else {
@@ -38,14 +38,14 @@ pub fn is_key_file(path: &Path) -> bool {
     )
 }
 
-/// Generate a high-level summary of the project based on key files.
+/// 基于关键文件生成项目的高级摘要。
 ///
-/// Output is byte-stable across calls: `WalkBuilder` doesn't sort siblings
-/// (the OS readdir order leaks through), so the joined `key_files` list
-/// would otherwise reorder run-to-run on filesystems that don't pre-sort.
-/// Only matters when the workspace has no `AGENTS.md` / `CLAUDE.md`, since
-/// the system prompt routes through `ProjectContext::as_system_block` first
-/// and only falls back here when no project-context document exists.
+/// 输出在多次调用间保持字节稳定：`WalkBuilder` 不排序兄弟项
+///（操作系统的 readdir 顺序会透出），因此在不会预排序的文件系统上，
+/// 连接的 `key_files` 列表会在运行间重新排序。
+/// 仅在工作区没有 `AGENTS.md` / `CLAUDE.md` 时才有影响，
+/// 因为系统提示词首先通过 `ProjectContext::as_system_block` 路由，
+/// 仅当没有项目上下文文档时才回退到此函数。
 #[must_use]
 pub fn summarize_project(root: &Path) -> String {
     let mut key_files = Vec::new();
@@ -99,13 +99,12 @@ pub fn summarize_project(root: &Path) -> String {
     }
 }
 
-/// Generate a tree-like view of the project structure.
+/// 生成项目结构的树状视图。
 ///
-/// Sibling order is fixed by sorting collected paths — the underlying
-/// `WalkBuilder` follows the OS readdir order, which is non-deterministic
-/// across filesystems. Sorting by full path preserves the tree shape (a
-/// directory still precedes its children because `"src" < "src/lib.rs"`)
-/// while making the rendered output byte-stable across runs.
+/// 兄弟项顺序通过排序收集的路径来固定 — 底层的 `WalkBuilder` 遵循操作系统的
+/// readdir 顺序，这在文件系统间是不确定的。按完整路径排序保留了树形结构
+///（目录仍在其子项之前，因为 `"src" < "src/lib.rs"`）
+/// 同时使渲染的输出在多次运行间保持字节稳定。
 #[must_use]
 pub fn project_tree(root: &Path, max_depth: usize) -> String {
     let mut entries: Vec<(PathBuf, bool)> = Vec::new();
@@ -150,21 +149,20 @@ pub fn project_tree(root: &Path, max_depth: usize) -> String {
 
 // === Filesystem Helpers ===
 
-/// Atomically write `contents` to `path` using a temporary file + fsync + rename.
+/// 使用临时文件 + fsync + 重命名原子化地将 `contents` 写入 `path`。
 ///
-/// 1. Creates a `NamedTempFile` in the same directory as `path` (same filesystem).
-/// 2. Writes `contents` to the temp file.
-/// 3. Calls `sync_all()` on the temp file for durability.
-/// 4. Atomically renames (persists) the temp file over `path`.
+/// 1. 在与 `path` 相同的目录（同一文件系统）中创建 `NamedTempFile`。
+/// 2. 将 `contents` 写入临时文件。
+/// 3. 对临时文件调用 `sync_all()` 以确保持久性。
+/// 4. 原子化地将临时文件重命名（持久化）覆盖 `path`。
 ///
-/// On filesystems that support it (`ext4`, `apfs`, `ntfs`), the rename is
-/// atomic — a concurrent reader sees either the old content or the new, never
-/// a partial write. `sync_all` ensures the data is on stable storage before
-/// the metadata change so an OS crash mid-rename doesn't lose data.
+/// 在支持的文件系统上（`ext4`、`apfs`、`ntfs`），重命名是原子操作 —
+/// 并发读取者要么看到旧内容，要么看到新内容，绝不会看到部分写入。
+/// `sync_all` 确保数据在元数据更改前已写入稳定存储，因此重命名期间的
+/// 操作系统崩溃不会丢失数据。
 ///
-/// # Errors
-/// Returns `io::Error` if the parent directory cannot be determined, the temp
-/// file cannot be created, the write fails, or the rename fails.
+/// # 错误
+/// 如果无法确定父目录、无法创建临时文件、写入失败或重命名失败，返回 `io::Error`。
 pub fn write_atomic(path: &Path, contents: &[u8]) -> std::io::Result<()> {
     let parent = path.parent().ok_or_else(|| {
         std::io::Error::new(
@@ -180,11 +178,11 @@ pub fn write_atomic(path: &Path, contents: &[u8]) -> std::io::Result<()> {
     Ok(())
 }
 
-/// Open or create a file for appending at `path`, optionally syncing after
-/// every write. Use this for append-only logs like `audit.log`.
+/// 在 `path` 打开或创建用于追加的文件，可选择在每次写入后同步。
+/// 用于仅追加日志，如 `audit.log`。
 ///
-/// The returned `BufWriter<fs::File>` wraps the append handle. Call
-/// `.flush()` followed by `.get_ref().sync_all()` after each batch.
+/// 返回的 `BufWriter<fs::File>` 包装了追加句柄。在每个批次后调用
+/// `.flush()` 后跟 `.get_ref().sync_all()`。
 pub fn open_append(path: &Path) -> std::io::Result<std::io::BufWriter<std::fs::File>> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
@@ -196,20 +194,20 @@ pub fn open_append(path: &Path) -> std::io::Result<std::io::BufWriter<std::fs::F
     Ok(std::io::BufWriter::new(file))
 }
 
-/// Flush a `BufWriter` wrapping a `File`, then `fsync` the underlying file.
+/// 刷新包装 `File` 的 `BufWriter`，然后 `fsync` 底层文件。
 pub fn flush_and_sync(writer: &mut std::io::BufWriter<std::fs::File>) -> std::io::Result<()> {
     writer.flush()?;
     writer.get_ref().sync_all()
 }
 
-/// Spawn a tokio task with panic supervision.
+/// 生成带 panic 监督的 tokio 任务。
 ///
-/// Wraps the future in `AssertUnwindSafe` + `catch_unwind`. On panic:
-/// 1. Logs the panic with the task name and caller location via `tracing::error!`.
-/// 2. Writes a crash dump to `~/.deepseek/crashes/<timestamp>-<name>.log`.
+/// 将 future 包装在 `AssertUnwindSafe` + `catch_unwind` 中。发生 panic 时：
+/// 1. 通过 `tracing::error!` 记录 panic 的任务名称和调用位置。
+/// 2. 将崩溃转储写入 `~/.deepseek/crashes/<timestamp>-<name>.log`。
 ///
-/// The returned `JoinHandle` resolves to `()` — the panic is caught and
-/// handled internally so the parent process stays alive.
+/// 返回的 `JoinHandle` 解析为 `()` — panic 被捕获并内部处理，
+/// 因此父进程保持存活。
 pub fn spawn_supervised<F>(
     name: &'static str,
     location: &'static std::panic::Location<'static>,
@@ -240,11 +238,11 @@ where
     })
 }
 
-/// Write a panic dump file to `~/.deepseek/crashes/`.
+/// 将 panic 转储文件写入 `~/.deepseek/crashes/`。
 ///
-/// Creates the directory if needed and writes a timestamped log
-/// with the task name, caller location, and panic message.
-/// Best-effort — failures are silently ignored.
+/// 在需要时创建目录，并写入带有时间戳的日志，包含任务名称、
+/// 调用位置和 panic 消息。
+/// 尽力而为 — 失败会被静默忽略。
 fn write_panic_dump(
     name: &str,
     location: &std::panic::Location<'_>,
@@ -274,15 +272,14 @@ fn write_panic_dump_to(
     Ok(())
 }
 
-/// Fire-and-forget `spawn_blocking` with panic dump protection.
+/// 带 panic 转储保护的"发后即忘" `spawn_blocking`。
 ///
-/// In contrast to `spawn_supervised` (which wraps `tokio::spawn` for async
-/// tasks), this helper wraps `tokio::task::spawn_blocking`.  Use it when a
-/// CPU-bound or blocking-I/O task must run off the async runtime and its
-/// completion is *not* awaited — for example a post-turn disk snapshot or a
-/// file-tree build polled later via a shared data structure.  If the closure
-/// panics, a crash dump is written to `~/.deepseek/crashes/` and the panic
-/// is logged at ERROR level rather than being silently swallowed.
+/// 与 `spawn_supervised`（包装 `tokio::spawn` 用于异步任务）不同，
+/// 此辅助函数包装 `tokio::task::spawn_blocking`。当 CPU 密集型或阻塞 I/O
+/// 任务必须在异步运行时之外运行，并且其完成*不被*等待时使用 — 例如轮次后的
+/// 磁盘快照或稍后通过共享数据结构轮询的文件树构建。如果闭包发生 panic，
+/// 会将崩溃转储写入 `~/.deepseek/crashes/`，并以 ERROR 级别记录 panic，
+/// 而不是被静默吞没。
 #[track_caller]
 pub fn spawn_blocking_supervised<F>(name: &'static str, f: F) -> tokio::task::JoinHandle<()>
 where
@@ -314,16 +311,16 @@ pub fn ensure_dir(path: &Path) -> Result<()> {
         .with_context(|| format!("Failed to create directory: {}", path.display()))
 }
 
-/// Render JSON with pretty formatting, falling back to a compact string on error.
+/// 使用美化格式渲染 JSON，出错时回退到紧凑字符串。
 #[must_use]
 #[allow(dead_code)]
 pub fn pretty_json(value: &Value) -> String {
     serde_json::to_string_pretty(value).unwrap_or_else(|_| value.to_string())
 }
 
-/// Truncate a string to a maximum length, adding an ellipsis if truncated.
+/// 将字符串截断到最大长度，如果截断则添加省略号。
 ///
-/// Uses char boundaries to avoid panicking on multi-byte UTF-8 characters.
+/// 使用字符边界避免在多字节 UTF-8 字符上 panic。
 #[must_use]
 pub fn truncate_with_ellipsis(s: &str, max_len: usize, ellipsis: &str) -> String {
     if s.len() <= max_len {
@@ -340,10 +337,10 @@ pub fn truncate_with_ellipsis(s: &str, max_len: usize, ellipsis: &str) -> String
     format!("{}{}", &s[..safe_end], ellipsis)
 }
 
-/// Percent-encode a string for use in URL query parameters.
+/// 对字符串进行百分号编码，用于 URL 查询参数。
 ///
-/// Encodes all characters except unreserved characters (A-Z, a-z, 0-9, `-`, `_`, `.`, `~`).
-/// Spaces are encoded as `+`.
+/// 编码除未保留字符（A-Z, a-z, 0-9, `-`, `_`, `.`, `~`）之外的所有字符。
+/// 空格编码为 `+`。
 #[must_use]
 pub fn url_encode(input: &str) -> String {
     let mut encoded = String::new();
@@ -359,29 +356,24 @@ pub fn url_encode(input: &str) -> String {
     encoded
 }
 
-/// Render a path for **user-facing display** with the home directory
-/// contracted to `~`. Use this in the TUI, doctor/setup stdout, and any
-/// other place a viewer might see the output (screenshot, video,
-/// pasted-into-issue help). On macOS/Linux the absolute path
-/// `/Users/<name>/...` or `/home/<name>/...` reveals the OS account name,
-/// which is often the same as a public handle — undesirable for users
-/// who share their terminal.
+/// 将路径渲染为**面向用户的显示**，家目录缩写为 `~`。在 TUI、doctor/setup
+/// 标准输出以及任何观看者可能看到输出的地方（截图、视频、粘贴到 issue 的帮助）
+/// 使用此函数。在 macOS/Linux 上，绝对路径 `/Users/<name>/...` 或
+/// `/home/<name>/...` 会暴露操作系统账户名，这通常与公共用户名相同 —
+/// 对于分享终端的用户来说不理想。
 ///
-/// **Do not use** this for paths that get persisted (sessions, audit log)
-/// or sent to the LLM provider — those want full fidelity so they
-/// resolve correctly across processes.
+/// **不要**在持久化路径（会话、审计日志）或发送给 LLM 提供商的路径上使用 —
+/// 那些需要完整保真度，以便跨进程正确解析。
 #[must_use]
 pub fn display_path(path: &Path) -> String {
     display_path_with_home(path, dirs::home_dir().as_deref())
 }
 
-/// Like [`display_path`] but takes an explicit home directory instead of
-/// reading `$HOME` / `dirs::home_dir()`.  Used in tests and anywhere the
-/// caller already has the home path available.
+/// 与 [`display_path`] 类似，但使用显式的家目录而不是读取 `$HOME` / `dirs::home_dir()`。
+/// 在测试和调用方已有家目录路径可用时使用。
 ///
-/// The home-relative suffix is rejoined with the platform separator
-/// (`\` on Windows, `/` elsewhere) by walking the path's components, so
-/// inputs that carried foreign separators don't leak through.
+/// 家目录相对后缀通过遍历路径组件，使用平台分隔符（Windows 上为 `\`，
+/// 其他平台为 `/`）重新连接，因此带有外来分隔符的输入不会透出。
 #[must_use]
 pub fn display_path_with_home(path: &Path, home: Option<&Path>) -> String {
     let Some(home) = home else {
@@ -402,7 +394,7 @@ pub fn display_path_with_home(path: &Path, home: Option<&Path>) -> String {
     path.display().to_string()
 }
 
-/// Estimate the total character count across message content blocks.
+/// 估算消息内容块中的总字符数。
 #[must_use]
 pub fn estimate_message_chars(messages: &[Message]) -> usize {
     let mut total = 0;
@@ -422,12 +414,10 @@ pub fn estimate_message_chars(messages: &[Message]) -> usize {
     total
 }
 
-// Tests use `display_path_with_home` so they never mutate the global `HOME`
-// env var.  Mutating `HOME` via `std::env::set_var` is not thread-safe; Cargo
-// runs tests in parallel by default and CI runners are multi-core, so any test
-// that stomps `HOME` will race with tests that *read* it.  Using the injected
-// helper avoids the race entirely and makes the tests portable to Windows
-// without additional platform scaffolding.
+// 测试使用 `display_path_with_home`，因此它们从不修改全局 `HOME` 环境变量。
+// 通过 `std::env::set_var` 修改 `HOME` 不是线程安全的；Cargo 默认并行运行测试，
+// CI 运行器是多核的，因此任何覆盖 `HOME` 的测试将与*读取*它的测试竞争。
+// 使用注入的辅助函数完全避免了竞争，并使测试无需额外平台脚手架即可移植到 Windows。
 #[cfg(test)]
 mod tests {
     use super::display_path_with_home;
@@ -462,12 +452,12 @@ mod tests {
     #[test]
     fn display_path_leaves_unrelated_paths_alone() {
         let h = home("/Users/alice");
-        // Different user — must not get rewritten or share the tilde.
+        // 不同用户 — 不得被重写或共享波浪线。
         assert_eq!(
             display_path_with_home(&PathBuf::from("/Users/bob/Code"), h.as_deref()),
             "/Users/bob/Code".to_string()
         );
-        // System path must stay absolute.
+        // 系统路径必须保持绝对。
         assert_eq!(
             display_path_with_home(&PathBuf::from("/etc/hosts"), h.as_deref()),
             "/etc/hosts"
@@ -476,8 +466,7 @@ mod tests {
 
     #[test]
     fn display_path_does_not_match_username_prefix() {
-        // Regression guard: a directory named like the user's home
-        // *prefix* but not under it must not get rewritten.
+        // 回归防护：名称像用户家目录*前缀*但不在其下的目录不得被重写。
         let h = home("/Users/alice");
         assert_eq!(
             display_path_with_home(&PathBuf::from("/Users/alice2/work"), h.as_deref()),
@@ -564,12 +553,10 @@ mod spawn_supervised_tests {
     use std::sync::Arc;
     use std::sync::atomic::{AtomicBool, Ordering};
 
-    /// A spawned task that panics does not propagate the panic to the
-    /// parent task — `spawn_supervised` catches it. Verified in isolation
-    /// from the on-disk crash-dump path so the test is portable across
-    /// macOS / Linux / Windows (where `dirs::home_dir()` reads
-    /// `USERPROFILE`, not `HOME`, so env-mutation tricks don't redirect
-    /// the dump on Windows).
+    /// 发生 panic 的生成任务不会将 panic 传播到父任务 — `spawn_supervised` 捕获它。
+    /// 与磁盘上的崩溃转储路径隔离验证，因此测试可跨 macOS / Linux / Windows 移植
+    ///（在 Windows 上 `dirs::home_dir()` 读取 `USERPROFILE` 而非 `HOME`，
+    /// 因此环境变量修改技巧无法重定向转储）。
     #[tokio::test]
     async fn panicking_task_does_not_propagate_to_parent() {
         let parent_alive = Arc::new(AtomicBool::new(false));
@@ -616,10 +603,9 @@ mod spawn_supervised_tests {
         );
     }
 
-    /// `write_panic_dump_to` writes a properly-formatted crash log into
-    /// the supplied directory. Tested separately from `spawn_supervised`
-    /// because env-mutation redirection of `dirs::home_dir()` doesn't
-    /// work on Windows.
+    /// `write_panic_dump_to` 将格式正确的崩溃日志写入提供的目录。
+    /// 与 `spawn_supervised` 分开测试，因为通过环境变量修改重定向
+    /// `dirs::home_dir()` 在 Windows 上不起作用。
     #[test]
     fn write_panic_dump_writes_named_log() {
         let tmp = tempfile::tempdir().expect("tempdir");
@@ -652,17 +638,14 @@ mod project_mapping_tests {
 
     #[test]
     fn project_tree_sorts_siblings_alphabetically() {
-        // Cross-platform readdir doesn't guarantee alphabetical order — on
-        // ext4 with htree it's hash order, on APFS it's roughly insertion
-        // order, on ZFS it's storage-class dependent. The system prompt
-        // embeds this string in the cached prefix when a workspace has no
-        // AGENTS.md / CLAUDE.md, so the function has to be byte-stable
-        // across runs regardless of host filesystem.
+        // 跨平台 readdir 不能保证字母顺序 — 在带 htree 的 ext4 上是哈希顺序，
+        // 在 APFS 上大致是插入顺序，在 ZFS 上取决于存储类。当工作区没有
+        // AGENTS.md / CLAUDE.md 时，系统提示将此字符串嵌入缓存前缀中，
+        // 因此函数必须在不同文件系统上保持字节稳定。
         let tmp = tempdir().expect("tempdir");
         let root = tmp.path();
-        // Create files in a deliberately scrambled order to make the
-        // hosting filesystem's pre-sort (if any) less likely to mask a
-        // missing sort in our code.
+        // 故意以打乱的顺序创建文件，使宿主文件系统的预排序（如果有）
+        // 不太可能掩盖我们代码中缺失的排序。
         fs::write(root.join("zebra.txt"), "z").expect("write zebra");
         fs::write(root.join("apple.txt"), "a").expect("write apple");
         fs::write(root.join("mango.txt"), "m").expect("write mango");
@@ -688,8 +671,8 @@ mod project_mapping_tests {
 
     #[test]
     fn project_tree_keeps_directory_before_its_children() {
-        // Sorting siblings by full path is enough to preserve tree shape:
-        // `"src" < "src/lib.rs"` because the shorter string compares less.
+        // 按完整路径排序兄弟项足以保留树形结构：
+        // `"src" < "src/lib.rs"` 因为较短的字符串比较值较小。
         let tmp = tempdir().expect("tempdir");
         let root = tmp.path();
         let src = root.join("src");
@@ -718,23 +701,20 @@ mod project_mapping_tests {
 
     #[test]
     fn summarize_project_sorts_key_files_in_fallback() {
-        // When `summarize_project` can't classify a project type it falls
-        // back to listing the discovered key files. That joined list must
-        // be deterministic so the system prompt that embeds it doesn't
-        // drift between runs on filesystems that emit readdir in a
-        // non-alphabetical order.
+        // 当 `summarize_project` 无法分类项目类型时，它会回退到列出发现的关键文件。
+        // 该连接列表必须是确定性的，以便嵌入它的系统提示在按非字母顺序发出 readdir
+        // 的文件系统上不会在运行间漂移。
         let tmp = tempdir().expect("tempdir");
         let root = tmp.path();
-        // Use key files that don't trigger any of the type detectors
-        // (Cargo.toml / package.json / requirements.txt) so the function
-        // hits the `Project with key files: …` branch.
+        // 使用不会触发任何类型检测器的关键文件（Cargo.toml / package.json / requirements.txt），
+        // 以便函数进入"关键文件项目：…"分支。
         fs::write(root.join("Makefile"), "all:").expect("write makefile");
         fs::write(root.join("README.md"), "# x").expect("write readme");
 
         let summary = summarize_project(root);
         assert!(
             summary.starts_with("关键文件项目："),
-            "expected fallback branch; got: {summary}"
+            "期望回退分支；得到：{summary}"
         );
         let suffix = summary
             .strip_prefix("关键文件项目：")

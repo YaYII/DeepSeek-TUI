@@ -6,17 +6,15 @@ use std::path::Path;
 const BUNDLED_SKILL_VERSION: &str = "1";
 const SKILL_CREATOR_BODY: &str = include_str!("../../assets/skills/skill-creator/SKILL.md");
 
-/// Install bundled system skills into `skills_dir`.
+/// 将捆绑的系统技能安装到 `skills_dir`。
 ///
-/// Behaviour:
-/// - Fresh install (no marker, no dir): installs `skill-creator/SKILL.md` and writes
-///   the version marker.
-/// - Version bump (marker present with older version, dir present): re-installs.
-/// - User deleted the dir while marker still present at same version: leaves it gone.
-/// - Idempotent: calling twice with no changes is a no-op.
+/// 行为：
+/// - 全新安装（无标记、无目录）：安装 `skill-creator/SKILL.md` 并写入版本标记。
+/// - 版本升级（标记存在但版本较旧，目录存在）：重新安装。
+/// - 用户在标记仍存在且版本相同时删除了目录：保持删除状态。
+/// - 幂等：在无变化的情况下调用两次是无操作的。
 ///
-/// Errors are I/O errors from the filesystem; the caller should log them but not
-/// abort startup.
+/// 错误是来自文件系统的 I/O 错误；调用者应记录它们但不要中止启动。
 pub fn install_system_skills(skills_dir: &Path) -> std::io::Result<()> {
     let marker = skills_dir.join(".system-installed-version");
     let target_dir = skills_dir.join("skill-creator");
@@ -27,17 +25,16 @@ pub fn install_system_skills(skills_dir: &Path) -> std::io::Result<()> {
         .map(|s| s.trim().to_string());
     let dir_exists = target_dir.exists();
 
-    // Re-install only when BOTH conditions hold:
-    //   (a) bundled version is newer than what is recorded in the marker, AND
-    //   (b) the skill directory still exists (user hasn't intentionally deleted it).
-    // Fresh install (no marker AND no dir) is also handled.
+    // 仅在两个条件同时成立时重新安装：
+    //   (a) 捆绑版本比标记中记录的版本更新，且
+    //   (b) 技能目录仍然存在（用户未有意删除）。
+    // 全新安装（无标记且无目录）也会被处理。
     let should_install = match (installed_version.as_deref(), dir_exists) {
-        // Fresh install: neither marker nor directory.
+        // 全新安装：既没有标记也没有目录。
         (None, false) => true,
-        // Version bump: marker is outdated but directory still present.
+        // 版本升级：标记过时但目录仍然存在。
         (Some(v), true) if v != BUNDLED_SKILL_VERSION => true,
-        // Every other case: already installed at current version, or user deleted
-        // the dir (respect that choice).
+        // 所有其他情况：已在当前版本安装，或用户删除了目录（尊重该选择）。
         _ => false,
     };
 
@@ -50,9 +47,9 @@ pub fn install_system_skills(skills_dir: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
-/// Remove the `skill-creator` system skill and its version marker.
+/// 移除 `skill-creator` 系统技能及其版本标记。
 ///
-/// Intended for tests and `deepseek setup --clean`.  Ignores missing files.
+/// 用于测试和 `deepseek setup --clean`。忽略缺失的文件。
 #[allow(dead_code)]
 pub fn uninstall_system_skills(skills_dir: &Path) -> std::io::Result<()> {
     let marker = skills_dir.join(".system-installed-version");
@@ -72,7 +69,7 @@ mod tests {
     use super::*;
     use tempfile::TempDir;
 
-    // ── helpers ──────────────────────────────────────────────────────────────
+    // ── 辅助函数 ──────────────────────────────────────────────────────────────
 
     fn skill_file(tmp: &TempDir) -> std::path::PathBuf {
         tmp.path().join("skill-creator").join("SKILL.md")
@@ -82,28 +79,28 @@ mod tests {
         tmp.path().join(".system-installed-version")
     }
 
-    // ── fresh install ─────────────────────────────────────────────────────────
+    // ── 全新安装 ─────────────────────────────────────────────────────────
 
     #[test]
     fn fresh_install_creates_skill_and_marker() {
         let tmp = TempDir::new().unwrap();
         install_system_skills(tmp.path()).unwrap();
 
-        assert!(skill_file(&tmp).exists(), "SKILL.md should be created");
-        assert!(marker_file(&tmp).exists(), "marker should be created");
+        assert!(skill_file(&tmp).exists(), "SKILL.md 应被创建");
+        assert!(marker_file(&tmp).exists(), "标记应被创建");
 
         let ver = fs::read_to_string(marker_file(&tmp)).unwrap();
         assert_eq!(ver.trim(), BUNDLED_SKILL_VERSION);
     }
 
-    // ── idempotence ───────────────────────────────────────────────────────────
+    // ── 幂等性 ───────────────────────────────────────────────────────────
 
     #[test]
     fn calling_twice_is_idempotent() {
         let tmp = TempDir::new().unwrap();
         install_system_skills(tmp.path()).unwrap();
 
-        // Overwrite SKILL.md with sentinel to detect an undesired second write.
+        // 用哨兵值覆盖 SKILL.md 来检测非预期的二次写入。
         fs::write(skill_file(&tmp), "sentinel").unwrap();
 
         install_system_skills(tmp.path()).unwrap();
@@ -111,62 +108,62 @@ mod tests {
         let contents = fs::read_to_string(skill_file(&tmp)).unwrap();
         assert_eq!(
             contents, "sentinel",
-            "second install should not overwrite SKILL.md when version is current"
+            "第二次安装不应在版本相同时覆盖 SKILL.md"
         );
     }
 
-    // ── user deleted the directory ────────────────────────────────────────────
+    // ── 用户删除了目录 ────────────────────────────────────────────
 
     #[test]
     fn user_deleted_dir_is_not_recreated() {
         let tmp = TempDir::new().unwrap();
         install_system_skills(tmp.path()).unwrap();
 
-        // Simulate user deliberately removing the skill directory.
+        // 模拟用户有意删除技能目录。
         fs::remove_dir_all(tmp.path().join("skill-creator")).unwrap();
 
-        // Re-launch must NOT recreate the directory.
+        // 重新启动不得重新创建该目录。
         install_system_skills(tmp.path()).unwrap();
 
         assert!(
             !skill_file(&tmp).exists(),
-            "skill-creator must not be recreated after user deleted it"
+            "用户删除后 skill-creator 不得被重新创建"
         );
     }
 
-    // ── version bump re-installs ──────────────────────────────────────────────
+    // ── 版本升级重新安装 ──────────────────────────────────────────────
 
     #[test]
     fn outdated_marker_triggers_reinstall() {
         let tmp = TempDir::new().unwrap();
 
-        // Simulate a previous install at a lower version.
+        // 模拟先前在较低版本的安装。
         let skill_dir = tmp.path().join("skill-creator");
         fs::create_dir_all(&skill_dir).unwrap();
         fs::write(skill_dir.join("SKILL.md"), "old content").unwrap();
-        fs::write(marker_file(&tmp), "0").unwrap(); // older than BUNDLED_SKILL_VERSION
+        fs::write(marker_file(&tmp), "0").unwrap(); // 比 BUNDLED_SKILL_VERSION 更旧
 
         install_system_skills(tmp.path()).unwrap();
 
         let contents = fs::read_to_string(skill_file(&tmp)).unwrap();
         assert_ne!(
             contents, "old content",
-            "outdated skill should be overwritten on version bump"
+            "过时的技能应在版本升级时被覆盖"
         );
         assert_eq!(
             contents, SKILL_CREATOR_BODY,
-            "re-installed file must match the bundled body"
+            "重新安装的文件必须与捆绑内容匹配"
         );
 
         let ver = fs::read_to_string(marker_file(&tmp)).unwrap();
         assert_eq!(
             ver.trim(),
             BUNDLED_SKILL_VERSION,
-            "marker should be updated"
+            "标记应被更新"
         );
     }
 
-    // ── uninstall ─────────────────────────────────────────────────────────────
+    // ── 卸载 ─────────────────────────────────────────────────────────────
 
     #[test]
     fn uninstall_removes_skill_and_marker() {
@@ -174,14 +171,14 @@ mod tests {
         install_system_skills(tmp.path()).unwrap();
         uninstall_system_skills(tmp.path()).unwrap();
 
-        assert!(!skill_file(&tmp).exists(), "SKILL.md should be removed");
-        assert!(!marker_file(&tmp).exists(), "marker should be removed");
+        assert!(!skill_file(&tmp).exists(), "SKILL.md 应被移除");
+        assert!(!marker_file(&tmp).exists(), "标记应被移除");
     }
 
     #[test]
     fn uninstall_on_clean_dir_is_a_noop() {
         let tmp = TempDir::new().unwrap();
-        // Must not panic or error.
+        // 不得 panic 或出错。
         uninstall_system_skills(tmp.path()).unwrap();
     }
 }

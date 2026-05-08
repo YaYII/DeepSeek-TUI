@@ -878,10 +878,10 @@ mod tests {
         let request = build_root_request("root-model", &messages, &rlm_system_prompt());
         let payload = serde_json::to_string(&request).expect("request should serialize");
 
-        assert!(payload.contains(&format!("- Length: {} chars", prompt.chars().count())));
+        assert!(payload.contains(&format!("- 长度：{} 字符", prompt.chars().count())));
         assert!(
             !payload.contains(secret_tail),
-            "root LLM request leaked the non-preview tail of context"
+            "根 LLM 请求泄露了上下文的非预览尾部"
         );
     }
 

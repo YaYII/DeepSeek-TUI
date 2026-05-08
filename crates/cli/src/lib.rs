@@ -65,7 +65,7 @@ struct Cli {
     #[arg(
         long,
         value_enum,
-        help = "Advanced provider selector for non-TUI registry/config commands"
+        help = "非 TUI registry/config 命令的高级提供商选择器"
     )]
     provider: Option<ProviderArg>,
     #[arg(long)]
@@ -106,97 +106,97 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Commands {
-    /// Run interactive/non-interactive flows via the TUI binary.
+    /// 通过 TUI 二进制文件运行交互式/非交互式流程。
     Run(RunArgs),
-    /// Run DeepSeek TUI diagnostics.
+    /// 运行 DeepSeek TUI 诊断。
     Doctor(TuiPassthroughArgs),
-    /// List live DeepSeek API models via the TUI binary.
+    /// 通过 TUI 二进制文件列出 DeepSeek API 模型。
     Models(TuiPassthroughArgs),
-    /// List saved TUI sessions.
+    /// 列出已保存的 TUI 会话。
     Sessions(TuiPassthroughArgs),
-    /// Resume a saved TUI session.
+    /// 恢复已保存的 TUI 会话。
     Resume(TuiPassthroughArgs),
-    /// Fork a saved TUI session.
+    /// 复刻已保存的 TUI 会话。
     Fork(TuiPassthroughArgs),
-    /// Create a default AGENTS.md in the current directory.
+    /// 在当前目录中创建默认的 AGENTS.md。
     Init(TuiPassthroughArgs),
-    /// Bootstrap MCP config and/or skills directories.
+    /// 引导 MCP 配置和/或技能目录。
     Setup(TuiPassthroughArgs),
-    /// Run the DeepSeek TUI non-interactive agent command.
+    /// 运行 DeepSeek TUI 非交互式代理命令。
     Exec(TuiPassthroughArgs),
-    /// Run a DeepSeek-powered code review over a git diff.
+    /// 运行 DeepSeek 驱动的 git diff 代码审查。
     Review(TuiPassthroughArgs),
-    /// Apply a patch file or stdin to the working tree.
+    /// 将补丁文件或 stdin 应用到工作树。
     Apply(TuiPassthroughArgs),
-    /// Run the offline TUI evaluation harness.
+    /// 运行离线 TUI 评估测试框架。
     Eval(TuiPassthroughArgs),
-    /// Manage TUI MCP servers.
+    /// 管理 TUI MCP 服务器。
     Mcp(TuiPassthroughArgs),
-    /// Inspect TUI feature flags.
+    /// 检查 TUI 功能标志。
     Features(TuiPassthroughArgs),
-    /// Run a local TUI server.
+    /// 运行本地 TUI 服务器。
     Serve(TuiPassthroughArgs),
-    /// Generate shell completions for the TUI binary.
+    /// 为 TUI 二进制文件生成 shell 补全。
     Completions(TuiPassthroughArgs),
-    /// Save a provider API key to the shared user config file.
+    /// 将提供商 API 密钥保存到共享用户配置文件。
     Login(LoginArgs),
-    /// Remove saved authentication state.
+    /// 移除已保存的身份验证状态。
     Logout,
-    /// Manage authentication credentials and provider mode.
+    /// 管理身份验证凭据和提供商模式。
     Auth(AuthArgs),
-    /// Run MCP server mode over stdio.
+    /// 运行 MCP 服务器模式（stdio）。
     McpServer,
-    /// Read/write/list config values.
+    /// 读取/写入/列出配置值。
     Config(ConfigArgs),
-    /// Resolve or list available models across providers.
+    /// 解析或列出各提供商的可用模型。
     Model(ModelArgs),
-    /// Manage thread/session metadata and resume/fork flows.
+    /// 管理线程/会话元数据以及恢复/复刻流程。
     Thread(ThreadArgs),
-    /// Evaluate sandbox/approval policy decisions.
+    /// 评估沙箱/审批策略决策。
     Sandbox(SandboxArgs),
-    /// Run the app-server transport.
+    /// 运行应用服务器传输。
     AppServer(AppServerArgs),
-    /// Generate shell completions.
-    #[command(after_help = r#"Examples:
-  Bash (current shell only):
+    /// 生成 shell 补全。
+    #[command(after_help = r#"示例：
+  Bash（仅当前 shell）：
     source <(deepseek completion bash)
 
-  Bash (persistent, Linux/bash-completion):
+  Bash（持久化，Linux/bash-completion）：
     mkdir -p ~/.local/share/bash-completion/completions
     deepseek completion bash > ~/.local/share/bash-completion/completions/deepseek
-    # Requires bash-completion to be installed and loaded by your shell.
+    # 需要安装 bash-completion 并由 shell 加载。
 
-  Zsh:
+  Zsh：
     mkdir -p ~/.zfunc
     deepseek completion zsh > ~/.zfunc/_deepseek
-    # Add to ~/.zshrc if needed:
+    # 如有需要在 ~/.zshrc 中添加：
     #   fpath=(~/.zfunc $fpath)
     #   autoload -Uz compinit && compinit
 
-  Fish:
+  Fish：
     mkdir -p ~/.config/fish/completions
     deepseek completion fish > ~/.config/fish/completions/deepseek.fish
 
-  PowerShell (current shell only):
+  PowerShell（仅当前 shell）：
     deepseek completion powershell | Out-String | Invoke-Expression
 
-The command prints the completion script to stdout; redirect it to a path your shell loads automatically."#)]
+该命令将补全脚本输出到 stdout；请重定向到您的 shell 自动加载的路径。"#)]
     Completion {
         #[arg(value_enum)]
         shell: Shell,
     },
-    /// Print a usage rollup from the audit log and session store.
+    /// 从审计日志和会话存储打印使用汇总。
     Metrics(MetricsArgs),
-    /// Check for and apply updates to the `deepseek` binary.
+    /// 检查并应用 `deepseek` 二进制文件的更新。
     Update,
 }
 
 #[derive(Debug, Args)]
 struct MetricsArgs {
-    /// Emit machine-readable JSON.
+    /// 输出机器可读的 JSON。
     #[arg(long)]
     json: bool,
-    /// Restrict to events newer than this duration (e.g. 7d, 24h, 30m, now-2h).
+    /// 仅包含在此持续时间之后的事件（例如 7d, 24h, 30m, now-2h）。
     #[arg(long, value_name = "DURATION")]
     since: Option<String>,
 }
@@ -235,39 +235,39 @@ struct AuthArgs {
 
 #[derive(Debug, Subcommand)]
 enum AuthCommand {
-    /// Show current provider and credential source state.
+    /// 显示当前提供商和凭据来源状态。
     Status,
-    /// Save an API key to the shared user config file. Reads from
-    /// `--api-key`, `--api-key-stdin`, or prompts on stdin when
-    /// neither is given. Does not echo the key.
+    /// 将 API 密钥保存到共享用户配置文件。从
+    /// `--api-key`、`--api-key-stdin` 读取，或当两者均未提供时
+    /// 从 stdin 提示输入。不回显密钥。
     Set {
         #[arg(long, value_enum)]
         provider: ProviderArg,
-        /// Inline value (discouraged — appears in shell history).
+        /// 内联值（不推荐 —— 会出现在 shell 历史中）。
         #[arg(long)]
         api_key: Option<String>,
-        /// Read the key from stdin instead of prompting.
+        /// 从 stdin 读取密钥而非提示输入。
         #[arg(long = "api-key-stdin", default_value_t = false)]
         api_key_stdin: bool,
     },
-    /// Report whether a provider has a key configured. Never prints
-    /// the value; just `set` / `not set` plus the source layer.
+    /// 报告提供商是否已配置密钥。永不打印
+    /// 值本身；仅显示 `set` / `not set` 及来源层级。
     Get {
         #[arg(long, value_enum)]
         provider: ProviderArg,
     },
-    /// Delete a provider's key from config and keyring storage.
+    /// 从配置和密钥环存储中删除提供商的密钥。
     Clear {
         #[arg(long, value_enum)]
         provider: ProviderArg,
     },
-    /// List all known providers with their auth state, without
-    /// revealing keys.
+    /// 列出所有已知提供商及其身份验证状态，不
+    /// 泄露密钥。
     List,
-    /// Advanced: migrate config-file keys into a platform credential store.
+    /// 高级操作：将配置文件密钥迁移到平台凭据存储。
     #[command(hide = true)]
     Migrate {
-        /// Don't actually write anything; print what would change.
+        /// 不实际写入任何内容；打印将要更改的内容。
         #[arg(long, default_value_t = false)]
         dry_run: bool,
     },
@@ -394,16 +394,15 @@ pub fn run_cli() -> std::process::ExitCode {
     match run() {
         Ok(()) => std::process::ExitCode::SUCCESS,
         Err(err) => {
-            // Use the full anyhow chain so callers see the underlying
-            // cause (e.g. the actual TOML parse error with line/column)
-            // instead of just the top-level context message. The bare
-            // `{err}` Display impl drops the chain — see #767, where
-            // users hit "failed to parse config at <path>" with no
-            // hint that the real error was a stray BOM or unbalanced
-            // quote a few lines down.
-            eprintln!("error: {err}");
+            // 使用完整的 anyhow 链，以便调用者看到底层原因
+            // （例如实际的 TOML 解析错误及其行列号），
+            // 而不仅仅是顶层上下文消息。裸 `{err}` Display 实现
+            // 会丢弃链 — 参见 #767，用户遇到
+            // "failed to parse config at <path>" 却没有提示
+            // 实际错误是几行外的多余 BOM 或不匹配引号。
+            eprintln!("错误: {err}");
             for cause in err.chain().skip(1) {
-                eprintln!("  caused by: {cause}");
+                eprintln!("  由以下原因引起: {cause}");
             }
             std::process::ExitCode::FAILURE
         }
@@ -556,14 +555,14 @@ fn resolve_runtime_for_dispatch_with_secrets(
         match store.save() {
             Ok(()) => {
                 eprintln!(
-                    "info: recovered API key from OS keyring and saved it to {}",
+                    "信息: 从 OS 密钥环恢复 API 密钥并保存至 {}",
                     store.path().display()
                 );
                 resolved.api_key_source = Some(RuntimeApiKeySource::ConfigFile);
             }
             Err(err) => {
                 eprintln!(
-                    "warning: recovered API key from OS keyring but failed to save {}: {err}",
+                    "警告: 从 OS 密钥环恢复 API 密钥，但保存至 {} 失败: {err}",
                     store.path().display()
                 );
             }
@@ -601,7 +600,7 @@ fn run_login_command_with_secrets(
         store.config.chatgpt_access_token = Some(token);
         store.config.device_code_session = None;
         store.save()?;
-        println!("logged in using chatgpt token mode ({})", provider.as_str());
+        println!("已使用 chatgpt 令牌模式登录（{}）", provider.as_str());
         return Ok(());
     }
 
@@ -615,7 +614,7 @@ fn run_login_command_with_secrets(
         store.config.chatgpt_access_token = None;
         store.save()?;
         println!(
-            "logged in using device code session mode ({})",
+            "已使用设备代码会话模式登录（{}）",
             provider.as_str()
         );
         return Ok(());
@@ -629,15 +628,15 @@ fn run_login_command_with_secrets(
     let keyring_saved = write_provider_api_key_to_keyring(secrets, provider, &api_key);
     store.save()?;
     let destination = if keyring_saved {
-        format!("{} and {}", store.path().display(), secrets.backend_name())
+        format!("{} 和 {}", store.path().display(), secrets.backend_name())
     } else {
         store.path().display().to_string()
     };
     if provider == ProviderKind::Deepseek {
-        println!("logged in using API key mode (deepseek); saved key to {destination}");
+        println!("已使用 API 密钥模式登录（deepseek）；密钥已保存至 {destination}");
     } else {
         println!(
-            "logged in using API key mode ({}); saved key to {destination}",
+            "已使用 API 密钥模式登录（{}）；密钥已保存至 {destination}",
             provider.as_str(),
         );
     }
@@ -659,11 +658,11 @@ fn run_logout_command_with_secrets(store: &mut ConfigStore, secrets: &Secrets) -
     store.config.chatgpt_access_token = None;
     store.config.device_code_session = None;
     store.save()?;
-    println!("logged out");
+    println!("已注销");
     Ok(())
 }
 
-/// Map [`ProviderKind`] to the canonical provider credential slot.
+/// 将 [`ProviderKind`] 映射到规范提供商凭据槽位。
 fn provider_slot(provider: ProviderKind) -> &'static str {
     match provider {
         ProviderKind::Deepseek => "deepseek",
@@ -678,7 +677,7 @@ fn provider_slot(provider: ProviderKind) -> &'static str {
     }
 }
 
-/// Provider order used by the `auth list` and `auth status` outputs.
+/// `auth list` 和 `auth status` 输出使用的提供商顺序。
 const PROVIDER_LIST: [ProviderKind; 9] = [
     ProviderKind::Deepseek,
     ProviderKind::NvidiaNim,
@@ -804,20 +803,20 @@ fn auth_status_lines(store: &ConfigStore, secrets: &Secrets) -> Vec<String> {
     let env_key = provider_env_value(provider);
 
     let active_source = if config_key.is_some() {
-        "config"
+        "配置文件"
     } else if keyring_key.is_some() {
-        "keyring"
+        "密钥环"
     } else if env_key.is_some() {
-        "env"
+        "环境变量"
     } else {
-        "missing"
+        "缺失"
     };
     let active_last4 = config_key
         .map(last4_label)
         .or_else(|| keyring_key.as_deref().map(last4_label))
         .or_else(|| env_key.as_ref().map(|(_, value)| last4_label(value)));
     let active_label = active_last4
-        .map(|last4| format!("{active_source} (last4: {last4})"))
+        .map(|last4| format!("{active_source}（后4位: {last4}）"))
         .unwrap_or_else(|| active_source.to_string());
 
     let env_var_label = env_key
@@ -826,30 +825,30 @@ fn auth_status_lines(store: &ConfigStore, secrets: &Secrets) -> Vec<String> {
         .unwrap_or_else(|| provider_env_vars(provider).join("/"));
     let env_status = env_key
         .as_ref()
-        .map(|(_, value)| format!("set, last4: {}", last4_label(value)))
-        .unwrap_or_else(|| "unset".to_string());
+        .map(|(_, value)| format!("已设置，后4位: {}", last4_label(value)))
+        .unwrap_or_else(|| "未设置".to_string());
 
     vec![
-        format!("provider: {}", provider.as_str()),
-        format!("active source: {active_label}"),
-        "lookup order: config -> keyring -> env".to_string(),
+        format!("提供商: {}", provider.as_str()),
+        format!("活动来源: {active_label}"),
+        "查找顺序: 配置文件 -> 密钥环 -> 环境变量".to_string(),
         format!(
-            "config file: {} ({})",
+            "配置文件: {}（{}）",
             store.path().display(),
-            source_status(config_key, "missing")
+            source_status(config_key, "缺失")
         ),
         format!(
-            "keyring: {} ({})",
+            "密钥环: {}（{}）",
             secrets.backend_name(),
-            source_status(keyring_key.as_deref(), "missing")
+            source_status(keyring_key.as_deref(), "缺失")
         ),
-        format!("env var: {env_var_label} ({env_status})"),
+        format!("环境变量: {env_var_label}（{env_status}）"),
     ]
 }
 
 fn source_status(value: Option<&str>, missing_label: &str) -> String {
     value
-        .map(|v| format!("set, last4: {}", last4_label(v)))
+        .map(|v| format!("已设置，后4位: {}", last4_label(v)))
         .unwrap_or_else(|| missing_label.to_string())
 }
 
@@ -857,7 +856,7 @@ fn last4_label(value: &str) -> String {
     let trimmed = value.trim();
     let chars: Vec<char> = trimmed.chars().collect();
     if chars.len() <= 4 {
-        return "<redacted>".to_string();
+        return "<已遮盖>".to_string();
     }
     let last4: String = chars[chars.len() - 4..].iter().collect();
     format!("...{last4}")
@@ -894,7 +893,7 @@ fn run_auth_command_with_secrets(
                 }
                 store.save()?;
                 println!(
-                    "configured {slot} provider in {} (API key optional)",
+                    "已在 {} 中配置 {slot} 提供商（API 密钥可选）",
                     store.path().display()
                 );
                 return Ok(());
@@ -907,15 +906,15 @@ fn run_auth_command_with_secrets(
             write_provider_api_key_to_config(store, provider, &api_key);
             let keyring_saved = write_provider_api_key_to_keyring(secrets, provider, &api_key);
             store.save()?;
-            // Don't print the key. Don't echo length.
+            // 不打印密钥。不回显长度。
             if keyring_saved {
                 println!(
-                    "saved API key for {slot} to {} and {}",
+                    "已将 {slot} 的 API 密钥保存至 {} 和 {}",
                     store.path().display(),
                     secrets.backend_name()
                 );
             } else {
-                println!("saved API key for {slot} to {}", store.path().display());
+                println!("已将 {slot} 的 API 密钥保存至 {}", store.path().display());
             }
             Ok(())
         }
@@ -925,7 +924,7 @@ fn run_auth_command_with_secrets(
             let in_file = provider_config_set(store, provider);
             let in_keyring = !in_file && provider_keyring_set(secrets, provider);
             let in_env = provider_env_set(provider);
-            // Report the highest-priority source that has it.
+            // 报告具有密钥的最高优先级来源。
             let source = if in_file {
                 Some("config-file")
             } else if in_keyring {
@@ -936,8 +935,8 @@ fn run_auth_command_with_secrets(
                 None
             };
             match source {
-                Some(source) => println!("{slot}: set (source: {source})"),
-                None => println!("{slot}: not set"),
+                Some(source) => println!("{slot}: 已设置（来源: {source}）"),
+                None => println!("{slot}: 未设置"),
             }
             Ok(())
         }
@@ -947,11 +946,11 @@ fn run_auth_command_with_secrets(
             clear_provider_api_key_from_config(store, provider);
             clear_provider_api_key_from_keyring(secrets, provider);
             store.save()?;
-            println!("cleared API key for {slot} from config and keyring");
+            println!("已从配置和密钥环中清除 {slot} 的 API 密钥");
             Ok(())
         }
         AuthCommand::List => {
-            println!("provider     config keyring env  active");
+            println!("提供商       配置文件  密钥环  环境变量  活动");
             let active_provider = store.config.provider;
             for provider in PROVIDER_LIST {
                 let slot = provider_slot(provider);
@@ -960,13 +959,13 @@ fn run_auth_command_with_secrets(
                     .then(|| provider_keyring_set(secrets, provider));
                 let env = provider_env_set(provider);
                 let active = if file {
-                    "config"
+                    "配置文件"
                 } else if keyring == Some(true) {
-                    "keyring"
+                    "密钥环"
                 } else if env {
-                    "env"
+                    "环境变量"
                 } else {
-                    "missing"
+                    "缺失"
                 };
                 println!(
                     "{slot:<12}  {}     {}      {}   {active}",
@@ -982,38 +981,38 @@ fn run_auth_command_with_secrets(
 }
 
 fn yes_no(b: bool) -> &'static str {
-    if b { "yes" } else { "no " }
+    if b { "是" } else { "否" }
 }
 
 fn keyring_status_short(state: Option<bool>) -> &'static str {
     match state {
-        Some(true) => "yes",
-        Some(false) => "no ",
-        None => "n/a",
+        Some(true) => "是",
+        Some(false) => "否",
+        None => "无",
     }
 }
 
 fn prompt_api_key(slot: &str) -> Result<String> {
     use std::io::{IsTerminal, Write};
-    eprint!("Enter API key for {slot}: ");
+    eprint!("请输入 {slot} 的 API 密钥: ");
     io::stderr().flush().ok();
     if !io::stdin().is_terminal() {
-        // Non-interactive: read directly without prompting twice.
+        // 非交互式：直接读取而不进行两次提示。
         return read_api_key_from_stdin();
     }
     let mut buf = String::new();
     io::stdin()
         .read_line(&mut buf)
-        .context("failed to read API key from stdin")?;
+        .context("从 stdin 读取 API 密钥失败")?;
     let key = buf.trim().to_string();
     if key.is_empty() {
-        bail!("empty API key provided");
+        bail!("提供的 API 密钥为空");
     }
     Ok(key)
 }
 
-/// Move plaintext keys from config.toml into an explicit platform credential
-/// store. Hidden in v0.8.8 because the normal setup path is config/env only.
+/// 将明文密钥从 config.toml 移动到显式平台凭据存储。
+/// 在 v0.8.8 中隐藏，因为正常设置路径仅为配置/环境变量。
 fn run_auth_migrate(store: &mut ConfigStore, secrets: &Secrets, dry_run: bool) -> Result<()> {
     let mut migrated: Vec<(ProviderKind, &'static str)> = Vec::new();
     let mut warnings: Vec<String> = Vec::new();
@@ -1037,12 +1036,12 @@ fn run_auth_migrate(store: &mut ConfigStore, secrets: &Secrets, dry_run: bool) -
         if let Ok(Some(existing)) = secrets.get(slot)
             && existing == value
         {
-            // Already migrated; safe to strip the file slot.
+            // 已迁移；安全删除文件槽位。
         } else if dry_run {
             migrated.push((provider, slot));
             continue;
         } else if let Err(err) = secrets.set(slot, &value) {
-            warnings.push(format!("skipped {slot}: failed to write to keyring: {err}"));
+            warnings.push(format!("已跳过 {slot}：无法写入密钥环: {err}"));
             continue;
         }
         if !dry_run {
@@ -1057,16 +1056,16 @@ fn run_auth_migrate(store: &mut ConfigStore, secrets: &Secrets, dry_run: bool) -
     if !dry_run && !migrated.is_empty() {
         store
             .save()
-            .context("failed to write updated config.toml")?;
+            .context("无法写入更新后的 config.toml")?;
     }
 
-    println!("keyring backend: {}", secrets.backend_name());
+    println!("密钥环后端: {}", secrets.backend_name());
     if migrated.is_empty() {
-        println!("nothing to migrate (config.toml has no plaintext api_key entries)");
+        println!("无需迁移（config.toml 中没有明文的 api_key 条目）");
     } else {
         println!(
-            "{} {} provider key(s):",
-            if dry_run { "would migrate" } else { "migrated" },
+            "{} {} 个提供商密钥:",
+            if dry_run { "将迁移" } else { "已迁移" },
             migrated.len()
         );
         for (_, slot) in &migrated {
@@ -1074,13 +1073,13 @@ fn run_auth_migrate(store: &mut ConfigStore, secrets: &Secrets, dry_run: bool) -
         }
         if !dry_run {
             println!(
-                "config.toml at {} no longer contains api_key entries for migrated providers.",
+                "{} 处的 config.toml 不再包含已迁移提供商的 api_key 条目。",
                 store.path().display()
             );
         }
     }
     for w in warnings {
-        eprintln!("warning: {w}");
+        eprintln!("警告: {w}");
     }
     Ok(())
 }
@@ -1092,18 +1091,18 @@ fn run_config_command(store: &mut ConfigStore, command: ConfigCommand) -> Result
                 println!("{value}");
                 return Ok(());
             }
-            bail!("key not found: {key}");
+            bail!("未找到键: {key}");
         }
         ConfigCommand::Set { key, value } => {
             store.config.set_value(&key, &value)?;
             store.save()?;
-            println!("set {key}");
+            println!("已设置 {key}");
             Ok(())
         }
         ConfigCommand::Unset { key } => {
             store.config.unset_value(&key)?;
             store.save()?;
-            println!("unset {key}");
+            println!("已取消设置 {key}");
             Ok(())
         }
         ConfigCommand::List => {
@@ -1128,16 +1127,16 @@ fn run_model_command(command: ModelCommand) -> Result<()> {
                 Some(p) => m.provider == p,
                 None => true,
             }) {
-                println!("{} ({})", model.id, model.provider.as_str());
+                println!("{}（{}）", model.id, model.provider.as_str());
             }
             Ok(())
         }
         ModelCommand::Resolve { model, provider } => {
             let resolved = registry.resolve(model.as_deref(), provider.map(ProviderKind::from));
-            println!("requested: {}", resolved.requested.unwrap_or_default());
-            println!("resolved: {}", resolved.resolved.id);
-            println!("provider: {}", resolved.resolved.provider.as_str());
-            println!("used_fallback: {}", resolved.used_fallback);
+            println!("请求: {}", resolved.requested.unwrap_or_default());
+            println!("解析结果: {}", resolved.resolved.id);
+            println!("提供商: {}", resolved.resolved.provider.as_str());
+            println!("使用备用: {}", resolved.used_fallback);
             Ok(())
         }
     }
@@ -1158,7 +1157,7 @@ fn run_thread_command(command: ThreadCommand) -> Result<()> {
                     thread
                         .name
                         .clone()
-                        .unwrap_or_else(|| "(unnamed)".to_string()),
+                        .unwrap_or_else(|| "（未命名）".to_string()),
                     thread.model_provider,
                     thread.cwd.display()
                 );
@@ -1180,22 +1179,22 @@ fn run_thread_command(command: ThreadCommand) -> Result<()> {
         }
         ThreadCommand::Archive { thread_id } => {
             state.mark_archived(&thread_id)?;
-            println!("archived {thread_id}");
+            println!("已归档 {thread_id}");
             Ok(())
         }
         ThreadCommand::Unarchive { thread_id } => {
             state.mark_unarchived(&thread_id)?;
-            println!("unarchived {thread_id}");
+            println!("已取消归档 {thread_id}");
             Ok(())
         }
         ThreadCommand::SetName { thread_id, name } => {
             let mut thread = state
                 .get_thread(&thread_id)?
-                .with_context(|| format!("thread not found: {thread_id}"))?;
+                .with_context(|| format!("未找到线程: {thread_id}"))?;
             thread.name = Some(name);
             thread.updated_at = chrono::Utc::now().timestamp();
             state.upsert_thread(&thread)?;
-            println!("renamed {thread_id}");
+            println!("已重命名 {thread_id}");
             Ok(())
         }
     }
@@ -1222,7 +1221,7 @@ fn run_app_server_command(args: AppServerArgs) -> Result<()> {
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
-        .context("failed to create tokio runtime")?;
+        .context("无法创建 tokio 运行时")?;
     if args.stdio {
         return runtime.block_on(run_app_server_stdio(args.config));
     }
@@ -1230,7 +1229,7 @@ fn run_app_server_command(args: AppServerArgs) -> Result<()> {
         .parse()
         .with_context(|| {
             format!(
-                "invalid app-server listen address {}:{}",
+                "无效的应用服务器监听地址 {}:{}",
                 args.host, args.port
             )
         })?;
@@ -1255,7 +1254,7 @@ fn load_mcp_server_definitions(store: &ConfigStore) -> Vec<McpServerDefinition> 
         Ok(definitions) => definitions,
         Err(err) => {
             eprintln!(
-                "warning: failed to parse persisted MCP server definitions ({}): {}",
+                "警告: 无法解析持久化的 MCP 服务器定义（{}）: {}",
                 MCP_SERVER_DEFINITIONS_KEY, err
             );
             Vec::new()
@@ -1269,9 +1268,9 @@ fn parse_mcp_server_definitions(raw: &str) -> Result<Vec<McpServerDefinition>> {
     }
 
     let unwrapped: String = serde_json::from_str(raw)
-        .with_context(|| format!("invalid JSON payload at key {MCP_SERVER_DEFINITIONS_KEY}"))?;
+        .with_context(|| format!("键 {MCP_SERVER_DEFINITIONS_KEY} 处的 JSON 载荷无效"))?;
     serde_json::from_str::<Vec<McpServerDefinition>>(&unwrapped).with_context(|| {
-        format!("invalid MCP server definition list in key {MCP_SERVER_DEFINITIONS_KEY}")
+        format!("键 {MCP_SERVER_DEFINITIONS_KEY} 处的 MCP 服务器定义列表无效")
     })
 }
 
@@ -1280,7 +1279,7 @@ fn persist_mcp_server_definitions(
     definitions: &[McpServerDefinition],
 ) -> Result<()> {
     let encoded =
-        serde_json::to_string(definitions).context("failed to encode MCP server definitions")?;
+        serde_json::to_string(definitions).context("无法编码 MCP 服务器定义")?;
     store
         .config
         .set_value(MCP_SERVER_DEFINITIONS_KEY, &encoded)?;
@@ -1326,18 +1325,18 @@ fn run_dispatcher_resume_picker(
     }
 
     println!();
-    println!("Windows note: enter a session id or prefix from the list above.");
-    println!("You can also run `deepseek resume --last` to skip this prompt.");
-    print!("Session id/prefix (Enter to cancel): ");
+    println!("Windows 提示：从上方列表输入会话 ID 或前缀。");
+    println!("您也可以运行 `deepseek resume --last` 来跳过此提示。");
+    print!("会话 ID/前缀（按 Enter 取消）: ");
     io::stdout().flush()?;
 
     let mut input = String::new();
     io::stdin()
         .read_line(&mut input)
-        .context("failed to read session selection")?;
+        .context("读取会话选择失败")?;
     let session_id = input.trim();
     if session_id.is_empty() {
-        bail!("No session selected.");
+        bail!("未选择会话。");
     }
 
     delegate_to_tui(
@@ -1365,8 +1364,8 @@ fn build_tui_command(
     if let Some(profile) = cli.profile.as_ref() {
         cmd.arg("--profile").arg(profile);
     }
-    // Accepted for older scripts, but no longer forwarded: the interactive TUI
-    // always owns the alternate screen to avoid host scrollback hijacking.
+    // 为旧脚本保留，但不再转发：交互式 TUI
+    // 始终拥有备用屏幕以避免主机滚动劫持。
     let _ = cli.no_alt_screen;
     if cli.mouse_capture {
         cmd.arg("--mouse-capture");
@@ -1392,7 +1391,7 @@ fn build_tui_command(
             | ProviderKind::Ollama
     ) {
         bail!(
-            "The interactive TUI supports DeepSeek, NVIDIA NIM, OpenAI-compatible, OpenRouter, Novita, Fireworks, SGLang, vLLM, and Ollama providers. Remove --provider {} or use `deepseek model ...` for provider registry inspection.",
+            "交互式 TUI 支持 DeepSeek、NVIDIA NIM、OpenAI 兼容、OpenRouter、Novita、Fireworks、SGLang、vLLM 和 Ollama 提供商。请移除 --provider {} 或使用 `deepseek model ...` 进行提供商注册表检查。",
             resolved_runtime.provider.as_str()
         );
     }
@@ -1456,7 +1455,7 @@ fn build_tui_command(
 fn exit_with_tui_status(status: std::process::ExitStatus) -> Result<()> {
     match status.code() {
         Some(code) => std::process::exit(code),
-        None => bail!("deepseek-tui terminated by signal"),
+        None => bail!("deepseek-tui 被信号终止"),
     }
 }
 
@@ -1468,36 +1467,31 @@ fn delegate_simple_tui(args: Vec<String>) -> Result<()> {
         .map_err(|err| anyhow!("{}", tui_spawn_error(&tui, &err)))?;
     match status.code() {
         Some(code) => std::process::exit(code),
-        None => bail!("deepseek-tui terminated by signal"),
+        None => bail!("deepseek-tui 被信号终止"),
     }
 }
 
 fn tui_spawn_error(tui: &Path, err: &io::Error) -> String {
     format!(
-        "failed to spawn companion TUI binary at {}: {err}\n\
+        "无法生成配套 TUI 二进制文件 {}: {err}\n\
 \n\
-The `deepseek` dispatcher found a `deepseek-tui` file, but the OS refused \
-to execute it. Common fixes:\n\
-  - Reinstall with `npm install -g deepseek-tui`, or run `deepseek update`.\n\
-  - On Windows, run `where deepseek` and `where deepseek-tui`; both should \
-come from the same install directory.\n\
-  - If you downloaded release assets manually, keep both `deepseek` and \
-`deepseek-tui` binaries together and make sure the TUI binary is executable.\n\
-  - Set DEEPSEEK_TUI_BIN to the absolute path of a working `deepseek-tui` \
-binary.",
+`deepseek` 调度器找到了 `deepseek-tui` 文件，但操作系统拒绝执行。常见解决方法：\n\
+  - 使用 `npm install -g deepseek-tui` 重新安装，或运行 `deepseek update`。\n\
+  - 在 Windows 上，运行 `where deepseek` 和 `where deepseek-tui`；两者应来自同一安装目录。\n\
+  - 如果您手动下载了发布资产，请将 `deepseek` 和 `deepseek-tui` 两个二进制文件放在一起，并确保 TUI 二进制文件具有可执行权限。\n\
+  - 设置 DEEPSEEK_TUI_BIN 为有效的 `deepseek-tui` 二进制文件的绝对路径。",
         tui.display()
     )
 }
 
-/// Resolve the sibling `deepseek-tui` executable next to the running
-/// dispatcher. Honours platform executable suffix (`.exe` on Windows) so
-/// the npm-distributed Windows package — which ships
-/// `bin/downloads/deepseek-tui.exe` — is found by `Path::exists` (#247).
+/// 解析当前运行的调度器旁边的同级 `deepseek-tui` 可执行文件。
+/// 遵循平台可执行文件后缀（Windows 上为 `.exe`），因此
+/// npm 分发的 Windows 包 — 提供
+/// `bin/downloads/deepseek-tui.exe` — 可通过 `Path::exists` 找到（#247）。
 ///
-/// `DEEPSEEK_TUI_BIN` is consulted first as an explicit override for
-/// custom installs and CI test layouts. On Windows we additionally try
-/// the suffix-less name as a fallback for users who already manually
-/// renamed the file before this fix landed.
+/// 首先检查 `DEEPSEEK_TUI_BIN` 作为自定义安装和 CI 测试布局的
+/// 显式覆盖。在 Windows 上，我们额外尝试无后缀名称作为已手动
+/// 重命名文件的用户的备用方案。
 fn locate_sibling_tui_binary() -> Result<PathBuf> {
     if let Ok(override_path) = std::env::var("DEEPSEEK_TUI_BIN") {
         let candidate = PathBuf::from(override_path);
@@ -1505,48 +1499,44 @@ fn locate_sibling_tui_binary() -> Result<PathBuf> {
             return Ok(candidate);
         }
         bail!(
-            "DEEPSEEK_TUI_BIN points at {}, which is not a regular file.",
+            "DEEPSEEK_TUI_BIN 指向 {}，但这不是一个常规文件。",
             candidate.display()
         );
     }
 
-    let current = std::env::current_exe().context("failed to locate current executable path")?;
+    let current = std::env::current_exe().context("无法获取当前可执行文件路径")?;
     if let Some(found) = sibling_tui_candidate(&current) {
         return Ok(found);
     }
 
-    // Build a stable error path so the user sees the platform-correct
-    // expected name, not "deepseek-tui" on Windows.
+    // 构建稳定的错误路径，使用户看到平台正确的
+    // 预期名称，而不是 Windows 上的 "deepseek-tui"。
     let expected = current.with_file_name(format!("deepseek-tui{}", std::env::consts::EXE_SUFFIX));
     bail!(
-        "Companion `deepseek-tui` binary not found at {}.\n\
+        "未在 {} 处找到配套的 `deepseek-tui` 二进制文件。\n\
 \n\
-The `deepseek` dispatcher delegates interactive sessions to a sibling \
-`deepseek-tui` binary. To fix this, install one of:\n\
-  • npm:    npm install -g deepseek-tui            (downloads both binaries)\n\
+`deepseek` 调度器将会话委派给同级的 `deepseek-tui` 二进制文件。要修复此问题，请安装以下之一：\n\
+  • npm:    npm install -g deepseek-tui            （下载两个二进制文件）\n\
   • cargo:  cargo install deepseek-tui-cli deepseek-tui --locked\n\
-  • GitHub Releases: download BOTH `deepseek-<platform>` AND \
-`deepseek-tui-<platform>` from https://github.com/Hmbown/DeepSeek-TUI/releases/latest \
-and place them in the same directory.\n\
+  • GitHub Releases：从 https://github.com/Hmbown/DeepSeek-TUI/releases/latest \
+下载 `deepseek-<platform>` 和 `deepseek-tui-<platform>` 两个二进制文件，并将它们放在同一目录中。\n\
 \n\
-Or set DEEPSEEK_TUI_BIN to the absolute path of an existing `deepseek-tui` binary.",
+或者将 DEEPSEEK_TUI_BIN 设置为现有 `deepseek-tui` 二进制文件的绝对路径。",
         expected.display()
     );
 }
 
-/// Return the first existing sibling-binary path under any of the names
-/// `deepseek-tui` might use on this platform. Pure function to keep
-/// `locate_sibling_tui_binary` testable.
+/// 返回此平台上 `deepseek-tui` 可能使用的任何名称下的第一个存在的同级二进制文件路径。
+/// 纯函数以使 `locate_sibling_tui_binary` 可测试。
 fn sibling_tui_candidate(dispatcher: &Path) -> Option<PathBuf> {
-    // Primary: platform-correct name. EXE_SUFFIX is "" on Unix and ".exe"
-    // on Windows.
+    // 主要：平台正确的名称。Unix 上 EXE_SUFFIX 为 ""，Windows 上为 ".exe"。
     let primary =
         dispatcher.with_file_name(format!("deepseek-tui{}", std::env::consts::EXE_SUFFIX));
     if primary.is_file() {
         return Some(primary);
     }
-    // Windows fallback: a user who manually renamed `.exe` away (per the
-    // workaround in #247) still launches successfully under the new code.
+    // Windows 备用方案：手动移除了 `.exe` 的用户（根据 #247 的解决方案）
+    // 在新代码下仍能成功启动。
     if cfg!(windows) {
         let suffixless = dispatcher.with_file_name("deepseek-tui");
         if suffixless.is_file() {
@@ -1559,7 +1549,7 @@ fn sibling_tui_candidate(dispatcher: &Path) -> Option<PathBuf> {
 fn run_metrics_command(args: MetricsArgs) -> Result<()> {
     let since = match args.since.as_deref() {
         Some(s) => {
-            Some(metrics::parse_since(s).with_context(|| format!("invalid --since value: {s:?}"))?)
+            Some(metrics::parse_since(s).with_context(|| format!("无效的 --since 值: {s:?}"))?)
         }
         None => None,
     };
@@ -1573,10 +1563,10 @@ fn read_api_key_from_stdin() -> Result<String> {
     let mut input = String::new();
     io::stdin()
         .read_to_string(&mut input)
-        .context("failed to read api key from stdin")?;
+        .context("从 stdin 读取 API 密钥失败")?;
     let key = input.trim().to_string();
     if key.is_empty() {
-        bail!("empty API key provided");
+        bail!("提供的 API 密钥为空");
     }
     Ok(key)
 }
@@ -1589,11 +1579,11 @@ mod tests {
     use std::sync::{Mutex, OnceLock};
 
     fn parse_ok(argv: &[&str]) -> Cli {
-        Cli::try_parse_from(argv).unwrap_or_else(|err| panic!("parse failed for {argv:?}: {err}"))
+        Cli::try_parse_from(argv).unwrap_or_else(|err| panic!("解析 {argv:?} 失败: {err}"))
     }
 
     fn help_for(argv: &[&str]) -> String {
-        let err = Cli::try_parse_from(argv).expect_err("expected --help to short-circuit parsing");
+        let err = Cli::try_parse_from(argv).expect_err("预期 --help 会短路解析");
         assert_eq!(err.kind(), ErrorKind::DisplayHelp);
         err.to_string()
     }
@@ -1624,8 +1614,7 @@ mod tests {
     impl ScopedEnvVar {
         fn set(name: &'static str, value: &str) -> Self {
             let previous = std::env::var_os(name);
-            // Safety: tests using this helper serialize with env_lock() and
-            // restore the original value in Drop.
+            // 安全性：使用此辅助的测试使用 env_lock() 序列化，并在 Drop 中恢复原始值。
             unsafe { std::env::set_var(name, value) };
             Self { name, previous }
         }
@@ -1633,7 +1622,7 @@ mod tests {
 
     impl Drop for ScopedEnvVar {
         fn drop(&mut self) {
-            // Safety: tests using this helper serialize with env_lock().
+            // 安全性：使用此辅助的测试使用 env_lock() 序列化。
             unsafe {
                 if let Some(previous) = self.previous.take() {
                     std::env::set_var(self.name, previous);
@@ -1649,29 +1638,28 @@ mod tests {
         Cli::command().debug_assert();
     }
 
-    // Regression for #767: `run_cli` prints the full anyhow chain so users
-    // see the underlying TOML parser error (line/column, expected token)
-    // instead of just the top-level "failed to parse config at <path>"
-    // wrapper. anyhow's bare `Display` impl drops the chain — pin both
-    // pieces here so a future refactor of the printing path doesn't
-    // silently regress.
+    // #767 的回归测试：`run_cli` 打印完整的 anyhow 链，使用户
+    // 看到底层 TOML 解析器错误（行列号、期望的令牌），
+    // 而不仅仅是顶层的 "failed to parse config at <path>"
+    // 包装。anyhow 的裸 `Display` 实现丢弃了链 — 在此固定两个
+    // 部分，以便将来对打印路径的重构不会在无意中回归。
     #[test]
     fn anyhow_chain_surfaces_toml_parse_cause() {
         use anyhow::Context;
-        let inner = anyhow::anyhow!("TOML parse error at line 1, column 20");
+        let inner = anyhow::anyhow!("TOML 解析错误，位置 1 行 20 列");
         let err = Err::<(), _>(inner)
-            .context("failed to parse config at C:\\Users\\test\\.deepseek\\config.toml")
+            .context("无法解析配置文件 C:\\Users\\test\\.deepseek\\config.toml")
             .unwrap_err();
 
-        // What `eprintln!("error: {err}")` prints (top context only).
+        // `eprintln!("error: {err}")` 打印的内容（仅顶层上下文）。
         assert_eq!(
             err.to_string(),
-            "failed to parse config at C:\\Users\\test\\.deepseek\\config.toml",
+            "无法解析配置文件 C:\\Users\\test\\.deepseek\\config.toml",
         );
 
-        // What the `for cause in err.chain().skip(1)` loop iterates over.
+        // `for cause in err.chain().skip(1)` 循环迭代的内容。
         let causes: Vec<String> = err.chain().skip(1).map(ToString::to_string).collect();
-        assert_eq!(causes, vec!["TOML parse error at line 1, column 20"]);
+        assert_eq!(causes, vec!["TOML 解析错误，位置 1 行 20 列"]);
     }
 
     #[test]
@@ -1935,7 +1923,7 @@ mod tests {
             "deepseek-cli-login-test-{}-{nanos}.toml",
             std::process::id()
         ));
-        let mut store = ConfigStore::load(Some(path.clone())).expect("store should load");
+        let mut store = ConfigStore::load(Some(path.clone())).expect("存储应加载");
         let secrets = no_keyring_secrets();
 
         run_login_command_with_secrets(
@@ -1949,7 +1937,7 @@ mod tests {
             },
             &secrets,
         )
-        .expect("login should write config");
+        .expect("登录应写入配置");
 
         assert_eq!(store.config.api_key.as_deref(), Some("sk-test"));
         assert_eq!(
@@ -1960,7 +1948,7 @@ mod tests {
             store.config.default_text_model.as_deref(),
             Some("deepseek-v4-pro")
         );
-        let saved = std::fs::read_to_string(&path).expect("config should be written");
+        let saved = std::fs::read_to_string(&path).expect("配置应被写入");
         assert!(saved.contains("api_key = \"sk-test\""));
         assert!(saved.contains("default_text_model = \"deepseek-v4-pro\""));
 
@@ -2099,7 +2087,7 @@ mod tests {
             "deepseek-cli-auth-set-test-{}-{nanos}.toml",
             std::process::id()
         ));
-        let mut store = ConfigStore::load(Some(path.clone())).expect("store should load");
+        let mut store = ConfigStore::load(Some(path.clone())).expect("存储应加载");
         let inner = Arc::new(InMemoryKeyringStore::new());
         let secrets = Secrets::new(inner.clone());
 
@@ -2112,7 +2100,7 @@ mod tests {
             },
             &secrets,
         )
-        .expect("set should succeed");
+        .expect("设置应成功");
 
         assert_eq!(store.config.api_key.as_deref(), Some("sk-keyring"));
         assert_eq!(
@@ -2136,7 +2124,7 @@ mod tests {
             "deepseek-cli-auth-ollama-test-{}-{nanos}.toml",
             std::process::id()
         ));
-        let mut store = ConfigStore::load(Some(path.clone())).expect("store should load");
+        let mut store = ConfigStore::load(Some(path.clone())).expect("存储应加载");
         let secrets = no_keyring_secrets();
 
         run_auth_command_with_secrets(
@@ -2148,7 +2136,7 @@ mod tests {
             },
             &secrets,
         )
-        .expect("ollama auth set should not require a key");
+        .expect("ollama auth set 不应要求密钥");
 
         assert_eq!(store.config.provider, ProviderKind::Ollama);
         assert_eq!(
@@ -2170,7 +2158,7 @@ mod tests {
             "deepseek-cli-auth-clear-test-{}-{nanos}.toml",
             std::process::id()
         ));
-        let mut store = ConfigStore::load(Some(path.clone())).expect("store should load");
+        let mut store = ConfigStore::load(Some(path.clone())).expect("存储应加载");
         store.config.api_key = Some("sk-stale".to_string());
         store.config.providers.deepseek.api_key = Some("sk-stale".to_string());
         store.save().unwrap();
@@ -2186,7 +2174,7 @@ mod tests {
             },
             &secrets,
         )
-        .expect("clear should succeed");
+        .expect("清除应成功");
 
         assert!(store.config.api_key.is_none());
         assert!(store.config.providers.deepseek.api_key.is_none());
@@ -2229,15 +2217,15 @@ mod tests {
             "deepseek-cli-auth-active-keyring-test-{}-{nanos}.toml",
             std::process::id()
         ));
-        let mut store = ConfigStore::load(Some(path.clone())).expect("store should load");
+        let mut store = ConfigStore::load(Some(path.clone())).expect("存储应加载");
         store.config.provider = ProviderKind::Deepseek;
         let inner = Arc::new(RecordingStore::default());
         let secrets = Secrets::new(inner.clone());
 
         run_auth_command_with_secrets(&mut store, AuthCommand::Status, &secrets)
-            .expect("status should succeed");
+            .expect("状态应成功");
         run_auth_command_with_secrets(&mut store, AuthCommand::List, &secrets)
-            .expect("list should succeed");
+            .expect("列表应成功");
 
         assert_eq!(
             inner.gets.lock().unwrap().as_slice(),
@@ -2260,7 +2248,7 @@ mod tests {
             "deepseek-cli-auth-status-table-test-{}-{nanos}.toml",
             std::process::id()
         ));
-        let mut store = ConfigStore::load(Some(path.clone())).expect("store should load");
+        let mut store = ConfigStore::load(Some(path.clone())).expect("存储应加载");
         store.config.provider = ProviderKind::Deepseek;
         store.config.api_key = Some("sk-config-3333".to_string());
         store.config.providers.deepseek.api_key = Some("sk-config-3333".to_string());
@@ -2272,12 +2260,12 @@ mod tests {
         let output = auth_status_lines(&store, &secrets).join("\n");
 
         assert!(output.contains("provider: deepseek"));
-        assert!(output.contains("active source: config (last4: ...3333)"));
-        assert!(output.contains("lookup order: config -> keyring -> env"));
-        assert!(output.contains("config file: "));
+        assert!(output.contains("active source: 配置文件"));
+        assert!(output.contains("lookup order:"));
+        assert!(output.contains("config file:"));
         assert!(output.contains("set, last4: ...3333"));
-        assert!(output.contains("keyring: in-memory (test) (set, last4: ...2222)"));
-        assert!(output.contains("env var: DEEPSEEK_API_KEY (set, last4: ...1111)"));
+        assert!(output.contains("keyring: in-memory (test) (已设置，后4位: ...2222)"));
+        assert!(output.contains("env var: DEEPSEEK_API_KEY (已设置，后4位: ...1111)"));
         assert!(!output.contains("sk-config-3333"));
         assert!(!output.contains("sk-keyring-2222"));
         assert!(!output.contains("sk-env-1111"));
@@ -2295,7 +2283,7 @@ mod tests {
             "deepseek-cli-dispatch-keyring-heal-test-{}-{nanos}.toml",
             std::process::id()
         ));
-        let mut store = ConfigStore::load(Some(path.clone())).expect("store should load");
+        let mut store = ConfigStore::load(Some(path.clone())).expect("存储应加载");
         let inner = Arc::new(InMemoryKeyringStore::new());
         inner.set("deepseek", "ring-key").unwrap();
         let secrets = Secrets::new(inner);
@@ -2317,7 +2305,7 @@ mod tests {
             Some("ring-key")
         );
 
-        let saved = std::fs::read_to_string(&path).expect("config should be written");
+        let saved = std::fs::read_to_string(&path).expect("配置应被写入");
         assert!(saved.contains("api_key = \"ring-key\""));
 
         let resolved_again = resolve_runtime_for_dispatch_with_secrets(
@@ -2341,7 +2329,7 @@ mod tests {
             "deepseek-cli-logout-test-{}-{nanos}.toml",
             std::process::id()
         ));
-        let mut store = ConfigStore::load(Some(path.clone())).expect("store should load");
+        let mut store = ConfigStore::load(Some(path.clone())).expect("存储应加载");
         store.config.api_key = Some("sk-stale".to_string());
         store.config.providers.deepseek.api_key = Some("sk-stale".to_string());
         store.config.providers.fireworks.api_key = Some("fw-stale".to_string());
@@ -2349,7 +2337,7 @@ mod tests {
 
         let secrets = no_keyring_secrets();
 
-        run_logout_command_with_secrets(&mut store, &secrets).expect("logout should succeed");
+        run_logout_command_with_secrets(&mut store, &secrets).expect("注销应成功");
 
         assert!(store.config.api_key.is_none());
         assert!(store.config.providers.deepseek.api_key.is_none());
@@ -2368,7 +2356,7 @@ mod tests {
             "deepseek-cli-auth-migrate-test-{}-{nanos}.toml",
             std::process::id()
         ));
-        let mut store = ConfigStore::load(Some(path.clone())).expect("store should load");
+        let mut store = ConfigStore::load(Some(path.clone())).expect("存储应加载");
         store.config.api_key = Some("sk-deep".to_string());
         store.config.providers.deepseek.api_key = Some("sk-deep".to_string());
         store.config.providers.openrouter.api_key = Some("or-key".to_string());
@@ -2383,22 +2371,22 @@ mod tests {
             AuthCommand::Migrate { dry_run: false },
             &secrets,
         )
-        .expect("migrate should succeed");
+        .expect("迁移应成功");
 
         assert_eq!(inner.get("deepseek").unwrap(), Some("sk-deep".to_string()));
         assert_eq!(inner.get("openrouter").unwrap(), Some("or-key".to_string()));
         assert_eq!(inner.get("novita").unwrap(), Some("nv-key".to_string()));
 
-        // Config file must no longer contain the api keys.
+        // 配置文件不得再包含 API 密钥。
         assert!(store.config.api_key.is_none());
         assert!(store.config.providers.deepseek.api_key.is_none());
         assert!(store.config.providers.openrouter.api_key.is_none());
         assert!(store.config.providers.novita.api_key.is_none());
 
-        let saved = std::fs::read_to_string(&path).expect("config exists post-migrate");
-        assert!(!saved.contains("sk-deep"), "plaintext leaked: {saved}");
-        assert!(!saved.contains("or-key"), "plaintext leaked: {saved}");
-        assert!(!saved.contains("nv-key"), "plaintext leaked: {saved}");
+        let saved = std::fs::read_to_string(&path).expect("迁移后配置文件存在");
+        assert!(!saved.contains("sk-deep"), "明文泄露: {saved}");
+        assert!(!saved.contains("or-key"), "明文泄露: {saved}");
+        assert!(!saved.contains("nv-key"), "明文泄露: {saved}");
 
         let _ = std::fs::remove_file(path);
     }
@@ -2413,7 +2401,7 @@ mod tests {
             "deepseek-cli-auth-migrate-dry-{}-{nanos}.toml",
             std::process::id()
         ));
-        let mut store = ConfigStore::load(Some(path.clone())).expect("store should load");
+        let mut store = ConfigStore::load(Some(path.clone())).expect("存储应加载");
         store.config.providers.openrouter.api_key = Some("or-stay".to_string());
         store.save().unwrap();
 
@@ -2421,7 +2409,7 @@ mod tests {
         let secrets = Secrets::new(inner.clone());
 
         run_auth_command_with_secrets(&mut store, AuthCommand::Migrate { dry_run: true }, &secrets)
-            .expect("dry-run should succeed");
+            .expect("dry-run 应成功");
 
         assert_eq!(inner.get("openrouter").unwrap(), None);
         assert_eq!(
@@ -2486,7 +2474,7 @@ mod tests {
     #[test]
     fn build_tui_command_allows_openai_and_forwards_provider_key() {
         let _lock = env_lock();
-        let dir = tempfile::TempDir::new().expect("tempdir");
+        let dir = tempfile::TempDir::new().expect("临时目录");
         let custom = dir
             .path()
             .join(format!("custom-tui{}", std::env::consts::EXE_SUFFIX));
@@ -2510,7 +2498,7 @@ mod tests {
             http_headers: std::collections::BTreeMap::new(),
         };
 
-        let cmd = build_tui_command(&cli, &resolved, Vec::new()).expect("command");
+        let cmd = build_tui_command(&cli, &resolved, Vec::new()).expect("命令");
         assert_eq!(
             command_env(&cmd, "DEEPSEEK_PROVIDER").as_deref(),
             Some("openai")
@@ -2609,7 +2597,7 @@ mod tests {
         ] {
             assert!(
                 rendered.contains(token),
-                "expected help to contain token: {token}"
+                "预期帮助中包含令牌: {token}"
             );
         }
     }
@@ -2657,36 +2645,35 @@ mod tests {
             for token in expected_tokens {
                 assert!(
                     rendered.contains(token),
-                    "expected help for `{subcommand}` to include `{token}`"
+                    "预期 `{subcommand}` 的帮助中包含 `{token}`"
                 );
             }
         }
     }
 
-    /// Regression for issue #247: on Windows the dispatcher must find the
-    /// sibling `deepseek-tui.exe`, not bail out looking for an
-    /// extension-less `deepseek-tui`. The candidate resolver also accepts
-    /// the suffix-less name on Windows so users who manually renamed the
-    /// file as a workaround keep working after the upgrade.
+    /// #247 的回归测试：在 Windows 上调度器必须找到
+    /// 同级的 `deepseek-tui.exe`，而不是找不到无扩展名的
+    /// `deepseek-tui`。候选解析器在 Windows 上也接受无后缀名称，
+    /// 以便手动重命名文件作为解决方法的用户在升级后继续工作。
     #[test]
     fn sibling_tui_candidate_picks_platform_correct_name() {
-        let dir = tempfile::TempDir::new().expect("tempdir");
+        let dir = tempfile::TempDir::new().expect("临时目录");
         let dispatcher = dir
             .path()
             .join("deepseek")
             .with_extension(std::env::consts::EXE_EXTENSION);
-        // Touch the dispatcher so its parent dir is the lookup root.
+        // 创建调度器文件，使其父目录成为查找根目录。
         std::fs::write(&dispatcher, b"").unwrap();
 
-        // No sibling yet — resolver returns None.
+        // 尚无同级文件 — 解析器返回 None。
         assert!(sibling_tui_candidate(&dispatcher).is_none());
 
         let target =
             dispatcher.with_file_name(format!("deepseek-tui{}", std::env::consts::EXE_SUFFIX));
         std::fs::write(&target, b"").unwrap();
 
-        let found = sibling_tui_candidate(&dispatcher).expect("must locate sibling");
-        assert_eq!(found, target, "primary platform-correct name wins");
+        let found = sibling_tui_candidate(&dispatcher).expect("必须找到同级文件");
+        assert_eq!(found, target, "主要平台正确名称优先");
     }
 
     #[test]
@@ -2700,32 +2687,32 @@ mod tests {
         assert!(message.contains("DEEPSEEK_TUI_BIN"));
     }
 
-    /// Windows-only fallback: the user from #247 manually renamed the
-    /// file to drop `.exe`. After the fix lands, that workaround must
-    /// still resolve via the suffix-less fallback so they don't have to
-    /// rename it back.
+    /// Windows-only 备用方案：#247 的用户手动移除了
+    /// 文件的 `.exe` 扩展名。在修复后，该解决方法必须
+    /// 仍然通过无后缀的备用方案解析，以便他们无需
+    /// 重命名回去。
     #[cfg(windows)]
     #[test]
     fn sibling_tui_candidate_windows_falls_back_to_suffixless() {
-        let dir = tempfile::TempDir::new().expect("tempdir");
+        let dir = tempfile::TempDir::new().expect("临时目录");
         let dispatcher = dir.path().join("deepseek.exe");
         std::fs::write(&dispatcher, b"").unwrap();
 
-        // Only the suffixless name exists — emulates the manual rename.
+        // 仅存在无后缀名称 — 模拟手动重命名。
         let suffixless = dispatcher.with_file_name("deepseek-tui");
         std::fs::write(&suffixless, b"").unwrap();
 
         let found = sibling_tui_candidate(&dispatcher)
-            .expect("Windows fallback must locate suffixless deepseek-tui");
+            .expect("Windows 备用方案必须找到无后缀的 deepseek-tui");
         assert_eq!(found, suffixless);
     }
 
-    /// `DEEPSEEK_TUI_BIN` overrides the discovery path. Useful for
-    /// custom Windows install layouts and CI test rigs.
+    /// `DEEPSEEK_TUI_BIN` 覆盖发现路径。用于
+    /// 自定义 Windows 安装布局和 CI 测试环境。
     #[test]
     fn locate_sibling_tui_binary_honours_env_override() {
         let _lock = env_lock();
-        let dir = tempfile::TempDir::new().expect("tempdir");
+        let dir = tempfile::TempDir::new().expect("临时目录");
         let custom = dir
             .path()
             .join(format!("custom-tui{}", std::env::consts::EXE_SUFFIX));
@@ -2733,7 +2720,7 @@ mod tests {
         let custom_str = custom.to_string_lossy().into_owned();
         let _bin = ScopedEnvVar::set("DEEPSEEK_TUI_BIN", &custom_str);
 
-        let resolved = locate_sibling_tui_binary().expect("override must resolve");
+        let resolved = locate_sibling_tui_binary().expect("覆盖必须解析");
         assert_eq!(resolved, custom);
     }
 }
