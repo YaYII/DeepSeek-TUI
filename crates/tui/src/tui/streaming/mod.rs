@@ -1,11 +1,11 @@
 #![allow(dead_code)]
 
-//! Markdown stream collector for live micro-chunk rendering.
+//! 用于实时微块渲染的 Markdown 流收集器。
 //!
-//! This module implements the pattern from codex-rs where:
-//! - Streaming text is split into small grapheme-aligned chunks
-//! - Commit ticks drip chunks into the transcript between provider deltas
-//! - Final content is emitted when the stream ends
+//! 此模块实现了来自 codex-rs 的模式：
+//! - 流式文本被拆分为小的字素对齐块
+//! - 提交节拍在提供者数据块之间将块滴入转录本
+//! - 流结束时发出最终内容
 
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
@@ -21,31 +21,31 @@ pub mod line_buffer;
 pub use chunking::{AdaptiveChunkingPolicy, ChunkingMode};
 pub use commit_tick::{StreamChunker, run_commit_tick};
 pub use line_buffer::LineBuffer;
-/// Collects streaming text and commits complete lines.
+/// 收集流式文本并提交完整行。
 #[derive(Debug, Clone)]
 pub struct MarkdownStreamCollector {
-    /// Buffer for incoming text
+    /// 传入文本的缓冲区
     buffer: String,
-    /// Number of lines already committed
+    /// 已提交的行数
     committed_line_count: usize,
-    /// Terminal width for wrapping
+    /// 用于换行的终端宽度
     width: Option<usize>,
-    /// Whether the stream is still active
+    /// 流是否仍处于活动状态
     is_streaming: bool,
-    /// Whether this is a thinking block
+    /// 是否为思考块
     is_thinking: bool,
 }
 
 impl Default for MarkdownStreamCollector {
     fn default() -> Self {
-        // `is_streaming: true` matches `MarkdownStreamCollector::new` so a
-        // freshly-default block behaves like a freshly-started stream.
+        // `is_streaming: true` 与 `MarkdownStreamCollector::new` 一致，
+        // 因此新默认块的行为类似于新启动的流。
         Self::new(None, false)
     }
 }
 
 impl MarkdownStreamCollector {
-    /// Create a new collector
+    /// 创建一个新的收集器
     pub fn new(width: Option<usize>, is_thinking: bool) -> Self {
         Self {
             buffer: String::new(),
@@ -56,24 +56,24 @@ impl MarkdownStreamCollector {
         }
     }
 
-    /// Push new content to the buffer
+    /// 向缓冲区推送新内容
     pub fn push(&mut self, content: &str) {
         self.buffer.push_str(content);
     }
 
-    /// Get the current buffer content (for display during streaming)
+    /// 获取当前缓冲区内容（用于流式传输期间的显示）
     pub fn current_content(&self) -> &str {
         &self.buffer
     }
 
-    /// Check if there are complete lines to commit
+    /// 检查是否有完整行可提交
     pub fn has_complete_lines(&self) -> bool {
         self.buffer.contains('\n')
     }
 
-    /// Commit complete lines and return them.
-    /// Only lines ending with '\n' are committed.
-    /// Returns the newly committed lines since last call.
+    /// 提交完整行并返回它们。
+    /// 仅以 '\n' 结尾的行会被提交。
+    /// 返回自上次调用以来新提交的行。
     pub fn commit_complete_lines(&mut self) -> Vec<Line<'static>> {
         let committed = self.commit_complete_text();
         if committed.is_empty() {
@@ -82,30 +82,30 @@ impl MarkdownStreamCollector {
         self.render_lines(&committed)
     }
 
-    /// Commit complete text chunks ending in a newline.
-    /// Returns the raw text that became visible since the last call.
+    /// 提交以换行符结尾的完整文本块。
+    /// 返回自上次调用以来变为可见的原始文本。
     pub fn commit_complete_text(&mut self) -> String {
         if self.buffer.is_empty() {
             return String::new();
         }
 
-        // Find the last newline - only process up to there
+        // 找到最后一个换行符 — 只处理到那里
         let Some(last_newline_idx) = self.buffer.rfind('\n') else {
-            return String::new(); // No complete lines yet
+            return String::new(); // 还没有完整行
         };
 
-        // Extract the complete portion (up to and including last newline)
+        // 提取完整部分（直到并包含最后一个换行符）
         let complete_portion = self.buffer[..=last_newline_idx].to_string();
 
-        // Remove the committed portion from the buffer so finalize only emits the remainder
+        // 从缓冲区中移除已提交部分，以便 finalize 只发出剩余部分
         self.buffer = self.buffer[last_newline_idx + 1..].to_string();
         self.committed_line_count = 0;
 
         complete_portion
     }
 
-    /// Finalize the stream and return any remaining content.
-    /// Call this when the stream ends to emit the final incomplete line.
+    /// 结束流并返回任何剩余内容。
+    /// 当流结束时调用此方法以发出最终的不完整行。
     pub fn finalize(&mut self) -> Vec<Line<'static>> {
         let remaining = self.finalize_text();
         if remaining.is_empty() {
@@ -114,7 +114,7 @@ impl MarkdownStreamCollector {
         self.render_lines(&remaining)
     }
 
-    /// Finalize the stream and return any remaining raw text.
+    /// 结束流并返回任何剩余的原始文本。
     pub fn finalize_text(&mut self) -> String {
         self.is_streaming = false;
 
@@ -128,12 +128,12 @@ impl MarkdownStreamCollector {
         remaining
     }
 
-    /// Get all rendered lines (for final display after stream ends)
+    /// 获取所有渲染行（用于流结束后最终显示）
     pub fn all_lines(&self) -> Vec<Line<'static>> {
         self.render_lines(&self.buffer)
     }
 
-    /// Render content into styled lines
+    /// 将内容渲染为样式化行
     fn render_lines(&self, content: &str) -> Vec<Line<'static>> {
         let width = self.width.unwrap_or(80);
         let style = if self.is_thinking {
@@ -147,14 +147,14 @@ impl MarkdownStreamCollector {
         let mut lines = Vec::new();
 
         for line in content.lines() {
-            // Wrap long lines
+            // 对长行进行换行
             let wrapped = wrap_line(line, width);
             for wrapped_line in wrapped {
                 lines.push(Line::from(Span::styled(wrapped_line, style)));
             }
         }
 
-        // Handle trailing newline (add empty line)
+        // 处理尾部换行符（添加空行）
         if content.ends_with('\n') {
             lines.push(Line::from(""));
         }
@@ -162,24 +162,24 @@ impl MarkdownStreamCollector {
         lines
     }
 
-    /// Check if the stream is still active
+    /// 检查流是否仍处于活动状态
     pub fn is_streaming(&self) -> bool {
         self.is_streaming
     }
 
-    /// Get the raw buffer length
+    /// 获取原始缓冲区长度
     pub fn buffer_len(&self) -> usize {
         self.buffer.len()
     }
 
-    /// Clear the buffer
+    /// 清除缓冲区
     pub fn clear(&mut self) {
         self.buffer.clear();
         self.committed_line_count = 0;
     }
 }
 
-/// Wrap a single line to fit within the given width
+/// 将单行换行以适合给定的宽度
 fn wrap_line(line: &str, width: usize) -> Vec<String> {
     if line.is_empty() {
         return vec![String::new()];
@@ -193,16 +193,16 @@ fn wrap_line(line: &str, width: usize) -> Vec<String> {
         let word_width = word.width();
 
         if current_width == 0 {
-            // First word on line
+            // 行中的第一个词
             current_line = word.to_string();
             current_width = word_width;
         } else if current_width + 1 + word_width <= width {
-            // Word fits with space
+            // 单词和空格都能放下
             current_line.push(' ');
             current_line.push_str(word);
             current_width += 1 + word_width;
         } else {
-            // Word doesn't fit, start new line
+            // 单词放不下，开始新行
             result.push(current_line);
             current_line = word.to_string();
             current_width = word_width;
@@ -220,51 +220,49 @@ fn wrap_line(line: &str, width: usize) -> Vec<String> {
     }
 }
 
-/// Per-block streaming substate: optional line-buffer feeding a collector +
-/// chunker/policy for two-gear pacing.
+/// 每块流式子状态：可选的线路缓冲区为收集器 + 分块器/策略提供
+/// 两档速率的输入。
 ///
-/// Pipeline:
+/// 管道：
 /// ```text
 /// raw delta -> LineBuffer.push -> take_committable -> collector + chunker -> commit tick
 /// ```
 ///
-/// The [`LineBuffer`] remains available for line-sensitive modes. Normal
-/// assistant prose and thinking blocks bypass it so text can stream in live
-/// micro-chunks instead of waiting for newline boundaries.
+/// [`LineBuffer`] 仍然可用于对换行敏感的模式。普通助手散文和思考块
+/// 绕过它，以便文本可以以实时微块的形式流式传输，而不是等待换行边界。
 #[derive(Debug, Default)]
 struct BlockState {
-    /// Newline gate: holds back trailing partial-line text between deltas.
-    /// Bypassed when `bypass_gate` is true (thinking blocks).
+    /// 换行门控：在数据块之间保留尾部的不完整行文本。
+    /// 当 `bypass_gate` 为 true 时绕过（思考块）。
     line_buffer: LineBuffer,
-    /// Whether to bypass the [`LineBuffer`] (thinking blocks stream live).
+    /// 是否绕过 [`LineBuffer`]（思考块实时流式传输）。
     bypass_gate: bool,
     collector: MarkdownStreamCollector,
     chunker: StreamChunker,
     policy: AdaptiveChunkingPolicy,
 }
 
-/// State for managing multiple stream collectors (one per content block)
+/// 管理多个流收集器的状态（每个内容块一个）
 #[derive(Debug, Default)]
 pub struct StreamingState {
-    /// Per-block state by index (collector + chunker + policy).
+    /// 按索引的每块状态（收集器 + 分块器 + 策略）。
     blocks: Vec<Option<BlockState>>,
-    /// Whether any stream is currently active
+    /// 是否有任何流当前处于活动状态
     pub is_active: bool,
-    /// Accumulated text for display
+    /// 用于显示的累积文本
     pub accumulated_text: String,
-    /// Accumulated thinking for display
+    /// 用于显示的累积思考内容
     pub accumulated_thinking: String,
 }
 
 impl StreamingState {
-    /// Create a new streaming state
+    /// 创建一个新的流状态
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Start a new text block. Assistant prose streams live in micro-chunks so
-    /// users can visually track the answer as it forms instead of waiting for
-    /// a newline-terminated line.
+    /// 启动一个新的文本块。助手散文以微块形式实时流式传输，
+    /// 以便用户可以在答案形成时直观地跟踪，而不是等待换行终止的行。
     pub fn start_text(&mut self, index: usize, width: Option<usize>) {
         self.ensure_capacity(index);
         self.blocks[index] = Some(BlockState {
@@ -277,10 +275,9 @@ impl StreamingState {
         self.is_active = true;
     }
 
-    /// Start a new thinking block. Thinking deltas bypass the newline gate so
-    /// they remain visually live — long reasoning often arrives as a single
-    /// paragraph without intermediate newlines, and gating it would create
-    /// long pauses where the user sees nothing.
+    /// 启动一个新的思考块。思考数据块绕过换行门控，
+    /// 以便它们在视觉上保持实时 — 长推理通常作为单个段落到达，
+    /// 没有中间换行符，门控会导致用户长时间看不到任何内容。
     pub fn start_thinking(&mut self, index: usize, width: Option<usize>) {
         self.ensure_capacity(index);
         self.blocks[index] = Some(BlockState {
@@ -293,33 +290,32 @@ impl StreamingState {
         self.is_active = true;
     }
 
-    /// Push content to a block. Routing depends on the block kind:
+    /// 向块推送内容。路由取决于块类型：
     ///
-    /// - Assistant text blocks: incoming bytes normally bypass [`LineBuffer`]
-    ///   and are split into small display chunks downstream.
-    /// - Thinking blocks: bytes bypass the gate and go straight to the
-    ///   collector/chunker so reasoning stays visually live (long thoughts
-    ///   often have no intermediate newlines).
+    /// - 助手文本块：传入字节通常绕过 [`LineBuffer`]
+    ///   并在下游拆分为小的显示块。
+    /// - 思考块：字节绕过门控并直接进入收集器/分块器，
+    ///   以便推理在视觉上保持实时（长思考通常没有中间换行符）。
     ///
-    /// `accumulated_text` / `accumulated_thinking` always track the full raw
-    /// stream so callers building API messages or doing retries see exactly
-    /// what the model emitted, regardless of UI gating.
+    /// `accumulated_text` / `accumulated_thinking` 始终跟踪完整的原始流，
+    /// 以便构建 API 消息或进行重试的调用方确切看到模型发出什么，
+    /// 不受 UI 门控的影响。
     pub fn push_content(&mut self, index: usize, content: &str) {
         if let Some(Some(block)) = self.blocks.get_mut(index) {
-            // Always update the raw accumulator first — UI gating must not
-            // affect what we send back to the model on retry/continuation.
+            // 始终先更新原始累加器 — UI 门控不得
+            // 影响我们在重试/继续时发送回模型的内容。
             if block.collector.is_thinking {
                 self.accumulated_thinking.push_str(content);
             } else {
                 self.accumulated_text.push_str(content);
             }
 
-            // Determine what bytes are safe to expose downstream on this push.
+            // 确定此推送中哪些字节可以安全地暴露给下游。
             let downstream: String = if block.bypass_gate {
-                // Thinking: forward verbatim to collector + chunker.
+                // 思考：逐字转发给收集器 + 分块器。
                 content.to_string()
             } else {
-                // Assistant text: gate at the last-newline boundary.
+                // 助手文本：在最后一个换行符边界处门控。
                 block.line_buffer.push(content);
                 block.line_buffer.take_committable()
             };
@@ -340,8 +336,7 @@ impl StreamingState {
         }
     }
 
-    /// Get newly committed lines from a block. (Legacy entry point that maps
-    /// onto the chunker.)
+    /// 从块获取新提交的行。（映射到分块器的旧入口点。）
     pub fn commit_lines(&mut self, index: usize) -> Vec<Line<'static>> {
         let text = self.commit_text(index);
         if text.is_empty() {
@@ -370,10 +365,9 @@ impl StreamingState {
         lines
     }
 
-    /// Run one commit-tick of the chunker policy and return any text safe to
-    /// flush to the transcript on this tick. May be empty (Smooth-mode tick
-    /// against an empty queue) or contain anywhere from one line up to the
-    /// full backlog (CatchUp-mode burst drain).
+    /// 运行一个分块器策略的提交节拍，并返回此节拍上安全刷新到转录本的任何文本。
+    /// 可能为空（空队列上的 Smooth 模式节拍）或包含从一行到整个积压的内容
+    ///（CatchUp 模式突发排空）。
     pub fn commit_text(&mut self, index: usize) -> String {
         if let Some(Some(block)) = self.blocks.get_mut(index) {
             let now = Instant::now();
@@ -384,7 +378,7 @@ impl StreamingState {
         }
     }
 
-    /// Inspect the current chunking mode for a block (testing/observability).
+    /// 检查块当前的分块模式（测试/可观测性）。
     pub fn chunking_mode(&self, index: usize) -> Option<ChunkingMode> {
         self.blocks
             .get(index)
@@ -392,9 +386,8 @@ impl StreamingState {
             .map(|b| b.policy.mode())
     }
 
-    /// Whether the chunker has queued content waiting to be flushed by the
-    /// next commit tick. Useful for callers that want to drive an extra tick
-    /// while the queue drains under Smooth-mode pacing.
+    /// 分块器是否有排队等待下一个提交节拍刷新的内容。
+    /// 对于希望在 Smooth 模式节奏下队列排空时驱动额外节拍的调用方很有用。
     pub fn has_pending_chunker_lines(&self, index: usize) -> bool {
         self.blocks
             .get(index)

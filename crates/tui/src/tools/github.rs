@@ -36,7 +36,7 @@ impl ToolSpec for GithubIssueContextTool {
     }
 
     fn description(&self) -> &'static str {
-        "Read GitHub issue context using gh. Read-only: body/comments/labels/state are summarized and large bodies become task artifacts when a durable task is active."
+        "使用 gh 读取 GitHub issue 上下文。只读：正文/评论/标签/状态会被摘要化，当持久化任务激活时，大型正文会成为任务工件。"
     }
 
     fn input_schema(&self) -> Value {
@@ -44,7 +44,7 @@ impl ToolSpec for GithubIssueContextTool {
             "type": "object",
             "properties": {
                 "number": { "type": "integer", "minimum": 1 },
-                "include_comments": { "type": "boolean", "default": true }
+                "include_comments": { "type": "boolean", "default": true, "description": "是否包含评论" }
             },
             "required": ["number"],
             "additionalProperties": false
@@ -91,7 +91,7 @@ impl ToolSpec for GithubPrContextTool {
     }
 
     fn description(&self) -> &'static str {
-        "Read GitHub PR context using gh: body/comments/reviews/check status/files and optional diff artifact. Read-only; no push/merge/close."
+        "使用 gh 读取 GitHub PR 上下文：正文/评论/审查/检查状态/文件及可选的差异工件。只读；不含推送/合并/关闭操作。"
     }
 
     fn input_schema(&self) -> Value {
@@ -99,7 +99,7 @@ impl ToolSpec for GithubPrContextTool {
             "type": "object",
             "properties": {
                 "number": { "type": "integer", "minimum": 1 },
-                "include_diff": { "type": "boolean", "default": false }
+                "include_diff": { "type": "boolean", "default": false, "description": "是否包含差异补丁" }
             },
             "required": ["number"],
             "additionalProperties": false
@@ -160,18 +160,18 @@ impl ToolSpec for GithubCommentTool {
     }
 
     fn description(&self) -> &'static str {
-        "Post an evidence-backed GitHub issue/PR comment with gh. Requires approval. Use blocker comments for partial work; do not claim closure without evidence."
+        "使用 gh 发布有证据支持的 GitHub issue/PR 评论。需要审批。使用阻塞评论标记部分工作；没有证据时不要声称已关闭。"
     }
 
     fn input_schema(&self) -> Value {
         json!({
             "type": "object",
             "properties": {
-                "target": { "type": "string", "enum": ["issue", "pr"] },
-                "number": { "type": "integer", "minimum": 1 },
-                "body": { "type": "string" },
-                "evidence": { "type": "object" },
-                "dry_run": { "type": "boolean", "default": false }
+                "target": { "type": "string", "enum": ["issue", "pr"], "description": "目标类型：issue 或 pr" },
+                "number": { "type": "integer", "minimum": 1, "description": "issue 或 PR 编号" },
+                "body": { "type": "string", "description": "评论正文" },
+                "evidence": { "type": "object", "description": "支撑证据" },
+                "dry_run": { "type": "boolean", "default": false, "description": "试运行模式" }
             },
             "required": ["target", "number", "body", "evidence"],
             "additionalProperties": false
@@ -221,28 +221,29 @@ impl ToolSpec for GithubCloseIssueTool {
     }
 
     fn description(&self) -> &'static str {
-        "Close a GitHub issue only when structured acceptance evidence is present and approved. Never close merely because the agent is stopping."
+        "仅当存在结构化的验收证据且已获批时关闭 GitHub issue。切勿仅仅因为代理正在停止而关闭。"
     }
 
     fn input_schema(&self) -> Value {
         json!({
             "type": "object",
             "properties": {
-                "number": { "type": "integer", "minimum": 1 },
-                "acceptance_criteria": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+                "number": { "type": "integer", "minimum": 1, "description": "issue 编号" },
+                "acceptance_criteria": { "type": "array", "items": { "type": "string" }, "minItems": 1, "description": "验收标准列表" },
                 "evidence": {
                     "type": "object",
+                    "description": "关闭证据",
                     "properties": {
-                        "files_changed": { "type": "array", "items": { "type": "string" } },
-                        "tests_run": { "type": "array", "items": { "type": "string" } },
-                        "commits": { "type": "array", "items": { "type": "string" } },
-                        "final_status": { "type": "string" }
+                        "files_changed": { "type": "array", "items": { "type": "string" }, "description": "变更的文件" },
+                        "tests_run": { "type": "array", "items": { "type": "string" }, "description": "运行的测试" },
+                        "commits": { "type": "array", "items": { "type": "string" }, "description": "相关提交" },
+                        "final_status": { "type": "string", "description": "最终状态" }
                     },
                     "required": ["files_changed", "tests_run", "final_status"]
                 },
-                "comment": { "type": "string" },
-                "allow_dirty": { "type": "boolean", "default": false },
-                "dry_run": { "type": "boolean", "default": false }
+                "comment": { "type": "string", "description": "关闭评论" },
+                "allow_dirty": { "type": "boolean", "default": false, "description": "允许脏工作区" },
+                "dry_run": { "type": "boolean", "default": false, "description": "试运行模式" }
             },
             "required": ["number", "acceptance_criteria", "evidence"],
             "additionalProperties": false

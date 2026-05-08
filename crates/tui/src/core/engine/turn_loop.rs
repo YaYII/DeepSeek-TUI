@@ -311,17 +311,17 @@ impl Engine {
             let mut pending_message_complete = false;
             let mut last_text_index: Option<usize> = None;
             let mut stream_errors = 0u32;
-            // #103 transparent retry bookkeeping. `any_content_received` flips
-            // on the first non-MessageStart event so we know whether DeepSeek
-            // billed us / the user has seen any output for this turn yet.
-            // This is distinct from the outer `stream_retry_attempts` (which
-            // restarts the whole turn-step when a stream died with no
-            // content-block delta delivered to the consumer).
+            // #103 透明重试记账。`any_content_received` 在第一个
+            // 非 MessageStart 事件时翻转，以便我们知道 DeepSeek
+            // 是否已向我们计费 / 用户是否已看到本轮的任何输出。
+            // 这与外层的 `stream_retry_attempts` 不同（后者
+            // 在流死亡且没有向消费者传递任何内容块增量时
+            // 重新启动整个轮次步骤）。
             let mut any_content_received = false;
             let mut transparent_stream_retries = 0u32;
             let mut pending_steers: Vec<String> = Vec::new();
-            // `stream_start` is reset on a transparent retry so the wall-clock
-            // budget restarts with the fresh stream.
+            // `stream_start` 在透明重试时重置，以便挂钟
+            // 预算随新的流重新开始。
             let mut stream_start = Instant::now();
             let mut stream_content_bytes: usize = 0;
             let chunk_timeout_secs = stream_chunk_timeout_secs();
@@ -370,7 +370,7 @@ impl Engine {
                     break;
                 }
 
-                // Guard: max wall-clock duration
+                // 护栏：最大挂钟时长
                 if stream_start.elapsed() > max_duration {
                     let envelope = StreamError::DurationLimit {
                         limit_secs: STREAM_MAX_DURATION_SECS,
@@ -382,7 +382,7 @@ impl Engine {
                     break;
                 }
 
-                // Guard: max accumulated content bytes
+                // 护栏：最大累积内容字节数
                 if stream_content_bytes > STREAM_MAX_CONTENT_BYTES {
                     let envelope = StreamError::Overflow {
                         limit_bytes: STREAM_MAX_CONTENT_BYTES,
@@ -396,10 +396,10 @@ impl Engine {
 
                 let event = match event_result {
                     Ok(e) => {
-                        // Flip on the first non-MessageStart event — that's
-                        // the moment we cross from "stream not yet productive"
-                        // (eligible for transparent retry) into "DeepSeek has
-                        // billed us / user has seen output" (must surface).
+                        // 在第一个非 MessageStart 事件时翻转 — 那是
+                        // 我们从"流尚未产生结果"（有资格进行透明重试）
+                        // 跨越到"DeepSeek 已向我们计费 / 用户已看到输出"
+                        // （必须展示）的时刻。
                         if !any_content_received && !matches!(e, StreamEvent::MessageStart { .. }) {
                             any_content_received = true;
                         }
@@ -408,11 +408,11 @@ impl Engine {
                     Err(e) => {
                         stream_errors = stream_errors.saturating_add(1);
                         let message = self.decorate_auth_error_message(e.to_string());
-                        // #103: when the stream errors before any content was
-                        // streamed AND we still have retry budget, transparently
-                        // resend the request. DeepSeek has not billed for any
-                        // output and the user has seen nothing — re-trying is
-                        // the right user-visible behavior.
+                        // #103：当流在内容流式传输之前出错
+                        // 并且我们仍有重试预算时，透明地
+                        // 重新发送请求。DeepSeek 尚未为任何输出
+                        // 计费，用户也未看到任何内容 — 重试是
+                        // 正确的用户可见行为。
                         if should_transparently_retry_stream(
                             any_content_received,
                             transparent_stream_retries,
@@ -654,11 +654,11 @@ impl Engine {
                                 ));
                             }
 
-                            // Now that the input is finalized, announce the
-                            // tool call to the UI. Deferring to here is what
-                            // keeps the cell from rendering `<command>` /
-                            // `<file>` placeholders during the brief window
-                            // between block start and the last InputJsonDelta.
+                            // 既然输入已经最终确定，向 UI 宣布
+                            // 工具调用。推迟到此处的目的是防止
+                            // 在块开始和最后一个 InputJsonDelta 之间的
+                            // 短暂窗口中，单元格渲染 `<command>` /
+                            // `<file>` 占位符。
                             let _ = self
                                 .tx_event
                                 .send(Event::ToolCallStarted {
@@ -680,14 +680,14 @@ impl Engine {
                 }
             }
 
-            // #103 Phase 3 — transparent retry. The inner loop above bails
-            // when reqwest yields chunk decode errors three times in a row;
-            // most of the time those are recoverable proxy / HTTP/2 issues
-            // and the request can simply be re-issued. Re-issue silently up
-            // to MAX_STREAM_RETRIES, but only when the stream produced
-            // nothing actionable — if any tool call landed or text was
-            // streamed, ship the partial state to the rest of the turn
-            // pipeline so we don't double-bill the user by re-running it.
+            // #103 第 3 阶段 — 透明重试。当 reqwest 连续三次
+            // 产生块解码错误时，上面的内部循环退出；
+            // 大多数情况下这些是可恢复的代理 / HTTP/2 问题，
+            // 可以简单地重新发出请求。静默地重新发出最多
+            // MAX_STREAM_RETRIES 次，但仅在流没有产生任何
+            // 可用内容时 — 如果有任何工具调用落地或文本被
+            // 流式传输，则将部分状态发送到轮次管道的其余部分，
+            // 这样我们就不会通过重新运行来向用户双重计费。
             let stream_died_with_nothing = stream_errors > 0
                 && tool_uses.is_empty()
                 && current_text_visible.trim().is_empty()
@@ -726,13 +726,12 @@ impl Engine {
             // Update turn usage
             turn.add_usage(&usage);
 
-            // Build content blocks. If this assistant turn produced tool
-            // calls, ensure a Thinking block is present even when the model
-            // didn't stream any reasoning text — DeepSeek's thinking-mode
-            // API requires `reasoning_content` to accompany every tool-call
-            // assistant message in the conversation history. Saving a
-            // placeholder here keeps the on-disk session structurally
-            // correct so subsequent requests won't 400.
+            // 构建内容块。如果此助手轮次产生了工具调用，
+            // 确保即使模型没有流式传输任何推理文本，也存在思考块
+            // — DeepSeek 的思考模式 API 要求 `reasoning_content`
+            // 伴随对话历史中的每个工具调用助手消息。
+            // 在这里保存占位符可保持磁盘上会话结构正确，
+            // 以便后续请求不会返回 400 错误。
             let needs_thinking_block =
                 !tool_uses.is_empty() || tool_parser::has_tool_call_markers(&current_text_raw);
             let thinking_to_persist = if !current_thinking.is_empty() {
@@ -788,12 +787,12 @@ impl Engine {
                 let _ = self.tx_event.send(Event::MessageComplete { index }).await;
             }
 
-            // RLM is a structured tool call (`rlm_query`) handled by the
-            // normal tool dispatch path; inline ```repl blocks (paper §2)
-            // are executed below when tool_uses is empty.
-            // DeepSeek chat API rejects assistant messages that contain only
-            // Keep thinking for UI stream events, but persist only sendable
-            // assistant turns in the conversation state.
+            // RLM 是由正常工具调度路径处理的结构化工具调用（`rlm_query`）；
+            // 内联 ```repl 块（论文 §2）在 tool_uses 为空时
+            // 在下文中执行。
+            // DeepSeek 聊天 API 拒绝仅包含思考的助手消息。
+            // 为 UI 流事件保留思考，但仅在对话状态中持久化
+            // 可发送的助手轮次。
             let has_sendable_assistant_content = content_blocks.iter().any(|block| {
                 matches!(
                     block,
@@ -825,14 +824,13 @@ impl Engine {
                     continue;
                 }
 
-                // Sub-agent completion handoff (issue #756). The model finished
-                // streaming with no tool calls — but if it has direct children
-                // still running (or completions queued from children that
-                // finished while we were inferring), surface their
-                // `<deepseek:subagent.done>` sentinels into the transcript and
-                // resume instead of ending the turn. This fulfils the contract
-                // already documented in `prompts/base.md`: the parent is
-                // promised it'll see the sentinel when a child finishes.
+                // 子代理完成交接（issue #756）。模型完成了
+                // 不带工具调用的流式传输 — 但如果它仍有直接子代理
+                // 在运行（或在推理期间完成的子代理排队的完成），
+                // 则将它们的 `<deepseek:subagent.done>` 哨兵
+                // 展示到对话记录中并恢复，而不是结束本轮。
+                // 这履行了已在 `prompts/base.md` 中记录的合同：
+                // 父代理被保证在子代理完成时会看到哨兵。
                 let mut completions: Vec<crate::tools::subagent::SubAgentCompletion> = Vec::new();
                 while let Ok(c) = self.rx_subagent_completion.try_recv() {
                     completions.push(c);

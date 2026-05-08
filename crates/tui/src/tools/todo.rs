@@ -226,9 +226,9 @@ impl ToolSpec for TodoAddTool {
 
     fn description(&self) -> &'static str {
         if self.tool_name == "todo_add" {
-            "Compatibility alias for checklist_add. Adds one checklist item on the active thread/task."
+            "checklist_add 的兼容别名。在活动线程/任务上添加一个检查项。"
         } else {
-            "Add one checklist item on the active thread/task. Durable tasks persist this checklist as subordinate work progress."
+            "在活动线程/任务上添加一个检查项。持久化任务将此检查清单保存为子工作进度。"
         }
     }
 
@@ -238,12 +238,12 @@ impl ToolSpec for TodoAddTool {
             "properties": {
                 "content": {
                     "type": "string",
-                    "description": "The task description"
+                    "description": "任务描述"
                 },
                 "status": {
                     "type": "string",
                     "enum": ["pending", "in_progress", "completed"],
-                    "description": "Task status (default: pending)"
+                    "description": "任务状态（默认：pending）"
                 }
             },
             "required": ["content"]
@@ -318,9 +318,9 @@ impl ToolSpec for TodoUpdateTool {
 
     fn description(&self) -> &'static str {
         if self.tool_name == "todo_update" {
-            "Compatibility alias for checklist_update. Updates one checklist item by id on the active thread/task."
+            "checklist_update 的兼容别名。按 id 更新活动线程/任务上的检查项。"
         } else {
-            "Update one checklist item's status by id on the active thread/task."
+            "按 id 更新活动线程/任务上的检查项状态。"
         }
     }
 
@@ -330,12 +330,12 @@ impl ToolSpec for TodoUpdateTool {
             "properties": {
                 "id": {
                     "type": "integer",
-                    "description": "Todo item id"
+                    "description": "待办事项 id"
                 },
                 "status": {
                     "type": "string",
                     "enum": ["pending", "in_progress", "completed"],
-                    "description": "New status"
+                    "description": "新状态"
                 }
             },
             "required": ["id", "status"]
@@ -414,9 +414,9 @@ impl ToolSpec for TodoListTool {
 
     fn description(&self) -> &'static str {
         if self.tool_name == "todo_list" {
-            "Compatibility alias for checklist_list. Lists current checklist progress."
+            "checklist_list 的兼容别名。列出当前检查清单进度。"
         } else {
-            "List current checklist progress for the active thread/task."
+            "列出活动线程/任务的当前检查清单进度。"
         }
     }
 
@@ -460,9 +460,9 @@ impl ToolSpec for TodoWriteTool {
 
     fn description(&self) -> &'static str {
         if self.tool_name == "todo_write" {
-            "Compatibility alias for checklist_write. Replace the active thread/task checklist; durable tasks are the real executable work object."
+            "checklist_write 的兼容别名。替换活动线程/任务的检查清单；持久化任务是真正的可执行工作对象。"
         } else {
-            "Replace the active thread/task checklist. Use this for granular progress under the current durable task or runtime thread; durable tasks remain the real executable work object."
+            "替换活动线程/任务的检查清单。在当前持久化任务或运行时线程下进行精细进度管理；持久化任务仍是真正的可执行工作对象。"
         }
     }
 
@@ -472,18 +472,18 @@ impl ToolSpec for TodoWriteTool {
             "properties": {
                 "todos": {
                     "type": "array",
-                    "description": "The complete list of todo items. This replaces the existing list.",
+                    "description": "完整的待办事项列表。这将替换现有列表。",
                     "items": {
                         "type": "object",
                         "properties": {
                             "content": {
                                 "type": "string",
-                                "description": "The task description"
+                                "description": "任务描述"
                             },
                             "status": {
                                 "type": "string",
                                 "enum": ["pending", "in_progress", "completed"],
-                                "description": "Task status"
+                                "description": "任务状态"
                             }
                         },
                         "required": ["content", "status"]

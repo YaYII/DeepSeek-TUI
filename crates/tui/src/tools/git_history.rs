@@ -34,7 +34,7 @@ impl ToolSpec for GitLogTool {
     }
 
     fn description(&self) -> &'static str {
-        "Run `git log` in the workspace with optional path and author/date filters."
+        "在工作区运行 `git log`，支持可选的路径和作者/日期过滤器。"
     }
 
     fn input_schema(&self) -> Value {
@@ -43,26 +43,26 @@ impl ToolSpec for GitLogTool {
             "properties": {
                 "path": {
                     "type": "string",
-                    "description": "Optional subdirectory or file path to scope history to."
+                    "description": "限定的可选子目录或文件路径。"
                 },
                 "max_count": {
                     "type": "integer",
                     "minimum": 1,
                     "maximum": MAX_LOG_MAX_COUNT,
                     "default": DEFAULT_LOG_MAX_COUNT,
-                    "description": "Maximum number of commits to return."
+                    "description": "返回的最大提交数。"
                 },
                 "author": {
                     "type": "string",
-                    "description": "Optional git author filter (same semantics as `git log --author`)."
+                    "description": "可选的 git 作者过滤器（与 `git log --author` 语义相同）。"
                 },
                 "since": {
                     "type": "string",
-                    "description": "Optional lower date bound, e.g. '2 weeks ago' or ISO date."
+                    "description": "可选的起始日期，例如 '2 weeks ago' 或 ISO 日期。"
                 },
                 "until": {
                     "type": "string",
-                    "description": "Optional upper date bound, e.g. 'yesterday' or ISO date."
+                    "description": "可选的结束日期，例如 'yesterday' 或 ISO 日期。"
                 }
             },
             "additionalProperties": false
@@ -151,7 +151,7 @@ impl ToolSpec for GitShowTool {
     }
 
     fn description(&self) -> &'static str {
-        "Run `git show` for a specific revision with optional patch and stats."
+        "运行 `git show` 查看特定修订版，可选的补丁和统计信息。"
     }
 
     fn input_schema(&self) -> Value {
@@ -160,28 +160,28 @@ impl ToolSpec for GitShowTool {
             "properties": {
                 "rev": {
                     "type": "string",
-                    "description": "Revision to show (commit SHA, tag, branch, or ref expression)."
+                    "description": "要显示的修订版本（提交 SHA、标签、分支或引用表达式）。"
                 },
                 "path": {
                     "type": "string",
-                    "description": "Optional subdirectory or file path to scope output."
+                    "description": "限定的可选子目录或文件路径。"
                 },
                 "patch": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Include patch hunks (default true)."
+                    "description": "包含补丁片段（默认为 true）。"
                 },
                 "stat": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Include --stat summary (default true)."
+                    "description": "包含 --stat 摘要（默认为 true）。"
                 },
                 "unified": {
                     "type": "integer",
                     "minimum": 0,
                     "maximum": MAX_UNIFIED,
                     "default": DEFAULT_UNIFIED,
-                    "description": "Context lines for patch output when patch=true."
+                    "description": "patch=true 时补丁输出的上下文行数。"
                 }
             },
             "required": ["rev"],
@@ -268,7 +268,7 @@ impl ToolSpec for GitBlameTool {
     }
 
     fn description(&self) -> &'static str {
-        "Run `git blame` on a file with optional revision and line-range controls."
+        "对文件运行 `git blame`，支持可选的修订版本和行范围控制。"
     }
 
     fn input_schema(&self) -> Value {
@@ -277,29 +277,29 @@ impl ToolSpec for GitBlameTool {
             "properties": {
                 "path": {
                     "type": "string",
-                    "description": "Path to a tracked file within the workspace."
+                    "description": "工作区内被跟踪文件的路径。"
                 },
                 "rev": {
                     "type": "string",
-                    "description": "Optional revision to blame against (default: HEAD)."
+                    "description": "可选的指责目标修订版本（默认：HEAD）。"
                 },
                 "start_line": {
                     "type": "integer",
                     "minimum": 1,
                     "default": DEFAULT_BLAME_START_LINE,
-                    "description": "First line to include in blame output."
+                    "description": "在 blame 输出中包含的起始行号。"
                 },
                 "max_lines": {
                     "type": "integer",
                     "minimum": 1,
                     "maximum": MAX_BLAME_MAX_LINES,
                     "default": DEFAULT_BLAME_MAX_LINES,
-                    "description": "Maximum number of lines to include."
+                    "description": "包含的最大行数。"
                 },
                 "porcelain": {
                     "type": "boolean",
                     "default": false,
-                    "description": "When true, emit `--line-porcelain` output."
+                    "description": "为 true 时，输出 `--line-porcelain` 格式。"
                 }
             },
             "required": ["path"],

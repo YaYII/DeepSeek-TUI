@@ -566,7 +566,7 @@ impl Engine {
         };
 
         let verification_note = format!(
-            "[verification replay] tool={} pass={} details={}",
+            "[验证重放] 工具={} 通过={} 详情={}",
             candidate.name, pass, diff_summary
         );
         self.add_session_message(Message {
@@ -588,9 +588,9 @@ impl Engine {
         let canonical = self.build_canonical_state(
             turn,
             Some(if pass {
-                "replay verification passed"
+                "重放验证通过"
             } else {
-                "replay verification failed or conflicted"
+                "重放验证失败或冲突"
             }),
         );
         let replay_info = Some(ReplayInfo {
@@ -698,7 +698,7 @@ impl Engine {
             &canonical,
             &pointer,
             GuardrailAction::VerifyAndReplan,
-            Some("Replan now from canonical state. Keep steps minimal and verifiable."),
+            Some("现在从规范状态重新规划。保持步骤最小且可验证。"),
         )));
         self.refresh_system_prompt(mode);
         self.emit_session_updated().await;
@@ -968,7 +968,7 @@ impl Engine {
             &last.canonical_state,
             &pointer,
             GuardrailAction::NoIntervention,
-            Some("Rehydrated canonical state from memory."),
+            Some("已从内存中恢复规范状态。"),
         );
         self.merge_compaction_summary(Some(prompt));
     }

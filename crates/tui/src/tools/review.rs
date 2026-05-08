@@ -147,7 +147,7 @@ impl ToolSpec for ReviewTool {
     }
 
     fn description(&self) -> &'static str {
-        "Run a structured code review for a file, git diff, or GitHub pull request."
+        "对文件、git diff 或 GitHub 拉取请求执行结构化代码审查。"
     }
 
     fn input_schema(&self) -> Value {
@@ -156,23 +156,23 @@ impl ToolSpec for ReviewTool {
             "properties": {
                 "target": {
                     "type": "string",
-                    "description": "File path, PR URL, or the literal 'diff'/'staged' for git diff review."
+                    "description": "文件路径、PR URL 或 'diff'/'staged' 等 git diff 审查目标。"
                 },
                 "kind": {
                     "type": "string",
-                    "description": "Optional explicit target type: file, diff, or pr."
+                    "description": "可选的目标类型：file、diff 或 pr。"
                 },
                 "base": {
                     "type": "string",
-                    "description": "Optional git base ref when using diff target (e.g. origin/main)."
+                    "description": "使用 diff 目标时的 git 基础引用（如 origin/main）。"
                 },
                 "staged": {
                     "type": "boolean",
-                    "description": "Review staged changes when using diff target (default: false)."
+                    "description": "使用 diff 目标时审查暂存的变更（默认：false）。"
                 },
                 "max_chars": {
                     "type": "integer",
-                    "description": "Maximum characters to include from the source (default: 200000)."
+                    "description": "包含的源内容最大字符数（默认：200000）。"
                 }
             },
             "required": ["target"]

@@ -842,16 +842,15 @@ fn is_transient_error(e: &anyhow::Error) -> bool {
     )
 }
 
-/// Compact messages with retry and backoff for transient errors.
+/// 使用重试和退避机制压缩消息以处理暂时错误。
 ///
-/// This function wraps `compact_messages` with retry logic to handle
-/// transient network errors and rate limits. It uses exponential backoff
-/// with delays of 1s, 2s, 4s between retries.
+/// 此函数用重试逻辑包装 `compact_messages` 以处理暂时性网络错误和速率限制。
+/// 它使用指数退避，重试之间延迟 1 秒、2 秒、4 秒。
 ///
-/// # Safety
-/// - Never panics
-/// - Never corrupts the original messages (returns error instead)
-/// - Only retries on transient errors (network, rate limit, etc.)
+/// # 安全性
+/// - 绝不 panic
+/// - 绝不损坏原始消息（而是返回错误）
+/// - 仅在暂时性错误（网络、速率限制等）上重试
 pub async fn compact_messages_safe(
     client: &DeepSeekClient,
     messages: &[Message],
@@ -900,7 +899,7 @@ pub async fn compact_messages_safe(
 
     for attempt in 0..MAX_RETRIES {
         if attempt > 0 {
-            // Exponential backoff: 1s, 2s, 4s
+            // 指数退避：1 秒、2 秒、4 秒
             let delay = Duration::from_millis(BASE_DELAY_MS * (1 << (attempt - 1)));
             tokio::time::sleep(delay).await;
         }
@@ -924,7 +923,7 @@ pub async fn compact_messages_safe(
                 });
             }
             Err(e) => {
-                // Only retry on transient errors
+                // 仅在暂时性错误上重试
                 if !is_transient_error(&e) {
                     return Err(e);
                 }
@@ -1004,15 +1003,15 @@ pub async fn compact_messages(
         .map(|&idx| messages[idx].clone())
         .collect();
 
-    // Create a summary of the unpinned portion of the conversation
+    // 创建对话未固定部分的摘要
     let summary = create_summary(client, &to_summarize, &config.model).await?;
 
-    // Extract workflow context (files touched, tasks in progress, etc.)
+    // 提取工作流上下文（涉及的文件、进行中的任务等）
     let workflow_context = extract_workflow_context(&to_summarize, workspace);
 
     let anchors_section = anchor_summary_section(workspace);
 
-    // Build new message list with enhanced summary as system block
+    // 构建带有增强摘要作为系统块的新消息列表
     let summary_block = SystemBlock {
         block_type: "text".to_string(),
         text: format!(
@@ -1066,21 +1065,19 @@ async fn create_summary(
     };
 
     let response = client.create_message(request).await?;
-    // Compaction summary calls are billed by DeepSeek; route the
-    // tokens through the side-channel so the dashboard total
-    // matches the website (#526).
+    // 压缩摘要调用由 DeepSeek 计费；将令牌通过侧通道路由，
+    // 以便仪表盘总计与网站匹配（#526）。
     crate::cost_status::report(&response.model, &response.usage);
 
-    // #584: emit one debug-level event per summary call so the
-    // V4 cache-aligned win is observable post-deploy without
-    // adding UI surface. The event is emitted with
-    // `target = "compaction"`, so the filter is
-    // `RUST_LOG=compaction=debug` (the module-path form
-    // `deepseek_tui::compaction=debug` does NOT match — `EnvFilter`
-    // matches the explicit target string when one is set).
+    // #584：每次摘要调用发出一个调试级别事件，以便在部署后
+    // 无需添加 UI 界面即可观察 V4 缓存对齐的收益。
+    // 事件以 `target = "compaction"` 发出，因此过滤器为
+    // `RUST_LOG=compaction=debug`（模块路径形式
+    // `deepseek_tui::compaction=debug` 不匹配 — `EnvFilter`
+    // 匹配设置时的显式目标字符串）。
     log_summary_cache_telemetry(used_cache_aligned, &response.usage);
 
-    // Extract text from response
+    // 从响应中提取文本
     let summary = response
         .content
         .iter()
@@ -1094,15 +1091,13 @@ async fn create_summary(
     Ok(summary)
 }
 
-/// Cache-hit percentage for a compaction summary call.
+/// 压缩摘要调用的缓存命中百分比。
 ///
-/// Denominator is `input_tokens` (the total prompt size), not
-/// `cache_hit + cache_miss`. Some providers populate
-/// `prompt_cache_hit_tokens` but not `prompt_cache_miss_tokens` — using
-/// the sum as the denominator there reports an inflated 100% even when
-/// most of the prompt was uncached. Anchoring on `input_tokens` matches
-/// how the rest of the codebase (cost reporting, `/cache`) infers
-/// missing miss counts. (#584)
+/// 分母是 `input_tokens`（总提示大小），而不是 `cache_hit + cache_miss`。
+/// 某些提供者填充了 `prompt_cache_hit_tokens` 但没有填充
+/// `prompt_cache_miss_tokens` — 使用总和作为分母会报告膨胀的 100%，
+/// 即使大部分提示未被缓存。以 `input_tokens` 为基准与
+/// 代码库其余部分（成本报告、`/cache`）推断缺失计数的方式一致。（#584）
 fn summary_cache_hit_percent(cache_hit: u32, input_tokens: u32) -> f64 {
     if input_tokens > 0 {
         (f64::from(cache_hit) * 100.0) / f64::from(input_tokens)
@@ -1111,11 +1106,9 @@ fn summary_cache_hit_percent(cache_hit: u32, input_tokens: u32) -> f64 {
     }
 }
 
-/// Emit one `tracing::debug!` event per compaction summary call so the
-/// path choice (cache-aligned vs fallback) and the resulting cache-hit
-/// rate are observable. Both raw token counts and the percentage are
-/// included; on providers that don't return cache-token fields the
-/// counts are reported as `0` and the percentage as `0.0`. (#584)
+/// 每次压缩摘要调用发出一个 `tracing::debug!` 事件，以便路径选择
+///（缓存对齐 vs 回退）和产生的缓存命中率可观察。包含原始令牌计数和百分比；
+/// 在不返回缓存令牌字段的提供者上，计数报告为 `0`，百分比为 `0.0`。（#584）
 fn log_summary_cache_telemetry(used_cache_aligned: bool, usage: &crate::models::Usage) {
     let path = if used_cache_aligned {
         "cache_aligned"
@@ -1136,45 +1129,35 @@ fn log_summary_cache_telemetry(used_cache_aligned: bool, usage: &crate::models::
     );
 }
 
-/// Decide whether to use the cache-aligned summary path
-/// ([`build_cache_aligned_summary_request`]) or the fallback
-/// ([`build_formatted_summary_request`]). Returns `true` when both
-/// gates hold:
+/// 决定使用缓存对齐摘要路径（[`build_cache_aligned_summary_request`]）
+/// 还是回退路径（[`build_formatted_summary_request`]）。
+/// 当两个门条件都满足时返回 `true`：
 ///
-/// 1. The model has a known large context window
-///    (≥ `LARGE_CONTEXT_WINDOW_TOKENS`, currently V4-scale).
-/// 2. Replaying the message prefix plus a ~512-token instruction
-///    still fits within `CACHE_ALIGNED_SUMMARY_CONTEXT_BUDGET_PERCENT`
-///    of that budget.
+/// 1. 模型具有已知的大上下文窗口（≥ `LARGE_CONTEXT_WINDOW_TOKENS`，当前为 V4 规模）。
+/// 2. 重放消息前缀加上约 512 令牌的指令仍然适合预算的
+///    `CACHE_ALIGNED_SUMMARY_CONTEXT_BUDGET_PERCENT` 以内。
 ///
-/// ## Why the two paths produce slightly different prompts (#584)
+/// ## 为什么两条路径产生略有不同的提示（#584）
 ///
-/// The two summary requests are *intentionally* framed differently:
+/// 两个摘要请求被*有意*以不同的方式构建：
 ///
-/// - **Cache-aligned** replays the original `messages` verbatim
-///   with `system: None` and appends the summary instruction as
-///   the final `user` turn. The model sees the conversation as if
-///   it were its own history. This is what lets the V4 prefix cache
-///   hit on the bulk of the request (#572).
-/// - **Fallback** reformats the conversation into a flat
-///   `User:/Assistant:` transcript inside a single `user` message
-///   and adds a "You are a helpful assistant that creates concise
-///   conversation summaries." system prompt. The model sees a
-///   transcript of someone else's conversation.
+/// - **缓存对齐**逐字重放原始 `messages`，使用 `system: None`，
+///   并将摘要指令作为最后的 `user` 轮次附加。模型看到对话就像
+///   看到自己的历史一样。这正是让 V4 前缀缓存命中请求主体的关键（#572）。
+/// - **回退**将对话重新格式化为单个 `user` 消息中的扁平
+///   `User:/Assistant:` 记录，并添加"你是一个有用的助手，
+///   负责创建简洁的对话摘要"系统提示。模型看到的是他人对话的记录。
 ///
-/// The empirical bar is that V4 produces equivalent summaries
-/// either way; the post-#572 review noted this fork is worth
-/// documenting but not yet worth unifying. The fallback's
-/// external-transcript framing is also more conservative for the
-/// older / smaller models the cache-aligned path explicitly
-/// excludes, so dropping the system prompt would risk regressing
-/// those models without a corresponding gain. If we ever want to
-/// unify, land it in a separate PR backed by an A/B summary-quality
-/// evaluation rather than as a drive-by cleanup.
+/// 经验标准是 V4 无论哪种方式都能产生等效的摘要；#572 后的审查指出
+/// 这个分叉值得记录但尚未值得统一。回退的外部记录框架对于缓存对齐路径
+/// 明确排除的较旧/较小模型也更加保守，因此删除系统提示可能会使
+/// 这些模型退化而没有任何相应的收益。如果我们想要统一，
+/// 请在单独的 PR 中实现，并以 A/B 摘要质量评估为后盾，
+/// 而不是作为顺手清理。
 ///
-/// `create_summary` emits a `tracing::debug!` event under
-/// `target = "compaction"` after each call so the path choice and
-/// cache-hit rate are observable post-deploy without UI surface.
+/// `create_summary` 在每次调用后以 `target = "compaction"` 发出
+/// `tracing::debug!` 事件，使路径选择和缓存命中率在部署后
+/// 无需 UI 界面即可观察。
 fn should_use_cache_aligned_summary(model: &str, messages: &[Message]) -> bool {
     let Some(window) = context_window_for_model(model) else {
         return false;
@@ -1304,7 +1287,7 @@ fn build_formatted_summary_request(
     }
 }
 
-/// Extract workflow context from messages (files touched, tasks, etc.)
+/// 从消息中提取工作流上下文（涉及的文件、任务等）
 fn extract_workflow_context(messages: &[Message], workspace: Option<&Path>) -> String {
     let mut files_touched: Vec<String> = Vec::new();
     let mut tools_used: Vec<String> = Vec::new();
@@ -1316,7 +1299,7 @@ fn extract_workflow_context(messages: &[Message], workspace: Option<&Path>) -> S
                 ContentBlock::ToolUse { name, input, .. } => {
                     tools_used.push(name.clone());
 
-                    // Extract file paths from tool inputs
+                    // 从工具输入中提取文件路径
                     if let Some(path) = extract_path_from_input(input)
                         && !files_touched.contains(&path)
                     {
@@ -1324,7 +1307,7 @@ fn extract_workflow_context(messages: &[Message], workspace: Option<&Path>) -> S
                     }
                 }
                 ContentBlock::Text { text, .. }
-                    // Look for task/todo mentions
+                    // 查找任务/待办事项提及
                     if (text.contains("TODO") || text.contains("task") || text.contains("need to")) => {
                         let task = truncate_chars(text, 200).to_string();
                         if !tasks_identified.contains(&task) {
@@ -1375,16 +1358,16 @@ fn extract_workflow_context(messages: &[Message], workspace: Option<&Path>) -> S
     context
 }
 
-/// Extract file path from tool input JSON
+/// 从工具输入 JSON 中提取文件路径
 fn extract_path_from_input(input: &serde_json::Value) -> Option<String> {
-    // Try common path field names
+    // 尝试常见的路径字段名
     for key in ["path", "file", "file_path", "filename"] {
         if let Some(path) = input.get(key).and_then(|v| v.as_str()) {
             return Some(path.to_string());
         }
     }
 
-    // Try to find path in nested objects
+    // 尝试在嵌套对象中查找路径
     if let Some(obj) = input.as_object() {
         for (_, value) in obj {
             if let Some(path) = value.as_str()

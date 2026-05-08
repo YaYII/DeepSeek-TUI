@@ -180,12 +180,11 @@ pub fn status_line(_app: &mut App) -> CommandResult {
     CommandResult::action(AppAction::OpenStatusPicker)
 }
 
-/// Persist `tui.status_items` to `~/.deepseek/config.toml` without disturbing
-/// the rest of the file. We round-trip through `toml::Value` so any keys we
-/// don't know about (provider blocks, MCP, etc.) survive the write
-/// untouched.
+/// 将 `tui.status_items` 持久化到 `~/.deepseek/config.toml`，而不影响
+/// 文件的其余部分。我们通过 `toml::Value` 进行往返，以便我们
+/// 不知道的任何键（提供者块、MCP 等）在写入后保持不变。
 ///
-/// Returns the path written so the caller can surface it in a status toast.
+/// 返回写入的路径，以便调用者可以在状态提示中显示它。
 pub fn persist_status_items(items: &[crate::config::StatusItem]) -> anyhow::Result<PathBuf> {
     use anyhow::Context;
     use std::fs;
@@ -275,7 +274,7 @@ pub fn set_config_value(app: &mut App, key: &str, value: &str, persist: bool) ->
 
     match key.as_str() {
         "model" => {
-            // Support "/model auto" — auto-select model based on request complexity
+            // 支持 "/model auto" — 根据请求复杂度自动选择模型
             if value.trim().eq_ignore_ascii_case("auto") {
                 app.auto_model = true;
                 app.model = "auto".to_string();

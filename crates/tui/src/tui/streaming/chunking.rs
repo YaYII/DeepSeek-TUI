@@ -327,7 +327,7 @@ mod tests {
         );
         assert_eq!(mid_hold.mode, ChunkingMode::CatchUp);
 
-        // Past EXIT_HOLD (250 ms) → return to Smooth.
+        // 超过 EXIT_HOLD（250 毫秒）→ 返回 Smooth。
         let post_hold = policy.decide(
             snap(EXIT_QUEUE_DEPTH_LINES, EXIT_OLDEST_AGE.as_millis() as u64),
             t0 + Duration::from_millis(320),
@@ -338,7 +338,7 @@ mod tests {
 
     #[test]
     fn idle_resets_to_smooth_immediately() {
-        // An empty queue forces Smooth regardless of prior mode.
+        // 空队列强制 Smooth，无论先前模式如何。
         let mut policy = AdaptiveChunkingPolicy::new();
         let now = Instant::now();
 
@@ -352,15 +352,15 @@ mod tests {
 
     #[test]
     fn reentry_hold_blocks_immediate_flip_back() {
-        // After exiting CatchUp via idle, a threshold-sized burst that arrives within
-        // the re-entry hold window should not immediately re-enter CatchUp.
+        // 通过空闲退出 CatchUp 后，在重新进入保持窗口内到达的阈值大小突发
+        // 不应立即重新进入 CatchUp。
         let mut policy = AdaptiveChunkingPolicy::new();
         let t0 = Instant::now();
 
         let _ = policy.decide(snap(ENTER_QUEUE_DEPTH_LINES, 20), t0);
         let _ = policy.decide(empty_snap(), t0 + Duration::from_millis(10));
 
-        // Within REENTER_CATCH_UP_HOLD (250 ms): hold blocks re-entry.
+        // 在 REENTER_CATCH_UP_HOLD（250 毫秒）内：保持阻止重新进入。
         let held = policy.decide(
             snap(ENTER_QUEUE_DEPTH_LINES, 20),
             t0 + Duration::from_millis(100),
@@ -368,7 +368,7 @@ mod tests {
         assert_eq!(held.mode, ChunkingMode::Smooth);
         assert_eq!(held.drain_plan, DrainPlan::Available);
 
-        // Past the hold: re-entry permitted.
+        // 超过保持时间：允许重新进入。
         let reentered = policy.decide(
             snap(ENTER_QUEUE_DEPTH_LINES, 20),
             t0 + Duration::from_millis(400),
@@ -379,8 +379,8 @@ mod tests {
 
     #[test]
     fn severe_backlog_bypasses_reentry_hold() {
-        // Even within the hold window, a "severe" backlog bypasses
-        // the gate so display lag doesn't unbounded-grow.
+        // 即使在保持窗口内，"严重"积压也会绕过门控，
+        // 这样显示延迟就不会无限增长。
         let mut policy = AdaptiveChunkingPolicy::new();
         let t0 = Instant::now();
 
@@ -401,13 +401,13 @@ mod tests {
         policy.set_low_motion(true);
         let t0 = Instant::now();
 
-        // Queue depth far above ENTER threshold.
+        // 队列深度远高于 ENTER 阈值。
         let d1 = policy.decide(snap(ENTER_QUEUE_DEPTH_LINES + 80, 10), t0);
         assert_eq!(d1.mode, ChunkingMode::Smooth);
         assert!(!d1.entered_catch_up);
         assert_eq!(d1.drain_plan, DrainPlan::Single);
 
-        // Oldest age far above ENTER threshold.
+        // 最旧年龄远高于 ENTER 阈值。
         let d2 = policy.decide(
             snap(5, ENTER_OLDEST_AGE.as_millis() as u64),
             t0 + Duration::from_millis(100),
@@ -416,7 +416,7 @@ mod tests {
         assert!(!d2.entered_catch_up);
         assert_eq!(d2.drain_plan, DrainPlan::Single);
 
-        // Severe backlog — still Smooth.
+        // 严重积压 — 仍是 Smooth。
         let d3 = policy.decide(
             snap(
                 SEVERE_QUEUE_DEPTH_LINES + 80,
@@ -434,11 +434,11 @@ mod tests {
         policy.set_low_motion(true);
         let t0 = Instant::now();
 
-        // Low motion blocks catch-up.
+        // 低动态模式阻止 catch-up。
         let d1 = policy.decide(snap(ENTER_QUEUE_DEPTH_LINES + 80, 10), t0);
         assert_eq!(d1.mode, ChunkingMode::Smooth);
 
-        // Turn off low motion — next burst should enter CatchUp.
+        // 关闭低动态模式 — 下一次突发应进入 CatchUp。
         policy.set_low_motion(false);
         let d2 = policy.decide(
             snap(ENTER_QUEUE_DEPTH_LINES + 80, 10),

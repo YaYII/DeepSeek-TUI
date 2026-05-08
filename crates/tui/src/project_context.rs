@@ -3,20 +3,19 @@
 //! 本模块处理加载项目特定的上下文文件，为 AI 代理提供
 //! 指令和上下文。包括：
 //!
-//! - `AGENTS.md` - Project-level agent instructions (primary)
-//! - `.claude/instructions.md` - Claude-style hidden instructions
-//! - `CLAUDE.md` - Claude-style instructions
-//! - `.deepseek/instructions.md` - Hidden instructions file (legacy)
+//! - `AGENTS.md` - 项目级代理指令（主要）
+//! - `.claude/instructions.md` - Claude 风格的隐藏指令
+//! - `CLAUDE.md` - Claude 风格的指令
+//! - `.deepseek/instructions.md` - 隐藏指令文件（旧版）
 //!
-//! The loaded content is injected into the system prompt to give the agent
-//! context about the project's conventions, structure, and requirements.
+//! 加载的内容被注入系统提示词，以向代理提供关于项目约定、结构和要求的上下文。
 
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use thiserror::Error;
 
-/// Names of project context files to look for, in priority order.
+/// 要查找的项目上下文文件名，按优先级排序。
 const PROJECT_CONTEXT_FILES: &[&str] = &[
     "AGENTS.md",
     ".claude/instructions.md",
@@ -24,10 +23,10 @@ const PROJECT_CONTEXT_FILES: &[&str] = &[
     ".deepseek/instructions.md",
 ];
 
-/// Maximum size for project context files (to prevent loading huge files)
+/// 项目上下文文件的最大大小（防止加载巨大文件）
 const MAX_CONTEXT_SIZE: usize = 100 * 1024; // 100KB
 
-// === Errors ===
+// === 错误类型 ===
 
 #[derive(Debug, Error)]
 enum ProjectContextError {
@@ -51,24 +50,24 @@ enum ProjectContextError {
     Empty { path: PathBuf },
 }
 
-/// Result of loading project context
+/// 加载项目上下文的结果
 #[derive(Debug, Clone)]
 pub struct ProjectContext {
-    /// The loaded instructions content
+    /// 已加载的指令内容
     pub instructions: Option<String>,
-    /// Path to the loaded file (for display)
+    /// 已加载文件的路径（用于显示）
     pub source_path: Option<PathBuf>,
-    /// Any warnings during loading
+    /// 加载过程中的任何警告
     pub warnings: Vec<String>,
-    /// Project root directory
-    #[allow(dead_code)] // Part of ProjectContext public interface
+    /// 项目根目录
+    #[allow(dead_code)] // 属于 ProjectContext 公共接口的一部分
     pub project_root: PathBuf,
-    /// Whether this is a trusted project
+    /// 是否为受信任的项目
     pub is_trusted: bool,
 }
 
 impl ProjectContext {
-    /// Create an empty project context
+    /// 创建一个空的项目上下文
     pub fn empty(project_root: PathBuf) -> Self {
         Self {
             instructions: None,
@@ -79,12 +78,12 @@ impl ProjectContext {
         }
     }
 
-    /// Check if any instructions were loaded
+    /// 检查是否加载了任何指令
     pub fn has_instructions(&self) -> bool {
         self.instructions.is_some()
     }
 
-    /// Get the instructions as a formatted block for system prompt
+    /// 获取格式化的指令块，用于系统提示词
     pub fn as_system_block(&self) -> Option<String> {
         self.instructions.as_ref().map(|content| {
             let source = self
@@ -99,13 +98,13 @@ impl ProjectContext {
     }
 }
 
-/// Load project context from the workspace directory.
+/// 从工作区目录加载项目上下文。
 ///
-/// This searches for known project context files and loads the first one found.
+/// 搜索已知的项目上下文文件并加载找到的第一个文件。
 pub fn load_project_context(workspace: &Path) -> ProjectContext {
     let mut ctx = ProjectContext::empty(workspace.to_path_buf());
 
-    // Search for project context files
+    // 搜索项目上下文文件
     for filename in PROJECT_CONTEXT_FILES {
         let file_path = workspace.join(filename);
 
@@ -123,19 +122,19 @@ pub fn load_project_context(workspace: &Path) -> ProjectContext {
         }
     }
 
-    // Check for trust file
+    // 检查信任文件
     ctx.is_trusted = check_trust_status(workspace);
 
     ctx
 }
 
-/// Load project context from parent directories as well.
+/// 也从父目录加载项目上下文。
 ///
-/// This allows for monorepo setups where a root AGENTS.md applies to all subdirectories.
+/// 这允许在根目录 AGENTS.md 应用于所有子目录的单仓库设置。
 pub fn load_project_context_with_parents(workspace: &Path) -> ProjectContext {
     let mut ctx = load_project_context(workspace);
 
-    // If no context found in workspace, check parent directories
+    // 如果工作区未找到上下文，则检查父目录
     if !ctx.has_instructions() {
         let mut current = workspace.parent();
 
@@ -152,16 +151,16 @@ pub fn load_project_context_with_parents(workspace: &Path) -> ProjectContext {
         }
     }
 
-    // Auto-generate .deepseek/instructions.md when no context file exists anywhere.
-    // This avoids the per-turn filesystem scan fallback in prompts.rs that
-    // breaks KV prefix cache stability.
+    // 当任何位置都不存在上下文文件时，自动生成 .deepseek/instructions.md。
+    // 这避免了 prompts.rs 中每轮文件系统扫描的回退，
+    // 该回退会破坏 KV 前缀缓存的稳定性。
     if !ctx.has_instructions()
         && let Some(generated) = auto_generate_context(workspace)
     {
         ctx = load_project_context(workspace);
         if !ctx.has_instructions() {
-            // Loaded from the file we just wrote — use the generated content
-            // directly as a last resort (shouldn't normally happen).
+            // 从刚写入的文件加载 — 使用生成的内容
+            // 作为最后手段（正常情况下不应发生）。
             ctx.instructions = Some(generated);
             ctx.source_path = None;
         }
@@ -170,13 +169,13 @@ pub fn load_project_context_with_parents(workspace: &Path) -> ProjectContext {
     ctx
 }
 
-/// Generate a context file from project tree + summary and write it to
-/// `.deepseek/instructions.md`. Returns the generated content on success.
+/// 从项目树和摘要生成上下文文件并写入
+/// `.deepseek/instructions.md`。成功时返回生成的内容。
 fn auto_generate_context(workspace: &Path) -> Option<String> {
     let deepseek_dir = workspace.join(".deepseek");
     let instructions_path = deepseek_dir.join("instructions.md");
 
-    // Don't overwrite an existing file
+    // 不要覆盖已存在的文件
     if instructions_path.exists() {
         return None;
     }
@@ -192,7 +191,7 @@ fn auto_generate_context(workspace: &Path) -> Option<String> {
          **Tree:**\n```\n{tree}\n```"
     );
 
-    // Create .deepseek/ directory if needed
+    // 如果需要，创建 .deepseek/ 目录
     if let Err(e) = std::fs::create_dir_all(&deepseek_dir) {
         tracing::warn!("Failed to create .deepseek/ directory: {e}");
         return None;
@@ -210,9 +209,9 @@ fn auto_generate_context(workspace: &Path) -> Option<String> {
     }
 }
 
-/// Load a context file with size checking
+/// 加载上下文文件并进行大小检查
 fn load_context_file(path: &Path) -> Result<String, ProjectContextError> {
-    // Check file size first
+    // 首先检查文件大小
     let metadata = fs::metadata(path).map_err(|source| ProjectContextError::Metadata {
         path: path.to_path_buf(),
         source,
@@ -226,13 +225,13 @@ fn load_context_file(path: &Path) -> Result<String, ProjectContextError> {
         });
     }
 
-    // Read the file
+    // 读取文件
     let content = fs::read_to_string(path).map_err(|source| ProjectContextError::Read {
         path: path.to_path_buf(),
         source,
     })?;
 
-    // Basic validation
+    // 基本验证
     if content.trim().is_empty() {
         return Err(ProjectContextError::Empty {
             path: path.to_path_buf(),
@@ -242,13 +241,13 @@ fn load_context_file(path: &Path) -> Result<String, ProjectContextError> {
     Ok(content)
 }
 
-/// Check if this project is marked as trusted
+/// 检查此项目是否标记为受信任
 fn check_trust_status(workspace: &Path) -> bool {
     if crate::config::is_workspace_trusted(workspace) {
         return true;
     }
 
-    // Check for trust markers
+    // 检查信任标记
     let trust_markers = [
         workspace.join(".deepseek").join("trusted"),
         workspace.join(".deepseek").join("trust.json"),
@@ -263,7 +262,7 @@ fn check_trust_status(workspace: &Path) -> bool {
     false
 }
 
-/// Create a default AGENTS.md file for a project
+/// 为项目创建默认的 AGENTS.md 文件
 pub fn create_default_agents_md(workspace: &Path) -> std::io::Result<PathBuf> {
     let agents_path = workspace.join("AGENTS.md");
 
@@ -324,8 +323,8 @@ Use conventional commits: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore
     Ok(agents_path)
 }
 
-/// Merge multiple project contexts (e.g., from nested directories)
-#[allow(dead_code)] // Public API for monorepo context merging
+/// 合并多个项目上下文（例如来自嵌套目录）
+#[allow(dead_code)] // 单仓库上下文合并的公共 API
 pub fn merge_contexts(contexts: &[ProjectContext]) -> Option<String> {
     let non_empty: Vec<_> = contexts
         .iter()
@@ -339,7 +338,7 @@ pub fn merge_contexts(contexts: &[ProjectContext]) -> Option<String> {
     }
 }
 
-// === Unit Tests ===
+// === 单元测试 ===
 
 #[cfg(test)]
 mod tests {

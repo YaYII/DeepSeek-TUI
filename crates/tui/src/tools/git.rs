@@ -31,7 +31,7 @@ impl ToolSpec for GitStatusTool {
     }
 
     fn description(&self) -> &'static str {
-        "Run `git status --porcelain=v1 -b` in the workspace (optionally scoped to a path)."
+        "在工作区运行 `git status --porcelain=v1 -b`（可选择限定到某个路径）。"
     }
 
     fn input_schema(&self) -> Value {
@@ -40,7 +40,7 @@ impl ToolSpec for GitStatusTool {
             "properties": {
                 "path": {
                     "type": "string",
-                    "description": "Optional subdirectory or file to scope the status to (must be within the workspace)."
+                    "description": "限定的可选子目录或文件路径（必须在工作区内）。"
                 }
             },
             "additionalProperties": false
@@ -110,7 +110,7 @@ impl ToolSpec for GitDiffTool {
     }
 
     fn description(&self) -> &'static str {
-        "Run `git diff` in the workspace with sensible defaults and safe truncation."
+        "在工作区运行 `git diff`，具有合理的默认值和安全的截断处理。"
     }
 
     fn input_schema(&self) -> Value {
@@ -119,18 +119,18 @@ impl ToolSpec for GitDiffTool {
             "properties": {
                 "path": {
                     "type": "string",
-                    "description": "Optional subdirectory or file to scope the diff to (must be within the workspace)."
+                    "description": "限定的可选子目录或文件路径（必须在工作区内）。"
                 },
                 "cached": {
                     "type": "boolean",
-                    "description": "When true, diff staged changes (`--cached`)."
+                    "description": "为 true 时，显示暂存的变更（`--cached`）。"
                 },
                 "unified": {
                     "type": "integer",
                     "minimum": 0,
                     "maximum": MAX_UNIFIED,
                     "default": DEFAULT_UNIFIED,
-                    "description": "Number of context lines to include around changes."
+                    "description": "变更上下文的显示行数。"
                 }
             },
             "additionalProperties": false

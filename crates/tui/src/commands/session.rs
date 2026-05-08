@@ -65,7 +65,7 @@ pub fn load(app: &mut App, path: Option<&str>) -> CommandResult {
             app.workspace.join(p)
         }
     } else {
-        return CommandResult::error("Usage: /load <path>");
+        return CommandResult::error("用法: /load <路径>");
     };
 
     let content = match std::fs::read_to_string(&load_path) {
@@ -136,7 +136,7 @@ pub fn load(app: &mut App, path: Option<&str>) -> CommandResult {
 pub fn compact(_app: &mut App) -> CommandResult {
     // Trigger immediate compaction via engine
     CommandResult::with_message_and_action(
-        "Context compaction triggered...".to_string(),
+        "上下文压缩已触发...".to_string(),
         AppAction::CompactContext,
     )
 }

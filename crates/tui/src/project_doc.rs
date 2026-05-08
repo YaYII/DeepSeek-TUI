@@ -5,7 +5,7 @@
 
 use std::path::{Path, PathBuf};
 
-/// Document filenames to search for (in priority order)
+/// 要搜索的文档文件名（按优先级排序）
 pub const DOC_FILENAMES: &[&str] = &[
     "AGENTS.md",
     ".claude/instructions.md",
@@ -13,11 +13,11 @@ pub const DOC_FILENAMES: &[&str] = &[
     ".deepseek/instructions.md",
 ];
 
-/// Maximum bytes to read from project docs (default: 32KB)
-#[allow(dead_code)] // Used by read_project_docs
+/// 从项目文档读取的最大字节数（默认：32KB）
+#[allow(dead_code)] // 由 read_project_docs 使用
 pub const DEFAULT_MAX_BYTES: usize = 32768;
 
-/// A discovered project document
+/// 已发现的项目文档
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub struct ProjectDoc {
@@ -25,7 +25,7 @@ pub struct ProjectDoc {
     pub content: String,
 }
 
-/// Walk from cwd up to git root, collecting all project docs
+/// 从当前工作目录向上遍历到 git 根目录，收集所有项目文档
 pub fn discover_paths(cwd: &Path) -> Vec<PathBuf> {
     let mut paths = Vec::new();
     let git_root = find_git_root(cwd);
@@ -39,7 +39,7 @@ pub fn discover_paths(cwd: &Path) -> Vec<PathBuf> {
             }
         }
 
-        // Stop at git root or filesystem root
+        // 在 git 根目录或文件系统根目录停止
         if let Some(ref root) = git_root
             && current == *root
         {
@@ -54,12 +54,12 @@ pub fn discover_paths(cwd: &Path) -> Vec<PathBuf> {
         }
     }
 
-    // Reverse so parent docs come first (will be overridden by child docs)
+    // 反转，使父文档优先（将被子文档覆盖）
     paths.reverse();
     paths
 }
 
-/// Find the git root directory from cwd
+/// 从当前工作目录查找 git 根目录
 fn find_git_root(cwd: &Path) -> Option<PathBuf> {
     let mut current = cwd.to_path_buf();
     loop {
@@ -75,8 +75,8 @@ fn find_git_root(cwd: &Path) -> Option<PathBuf> {
     }
 }
 
-/// Read and concatenate project docs with byte limit
-#[allow(dead_code)] // Public API; project_context.rs provides the active code path
+/// 读取并连接项目文档，带有字节限制
+#[allow(dead_code)] // 公共 API；project_context.rs 提供活动代码路径
 pub fn read_project_docs(paths: &[PathBuf], max_bytes: usize) -> Option<String> {
     if paths.is_empty() {
         return None;
@@ -93,7 +93,7 @@ pub fn read_project_docs(paths: &[PathBuf], max_bytes: usize) -> Option<String> 
         if let Ok(content) = std::fs::read_to_string(path) {
             let remaining = max_bytes.saturating_sub(total_bytes);
             let content = if content.len() > remaining {
-                // Truncate to remaining bytes at a word boundary if possible
+                // 如果可能，在单词边界截断到剩余字节数
                 let truncated: String = content.chars().take(remaining).collect();
                 format!("{truncated}\n\n[...truncated...]")
             } else {
@@ -115,8 +115,8 @@ pub fn read_project_docs(paths: &[PathBuf], max_bytes: usize) -> Option<String> 
     }
 }
 
-/// Format project instructions for injection into system prompt
-#[allow(dead_code)] // Used by read_project_docs
+/// 格式化项目指令以注入系统提示词
+#[allow(dead_code)] // 由 read_project_docs 使用
 pub fn format_instructions(path: &Path, content: &str) -> String {
     format!(
         "# Project instructions from {}\n\n<INSTRUCTIONS>\n{}\n</INSTRUCTIONS>",
@@ -125,8 +125,8 @@ pub fn format_instructions(path: &Path, content: &str) -> String {
     )
 }
 
-/// Load project docs from workspace with default settings
-#[allow(dead_code)] // Convenience function; project_context.rs provides the active code path
+/// 使用默认设置从工作区加载项目文档
+#[allow(dead_code)] // 便利函数；project_context.rs 提供活动代码路径
 pub fn load_from_workspace(workspace: &Path) -> Option<String> {
     let paths = discover_paths(workspace);
     read_project_docs(&paths, DEFAULT_MAX_BYTES)

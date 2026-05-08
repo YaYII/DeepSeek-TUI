@@ -56,8 +56,8 @@ impl ToolSpec for RecallArchiveTool {
     }
 
     fn description(&self) -> &'static str {
-        "Search prior context cycles for content not in your briefing. Use sparingly — \
-         frequent recalls mean your briefing was too sparse; refine your next briefing."
+        "搜索之前上下文周期中未包含在你的简报中的内容。谨慎使用——\
+         频繁回忆意味着你的简报过于稀疏；请完善你的下一份简报。"
     }
 
     fn input_schema(&self) -> Value {
@@ -66,15 +66,15 @@ impl ToolSpec for RecallArchiveTool {
             "properties": {
                 "query": {
                     "type": "string",
-                    "description": "Search query. Tokenized and BM25-scored against archived messages."
+                    "description": "搜索查询。针对存档消息进行分词和 BM25 评分。"
                 },
                 "cycle": {
                     "type": "integer",
-                    "description": "Optional: limit to a specific prior cycle number."
+                    "description": "可选：限制为特定的先前周期编号。"
                 },
                 "max_results": {
                     "type": "integer",
-                    "description": "Maximum hits to return (default 3, hard-capped at 10)."
+                    "description": "返回的最大命中数（默认 3，硬上限为 10）。"
                 }
             },
             "required": ["query"]

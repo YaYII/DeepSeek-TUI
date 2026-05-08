@@ -30,10 +30,10 @@ fn render_skill_warnings(registry: &SkillRegistry) -> String {
     out
 }
 
-/// List all available skills. Pass `--remote` (or `remote`) to fetch the
-/// curated registry instead of scanning the local skills directory.
-/// Pass `sync` to pull the registry index and download all skills to the
-/// local cache (`~/.deepseek/cache/skills/`).
+/// 列出所有可用技能。传递 `--remote`（或 `remote`）以获取
+/// 精选注册表，而不是扫描本地技能目录。
+/// 传递 `sync` 以拉取注册表索引并将所有技能下载到
+/// 本地缓存（`~/.deepseek/cache/skills/`）。
 pub fn list_skills(app: &mut App, arg: Option<&str>) -> CommandResult {
     if let Some(arg) = arg {
         let trimmed = arg.trim();
@@ -85,10 +85,10 @@ pub fn list_skills(app: &mut App, arg: Option<&str>) -> CommandResult {
     CommandResult::message(output)
 }
 
-/// Run a specific skill — activates skill for next user message, or
-/// dispatches a sub-command (`install`, `update`, `uninstall`, `trust`).
-/// Try to run a skill by exact name (used for unified slash-command namespace, #435).
-/// Returns None when no skill with that name exists, so the caller can try other sources.
+/// 运行特定技能 — 为下一条用户消息激活技能，或
+/// 调度子命令（`install`, `update`, `uninstall`, `trust`）。
+/// 尝试按精确名称运行技能（用于统一斜杠命令命名空间，#435）。
+/// 当该名称的技能不存在时返回 None，以便调用者可以尝试其他来源。
 pub fn run_skill_by_name(app: &mut App, name: &str, _arg: Option<&str>) -> Option<CommandResult> {
     let registry = discover_visible_skills(app);
     if registry.get(name).is_some() {
@@ -275,7 +275,7 @@ fn trust_skill(app: &mut App, name: &str) -> CommandResult {
 
 // ─── /skills --remote ──────────────────────────────────────────────────────
 
-/// List skills available in the configured curated registry.
+/// 列出配置的精选注册表中可用的技能。
 pub fn list_remote_skills(app: &mut App) -> CommandResult {
     let (network, _max_size, registry_url) = installer_settings(app);
     let registry = run_async(async move { install::fetch_registry(&network, &registry_url).await });
@@ -309,11 +309,11 @@ pub fn list_remote_skills(app: &mut App) -> CommandResult {
 
 // ─── /skills sync ──────────────────────────────────────────────────────────
 
-/// Fetch the remote registry index and download every listed skill into the
-/// local cache (`~/.deepseek/cache/skills/<name>/`).
+/// 获取远程注册表索引并将每个列出的技能下载到
+/// 本地缓存（`~/.deepseek/cache/skills/<name>/`）。
 ///
-/// For each skill the sync checks the cached ETag / SHA-256 before
-/// downloading so unchanged skills are skipped in O(1) network round-trips.
+/// 对于每个技能，同步在下载前检查缓存的 ETag / SHA-256，
+/// 因此未更改的技能在 O(1) 网络往返中被跳过。
 fn sync_skills(app: &mut App) -> CommandResult {
     let (network, max_size, registry_url) = installer_settings(app);
     let cache_dir = install::default_cache_skills_dir();
@@ -375,13 +375,13 @@ fn sync_skills(app: &mut App) -> CommandResult {
 
 // ─── helpers ───────────────────────────────────────────────────────────────
 
-/// Read the active config knobs for the installer.
+/// 读取安装器的活动配置旋钮。
 ///
-/// We load `Config::load` on demand because [`App`] does not carry a `Config`
-/// field — and loading is cheap (small TOML file) compared to the network
-/// round-trip the install/update operation will incur next. If the config
-/// fails to parse, we fall back to defaults so the user still gets a
-/// network-gated install rather than a silent crash.
+/// 我们按需加载 `Config::load`，因为 [`App`] 不携带 `Config`
+/// 字段 — 并且加载成本低（小 TOML 文件）相比接下来
+/// 安装/更新操作将产生的网络往返。如果配置
+/// 解析失败，我们回退到默认值，以便用户仍然获得
+/// 网络门控安装而不是静默崩溃。
 fn installer_settings(_app: &App) -> (NetworkPolicy, u64, String) {
     let cfg = crate::config::Config::load(None, None).unwrap_or_default();
     let network = cfg

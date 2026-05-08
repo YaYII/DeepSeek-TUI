@@ -6,30 +6,30 @@ use std::io::Write;
 
 use super::CommandResult;
 
-/// Append a note to the persistent notes file
+/// 将笔记追加到持久化笔记文件
 pub fn note(app: &mut App, content: Option<&str>) -> CommandResult {
     let note_content = match content {
         Some(c) => c.trim(),
         None => {
-            return CommandResult::error("Usage: /note <text>");
+            return CommandResult::error("用法: /note <文本>");
         }
     };
 
     if note_content.is_empty() {
-        return CommandResult::error("Note content cannot be empty");
+        return CommandResult::error("笔记内容不能为空");
     }
 
-    // Determine notes path: workspace/.deepseek/notes.md
+    // 确定笔记路径: workspace/.deepseek/notes.md
     let notes_path = app.workspace.join(".deepseek").join("notes.md");
 
-    // Ensure parent directory exists
+    // 确保父目录存在
     if let Some(parent) = notes_path.parent()
         && let Err(e) = fs::create_dir_all(parent)
     {
-        return CommandResult::error(format!("Failed to create notes directory: {e}"));
+        return CommandResult::error(format!("无法创建笔记目录: {e}"));
     }
 
-    // Append to notes file
+    // 追加到笔记文件
     let mut file = match fs::OpenOptions::new()
         .create(true)
         .append(true)
@@ -37,16 +37,16 @@ pub fn note(app: &mut App, content: Option<&str>) -> CommandResult {
     {
         Ok(f) => f,
         Err(e) => {
-            return CommandResult::error(format!("Failed to open notes file: {e}"));
+            return CommandResult::error(format!("无法打开笔记文件: {e}"));
         }
     };
 
-    // Write separator and note content
+    // 写入分隔符和笔记内容
     if let Err(e) = writeln!(file, "\n---\n{}", note_content) {
-        return CommandResult::error(format!("Failed to write note: {e}"));
+        return CommandResult::error(format!("无法写入笔记: {e}"));
     }
 
-    CommandResult::message(format!("Note appended to {}", notes_path.display()))
+    CommandResult::message(format!("笔记已追加到 {}", notes_path.display()))
 }
 
 #[cfg(test)]

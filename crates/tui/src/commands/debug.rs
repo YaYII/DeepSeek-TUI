@@ -1327,11 +1327,11 @@ pub fn edit(app: &mut App) -> CommandResult {
     }
 }
 
-/// Show git diff output since session start.
+/// 显示自会话开始以来的 git diff 输出。
 ///
-/// Runs `git diff --stat` and `git diff --name-only` in the workspace
-/// directory. Displays which files have changed and a stat summary. If no
-/// changes exist or git fails, returns an appropriate message.
+/// 在工作区目录中运行 `git diff --stat` 和 `git diff --name-only`。
+/// 显示哪些文件已更改以及统计摘要。如果没有
+/// 更改或 git 失败，返回适当的消息。
 pub fn diff(app: &mut App) -> CommandResult {
     let workspace = app.workspace.clone();
 
@@ -1381,7 +1381,7 @@ pub fn diff(app: &mut App) -> CommandResult {
     }
 }
 
-/// Retry last request - remove last exchange and re-send the user's message
+/// 重试最后一个请求 — 删除最后一次交换并重新发送用户消息
 pub fn retry(app: &mut App) -> CommandResult {
     let last_user_input = app.history.iter().rev().find_map(|cell| match cell {
         HistoryCell::User { content } => Some(content.clone()),
