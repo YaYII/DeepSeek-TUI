@@ -1,3 +1,4 @@
+//! 可渲染 trait — 可渲染 UI 组件的通用接口。
 use ratatui::{buffer::Buffer, layout::Rect};
 
 pub trait Renderable {

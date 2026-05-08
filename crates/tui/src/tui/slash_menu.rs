@@ -1,4 +1,4 @@
-//! Slash-command autocomplete + popup-menu helpers.
+//! 斜杠菜单 — 在提示中键入 `/` 时显示的命令菜单。
 //!
 //! Extracted from `tui/ui.rs` (P1.2). The on-screen popup itself is rendered
 //! by the composer widget; these helpers source the entries, apply a

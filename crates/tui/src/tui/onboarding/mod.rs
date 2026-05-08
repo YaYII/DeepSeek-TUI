@@ -1,4 +1,4 @@
-//! Onboarding flow rendering and helpers.
+//! 首次运行引导向导。
 
 pub mod api_key;
 pub mod language;

@@ -1,4 +1,4 @@
-//! `@`-mention parsing, completion, and expansion for the composer.
+//! 文件提及 — 在提示中 `@` 提及文件以注入其内容。
 //!
 //! Two responsibilities live here:
 //!

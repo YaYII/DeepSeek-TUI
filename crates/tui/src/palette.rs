@@ -1,4 +1,4 @@
-//! DeepSeek color palette and semantic roles.
+//! DeepSeek 调色板和语义角色。
 
 use ratatui::style::Color;
 

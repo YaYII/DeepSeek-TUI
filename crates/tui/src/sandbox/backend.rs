@@ -1,4 +1,4 @@
-//! Pluggable sandbox backend abstraction.
+//! 可插拔沙箱后端抽象。
 //!
 //! External sandbox backends route shell command execution to a remote service
 //! (e.g. Alibaba OpenSandbox) instead of spawning a local process. This is

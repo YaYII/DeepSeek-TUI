@@ -1,4 +1,4 @@
-//! Review command: activate review skill and send a target immediately.
+//! `/review` 命令 — 审查会话历史。
 
 use crate::skills::{SkillRegistry, default_skills_dir};
 use crate::tui::app::{App, AppAction};

@@ -1,4 +1,4 @@
-//! External editor support for the composer.
+//! 外部编辑器集成 — 在 `$EDITOR` 中打开提示以进行多行编辑。
 //!
 //! Spawns `$VISUAL`/`$EDITOR` (fallback `vi`) on a temp file pre-populated with
 //! the composer's current contents. The TUI is suspended for the duration of

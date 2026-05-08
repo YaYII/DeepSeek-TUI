@@ -1,4 +1,4 @@
-//! Cached transcript rendering for the TUI.
+//! 转录本 — 会话消息历史的可滚动视图。
 //!
 //! ## Per-cell revision caching
 //!

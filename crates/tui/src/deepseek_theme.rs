@@ -1,4 +1,4 @@
-//! Whale/DeepSeek terminal theme tokens.
+//! Whale/DeepSeek 终端主题令牌。
 //!
 //! A small, deliberately flat module that names the color, border, and
 //! padding choices the TUI is already making. All values match the dark

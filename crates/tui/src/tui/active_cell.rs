@@ -1,33 +1,30 @@
-//! Active in-flight tool/exec cell — single mutable group that buffers parallel
-//! tool work for the current turn.
+//! 活跃的进行中工具/执行单元格 — 为当前轮次缓冲并行工具工作的
+//! 单个可变组。
 //!
-//! ## Why
+//! ## 为什么
 //!
-//! When the model issues parallel tool calls in a single assistant turn (e.g.
-//! two `read_file` and one `grep_files` running concurrently), naively
-//! appending each tool start as its own history cell makes the transcript
-//! "bounce" as completions arrive out of order. Codex's pattern is to keep all
-//! in-flight tool work in ONE active cell that mutates in place; once the turn
-//! resolves the active cell finalizes into the transcript.
+//! 当模型在单个助手轮次中发出并行工具调用时（例如两个 `read_file`
+//! 和一个 `grep_files` 并发运行），简单地将每个工具启动追加为
+//! 自己的历史单元格会使转录本在完成结果乱序到达时"跳动"。
+//! Codex 的模式是将所有进行中的工具工作保留在一个活跃单元格中，
+//! 该单元格原地变化；一旦轮次解决，活跃单元格最终化到转录本中。
 //!
-//! ## Contract
+//! ## 约定
 //!
-//! - At most one [`ActiveCell`] per turn. It holds zero or more
-//!   [`HistoryCell`]s that are still being mutated (status `Running`, output
-//!   pending, etc.).
-//! - The owning [`crate::tui::app::App`] renders the active cell's contents
-//!   AFTER `App.history` so they appear at the live tail.
-//! - Cell indices used by helpers like `tool_cells` / `tool_details_by_cell`
-//!   address the virtual sequence `App.history ++ active_cell.entries`. Each
-//!   entry's index is `App.history.len() + entry_offset`.
-//! - When a tool completes whose `tool_id` does not match any active entry
-//!   (orphan), the caller pushes a finalized standalone cell into `App.history`
-//!   instead of mutating the active group. This keeps `active_cell` a stable
-//!   reflection of what was actually started, and avoids merging unrelated
-//!   tool work.
-//! - On `TurnComplete` (or cancellation) the active cell is "flushed":
-//!   in-progress entries are marked with the supplied terminal status, then
-//!   every entry is appended to `App.history`. Companion maps
+//! - 每轮最多一个 [`ActiveCell`]。它持有零个或多个仍在变化的
+//!   [`HistoryCell`]（状态 `Running`、输出待处理等）。
+//! - 拥有者 [`crate::tui::app::App`] 在 `App.history` 之后渲染活跃单元格的内容，
+//!   使它们出现在实时尾部。
+//! - 由 `tool_cells` / `tool_details_by_cell` 等辅助函数使用的单元格索引
+//!   寻址虚拟序列 `App.history ++ active_cell.entries`。每个条目的索引
+//!   为 `App.history.len() + entry_offset`。
+//! - 当工具完成且其 `tool_id` 不匹配任何活跃条目（孤儿）时，
+//!   调用者将最终化的独立单元格推入 `App.history` 而不是变化活跃组。
+//!   这使 `active_cell` 保持为实际启动内容的稳定反映，并避免合并
+//!   不相关的工具工作。
+//! - 在 `TurnComplete`（或取消）时活跃单元格被"刷新"：
+//!   进行中的条目被标记为提供的终端状态，然后每个条目被追加到
+//!   `App.history`。伴随映射
 //!   (`tool_cells`, `tool_details_by_cell`) are rewritten to point at the new
 //!   `App.history` indices.
 //!

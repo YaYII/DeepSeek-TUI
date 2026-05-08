@@ -1,4 +1,4 @@
-//! Skills commands: skills, skill
+//! `/skills` 命令 — 管理技能。
 
 use std::fmt::Write;
 

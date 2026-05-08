@@ -1,4 +1,4 @@
-//! Cargo test runner tool: `run_tests`.
+//! 测试运行器 — 运行测试并报告结果。
 //!
 //! This tool intentionally auto-approves test execution to encourage
 //! frequent verification loops while still scoping execution to the workspace.

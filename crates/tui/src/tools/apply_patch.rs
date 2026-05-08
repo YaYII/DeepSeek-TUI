@@ -1,4 +1,4 @@
-//! Patch tools: `apply_patch` for unified diff patching
+//! `apply_patch` 工具 — 将统一 diff 应用到文件。
 //!
 //! This tool provides precise file modifications using unified diff format,
 //! supporting multi-hunk patches and fuzzy matching.

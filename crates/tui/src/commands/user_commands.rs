@@ -1,4 +1,4 @@
-//! User-defined slash commands from `~/.deepseek/commands/<name>.md`.
+//! 用户自定义命令 — 加载和执行用户定义的命令。
 //!
 //! Users drop `.md` files into `~/.deepseek/commands/` and the filename
 //! (without `.md` extension) becomes a slash command. When invoked via

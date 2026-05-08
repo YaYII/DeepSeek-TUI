@@ -1,7 +1,7 @@
-//! Project context loading for DeepSeek TUI.
+//! DeepSeek TUI 的项目上下文加载。
 //!
-//! This module handles loading project-specific context files that provide
-//! instructions and context to the AI agent. These include:
+//! 本模块处理加载项目特定的上下文文件，为 AI 代理提供
+//! 指令和上下文。包括：
 //!
 //! - `AGENTS.md` - Project-level agent instructions (primary)
 //! - `.claude/instructions.md` - Claude-style hidden instructions

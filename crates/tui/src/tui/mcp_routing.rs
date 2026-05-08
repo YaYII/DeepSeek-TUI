@@ -1,4 +1,4 @@
-//! MCP manager formatting and UI action helpers.
+//! MCP 路由 — 将 MCP 工具调用从引擎路由到适当的 MCP 服务器。
 
 use crate::mcp::{McpManagerSnapshot, McpServerSnapshot};
 use crate::tui::app::App;

@@ -1,4 +1,4 @@
-//! Project mapping tool for understanding codebase structure.
+//! 项目工具 — 项目级操作。
 
 use crate::utils::{is_key_file, project_tree, summarize_project};
 use anyhow::Result;

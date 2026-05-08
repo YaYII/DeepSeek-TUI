@@ -1,4 +1,4 @@
-//! Parked-draft stash for the composer (#440).
+//! 编辑器的暂存草稿（#440）。
 //!
 //! A stash is a side-channel from history: it holds drafts the user
 //! parked deliberately (Ctrl+S) instead of submissions made in the

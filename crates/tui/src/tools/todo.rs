@@ -1,4 +1,4 @@
-//! Todo list tool and supporting data structures.
+//! Todo 工具 — `update_todos` 和 todo 管理。
 
 use std::sync::Arc;
 use tokio::sync::Mutex;

@@ -1,4 +1,4 @@
-//! Text selection state for the transcript view.
+//! 转录本视图的文本选择状态。
 
 // === Types ===
 

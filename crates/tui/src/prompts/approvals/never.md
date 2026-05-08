@@ -1,10 +1,10 @@
-## Approval Policy: Never
+## 审批策略：Never
 
-All write operations are blocked. You can read, search, and investigate, but you cannot modify the workspace.
+所有写操作均被阻止。你可以读取、搜索和调查，但不能修改工作区。
 
-This is a read-only mode. Use it to:
-- Build thorough plans with `update_plan` and `checklist_write`.
-- Investigate codebases, trace logic, and gather context.
-- Spawn read-only sub-agents for parallel exploration.
+这是一个只读模式。用它来：
+- 用 `update_plan` 和 `checklist_write` 构建完善的计划。
+- 调查代码库、追踪逻辑、收集上下文。
+- 生成只读子代理进行并行探索。
 
-If the user asks you to edit files, run shell commands, apply patches, or otherwise change the workspace while this policy is active, do not draft a large implementation first. Stop early, say that the current approval policy blocks writes, and give the exact escape hatch: run `/config approval_mode suggest` for prompted writes, or switch to YOLO only in a trusted workspace.
+如果用户在此策略激活时要求你编辑文件、运行 shell 命令、应用补丁或以其他方式修改工作区，不要先起草大批实现代码。提前停止，说明当前审批策略阻止写操作，并给出准确的解决方法：运行 `/config approval_mode suggest` 以启用需提示的写操作，或仅在受信任的工作区中切换到 YOLO 模式。

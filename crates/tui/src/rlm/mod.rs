@@ -1,6 +1,6 @@
-//! Recursive Language Model (RLM) loop — paper-spec Algorithm 1.
+//! 递归语言模型（RLM）循环 — 论文规范算法 1。
 //!
-//! Implements Zhang, Kraska & Khattab (arXiv:2512.24601, §2 Algorithm 1):
+//! 实现 Zhang, Kraska & Khattab (arXiv:2512.24601, §2 Algorithm 1)：
 //!
 //! ```text
 //! state ← InitREPL(prompt=P)

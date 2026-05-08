@@ -1,4 +1,4 @@
-//! Background shell job-center helpers for slash commands and pagers.
+//! Shell 作业路由 — 将 shell 命令从引擎路由到终端执行。
 
 use crate::tools::shell::{ShellJobDetail, ShellJobSnapshot, ShellResult, ShellStatus};
 use crate::tui::app::App;

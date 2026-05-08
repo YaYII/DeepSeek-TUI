@@ -1,4 +1,4 @@
-//! `/stash` slash command — list / pop parked composer drafts (#440).
+//! `/stash` 命令 — 暂存会话状态。
 //!
 //! See `crates/tui/src/composer_stash.rs` for the on-disk format
 //! and persistence rules. The slash command is the user-facing

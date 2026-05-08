@@ -1,4 +1,4 @@
-//! Search tools: `grep_files` for code search
+//! 搜索工具 — `grep_files` 和代码搜索。
 //!
 //! These tools provide powerful code search capabilities within the workspace,
 //! similar to ripgrep/grep functionality.

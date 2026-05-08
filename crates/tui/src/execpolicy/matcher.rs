@@ -1,4 +1,4 @@
-//! Command matching helpers for execpolicy rules.
+//! execpolicy 规则的命令匹配辅助函数。
 
 use regex::Regex;
 

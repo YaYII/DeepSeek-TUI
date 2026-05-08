@@ -1,4 +1,4 @@
-//! Terminal color compatibility shim.
+//! 颜色兼容性辅助函数 — 将 ratatui 颜色转换为 ANSI 和终端颜色。
 //!
 //! Ratatui's crossterm backend emits truecolor SGR for every `Color::Rgb`
 //! cell. That is correct for truecolor terminals, but macOS Terminal.app often

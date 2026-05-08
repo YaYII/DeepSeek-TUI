@@ -1,8 +1,7 @@
-//! LSP integration: post-edit diagnostics injection (#136).
+//! LSP 集成：编辑后诊断注入（#136）。
 //!
-//! After the agent performs a successful file edit (`edit_file`,
-//! `apply_patch`, or `write_file`) the engine asks the [`LspManager`] for
-//! diagnostics on that file. The manager spawns the appropriate LSP server
+//! 代理执行成功的文件编辑（`edit_file`、`apply_patch` 或 `write_file`）后，
+//! 引擎会向 [`LspManager`] 请求该文件的诊断信息。管理器会启动相应的 LSP 服务器
 //! lazily on first use, sends `didOpen`/`didChange`, waits up to a bounded
 //! timeout for `publishDiagnostics`, normalizes the result, and returns it
 //! to the engine.

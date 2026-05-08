@@ -1,4 +1,4 @@
-//! TUI rendering helpers for chat history and tool output.
+//! 聊天历史和工具输出的 TUI 渲染辅助函数。
 
 use std::path::{Path, PathBuf};
 use std::time::Instant;

@@ -1,4 +1,4 @@
-//! Clipboard handling for paste support in TUI
+//! 跨平台剪贴板访问（使用 `arboard`）。
 //!
 //! Supports text and image paste operations. Images on the clipboard are
 //! encoded as PNG and persisted under `~/.deepseek/clipboard-images/` so the

@@ -1,4 +1,4 @@
-//! Shell job-center commands.
+//! `/jobs` 命令 — 管理后台作业。
 
 use crate::tui::app::{App, AppAction, ShellJobAction};
 

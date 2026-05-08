@@ -1,7 +1,7 @@
-//! Tool-output spillover writer (#422).
+//! 工具输出溢出写入器（#422）。
 //!
-//! When a tool produces output that's too large to land in the model's
-//! context budget, we want two things at once:
+//! 当工具产生的输出太大而无法放入模型的上下文预算时，
+//! 我们希望同时做两件事：
 //!
 //! 1. The transcript / tool-cell renders a bounded preview so the UI
 //!    stays scannable.

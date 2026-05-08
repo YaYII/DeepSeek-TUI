@@ -1,4 +1,4 @@
-//! Esc-Esc backtrack state machine (issue #133).
+//! 回溯 — 在会话历史中导航到之前的检查点。
 //!
 //! Lets the user rewind the active conversation to a previous user message.
 //! The chord is intentionally two-step so a single stray `Esc` after a popup

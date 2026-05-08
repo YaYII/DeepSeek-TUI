@@ -105,8 +105,8 @@ fn engine_emits_compact_fake_wrapper_notice() {
         "no engine source file references the protocol-recovery notice constant"
     );
     assert!(
-        any_engine_source_contains("API tool channel"),
-        "the protocol-recovery notice should mention the API tool channel"
+        any_engine_source_contains("API 工具通道"),
+        "protocol-recovery 通知应提及 API 工具通道"
     );
 }
 

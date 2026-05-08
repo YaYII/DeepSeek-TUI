@@ -1,9 +1,8 @@
-//! Deferred tool catalog and built-in advanced tool helpers.
+//! 延迟工具目录和内置高级工具辅助函数。
 //!
-//! The streaming turn loop owns when tools are offered or executed. This module
-//! owns the catalog-level policy around deferred loading, tool search, missing
-//! tool suggestions, and the small set of built-in advanced tools that are not
-//! registered by the normal runtime tool registry.
+//! 流式轮次循环拥有工具何时提供或执行的控制权。本模块
+//! 拥有围绕延迟加载、工具搜索、缺失工具建议的目录级策略，
+//! 以及不由普通运行时工具注册表注册的少量内置高级工具。
 
 use std::collections::HashSet;
 use std::path::Path;
@@ -33,10 +32,10 @@ pub(super) fn should_default_defer_tool(name: &str, mode: AppMode) -> bool {
         return false;
     }
 
-    // Shell exec tools are kept active in Agent so the model can run
-    // verification commands (build/test/git/cargo) without first having to
-    // discover them through ToolSearch. Plan mode may register shell tools,
-    // but keeps most shell execution deferred and network-restricted.
+    // Shell 执行工具在 Agent 模式下保持活跃，以便模型可以运行
+    // 验证命令（build/test/git/cargo），而无需先通过 ToolSearch
+    // 发现工具。Plan 模式可以注册 shell 工具，但保持大部分 shell
+    // 执行延迟和网络受限。
     let always_loaded_in_action_modes = matches!(mode, AppMode::Agent)
         && matches!(
             name,
@@ -106,12 +105,11 @@ pub(super) fn build_model_tool_catalog(
 ) -> Vec<Tool> {
     apply_native_tool_deferral(&mut native_tools, mode);
     apply_mcp_tool_deferral(&mut mcp_tools, mode);
-    // Sort each partition by name for prefix-cache stability (#263). The
-    // upstream `to_api_tools()` already sorts the registry's HashMap output;
-    // this catalog is built from caller-supplied Vecs which the test harness
-    // and (future) caller refactors may not pre-sort. Built-ins stay as a
-    // contiguous prefix ahead of MCP tools so adding/removing an MCP tool
-    // never shifts a built-in's position.
+    // 按名称对每个分区排序以确保前缀缓存稳定性（#263）。
+    // 上游 `to_api_tools()` 已经对注册表的 HashMap 输出进行了排序；
+    // 此目录是从调用者提供的 Vec 构建的，测试工具和（未来的）调用者重构
+    // 可能不会预先排序。内置工具作为连续前缀排在 MCP 工具之前，
+    // 因此添加/移除 MCP 工具永远不会改变内置工具的位置。
     native_tools.sort_by(|a, b| a.name.cmp(&b.name));
     mcp_tools.sort_by(|a, b| a.name.cmp(&b.name));
     native_tools.extend(mcp_tools);
@@ -197,8 +195,8 @@ pub(super) fn initial_active_tools(catalog: &[Tool]) -> HashSet<String> {
 }
 
 fn active_tool_list_from_catalog(catalog: &[Tool], active: &HashSet<String>) -> Vec<Tool> {
-    // Two-pass for prefix-cache stability (#263). Always-loaded tools come
-    // first in their stable catalog order; tools that started life deferred
+    // 两遍以确保前缀缓存稳定性（#263）。始终加载的工具
+    // 按其稳定的目录顺序排在前面；以延迟状态开始生命的工具
     // and were activated mid-conversation by ToolSearch get appended at the
     // tail. Otherwise activating a deferred tool shifts every later tool's
     // byte offset and busts the cached prefix from that point onwards.

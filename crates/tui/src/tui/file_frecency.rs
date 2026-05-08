@@ -1,4 +1,4 @@
-//! @-mention frecency tracking (#441).
+//! @-mention 频率追踪 (#441)。
 //!
 //! Records every file the user @-mentions with a timestamp and click count,
 //! decays the score over time so a file that was hot last week ranks below

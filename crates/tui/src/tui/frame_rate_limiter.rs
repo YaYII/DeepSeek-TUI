@@ -1,4 +1,4 @@
-//! 120 FPS draw-rate cap for the TUI render loop.
+//! 帧率限制器 — 限制 TUI 重绘速率以避免过多的 CPU 使用。
 //!
 //! Adapted from
 //! [`codex-rs/tui/src/tui/frame_rate_limiter.rs`](https://github.com/openai/codex)

@@ -368,7 +368,7 @@ async fn test_exec_shell_foreground_timeout_guides_background_rerun() {
     assert!(!result.success);
     assert!(result.content.contains("task_shell_start"));
     assert!(result.content.contains("background: true"));
-    assert!(result.content.contains("process killed"));
+    assert!(result.content.contains("进程已被杀死"));
     let meta = result.metadata.expect("metadata");
     assert_eq!(meta.get("status").and_then(Value::as_str), Some("TimedOut"));
     let recovery = meta
@@ -418,7 +418,7 @@ async fn test_exec_shell_foreground_cancel_kills_process() {
         .expect("task should not panic");
 
     assert!(!result.success);
-    assert!(result.content.contains("Command canceled"));
+    assert!(result.content.contains("命令已取消"));
     let meta = result.metadata.expect("metadata");
     assert_eq!(meta.get("status").and_then(Value::as_str), Some("Killed"));
     assert_eq!(meta.get("canceled").and_then(Value::as_bool), Some(true));
@@ -457,7 +457,7 @@ async fn test_exec_shell_foreground_can_move_to_background() {
         .expect("task should not panic");
 
     assert!(result.success);
-    assert!(result.content.contains("Command moved to background"));
+    assert!(result.content.contains("命令已移至后台"));
     assert!(result.content.contains("exec_shell_cancel"));
 
     let meta = result.metadata.expect("metadata");
@@ -517,7 +517,7 @@ async fn test_exec_shell_wait_cancel_leaves_background_process_running() {
         .expect("task should not panic");
 
     assert!(result.success);
-    assert!(result.content.contains("still running"));
+    assert!(result.content.contains("仍在运行"));
     let meta = result.metadata.expect("metadata");
     assert_eq!(meta.get("status").and_then(Value::as_str), Some("Running"));
     assert_eq!(
@@ -585,7 +585,7 @@ async fn test_exec_shell_cancel_tool_kills_background_process() {
         .expect("cancel");
 
     assert!(result.success);
-    assert!(result.content.contains("Canceled background shell job"));
+    assert!(result.content.contains("已取消后台 shell 任务"));
     let meta = result.metadata.expect("metadata");
     assert_eq!(meta.get("status").and_then(Value::as_str), Some("Killed"));
 

@@ -1,4 +1,4 @@
-//! Schema sanitizer for tool `input_schema` before sending to DeepSeek.
+//! Schema 清理 — 清理工具 schema 定义。
 //!
 //! DeepSeek's `/beta/chat/completions` strict tool mode is harsh. MCP tool
 //! schemas frequently arrive with Pydantic-style `anyOf:[{type:"string"},

@@ -1,4 +1,4 @@
-//! Slash command registry and dispatch system
+//! 斜杠命令 — 在提示中键入 `/` 时可用的命令。
 //!
 //! This module provides a modular command system inspired by Codex-rs.
 //! Commands are organized by category and dispatched through a central registry.

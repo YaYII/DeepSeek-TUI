@@ -1,8 +1,8 @@
-//! Chat Completions API helpers for DeepSeek's OpenAI-compatible endpoint.
+//! 面向 DeepSeek OpenAI 兼容端点的 Chat Completions API 辅助工具。
 //!
-//! This is the production code path. Streaming (`create_message_stream`),
-//! request building (`build_chat_messages*`), and SSE parsing (`parse_sse_chunk`)
-//! all live here.
+//! 这是生产代码路径。流式处理（`create_message_stream`）、
+//! 请求构建（`build_chat_messages*`）和 SSE 解析（`parse_sse_chunk`）
+//! 都包含在此处。
 
 use std::collections::HashSet;
 use std::pin::Pin;
@@ -12,22 +12,21 @@ use anyhow::{Context, Result};
 use serde_json::{Value, json};
 use tokio::time::timeout as tokio_timeout;
 
-/// Default idle timeout for SSE stream reads (300 seconds = 5 minutes).
-/// After this period with no data, the stream is considered stalled and
-/// yields a recoverable error so the caller can retry.
+/// SSE 流读取的默认空闲超时时间（300 秒 = 5 分钟）。
+/// 在此时间内没有收到数据，则认为流已停滞
+/// 并产生可恢复的错误，供调用者重试。
 const DEFAULT_STREAM_IDLE_TIMEOUT: Duration = Duration::from_secs(300);
 
-/// Default timeout for the initial streaming response headers.
+/// 初始流式响应头的默认超时时间。
 ///
-/// `doctor` uses a bounded non-streaming request, but normal TUI turns first
-/// wait for the SSE response to open. On some Windows/proxy paths that wait can
-/// hang before any stream chunk exists, leaving the UI stuck at "Working...".
+/// `doctor` 使用有界的非流式请求，但正常的 TUI 轮次首先等待
+/// SSE 响应打开。在某些 Windows/代理路径上，这个等待可能会在任何流数据块
+/// 存在之前挂起，导致 UI 卡在"工作中..."状态。
 const DEFAULT_STREAM_OPEN_TIMEOUT: Duration = Duration::from_secs(45);
 
-/// Reads `DEEPSEEK_STREAM_OPEN_TIMEOUT_SECS` as a bounded override for the
-/// response-header wait. This is intentionally shorter than the per-chunk idle
-/// timeout because it only covers connection setup and upstream header return,
-/// not model thinking time after streaming has started.
+/// 读取 `DEEPSEEK_STREAM_OPEN_TIMEOUT_SECS` 作为响应头等待的有界覆盖值。
+/// 这有意比每个数据块的空闲超时更短，因为它只覆盖连接建立
+/// 和上游头返回，不覆盖流开始后的模型思考时间。
 fn stream_open_timeout() -> Duration {
     stream_open_timeout_from_env(
         std::env::var("DEEPSEEK_STREAM_OPEN_TIMEOUT_SECS")
@@ -44,8 +43,8 @@ fn stream_open_timeout_from_env(value: Option<&str>) -> Duration {
     Duration::from_secs(secs)
 }
 
-/// Reads the `DEEPSEEK_STREAM_IDLE_TIMEOUT_SECS` env var, falling back to
-/// the default 300s. The parsed value is clamped to [1, 3600] seconds.
+/// 读取 `DEEPSEEK_STREAM_IDLE_TIMEOUT_SECS` 环境变量，若未设置则
+/// 回退到默认的 300 秒。解析后的值被限制在 [1, 3600] 秒范围内。
 fn stream_idle_timeout() -> Duration {
     let secs = std::env::var("DEEPSEEK_STREAM_IDLE_TIMEOUT_SECS")
         .ok()
@@ -513,7 +512,7 @@ fn build_chat_messages_with_reasoning(
                 logging::warn(
                     "Substituting placeholder reasoning_content for DeepSeek tool-call assistant message",
                 );
-                reasoning_content = String::from("(reasoning omitted)");
+                reasoning_content = String::from("（推理已省略）");
                 has_reasoning = true;
             }
 

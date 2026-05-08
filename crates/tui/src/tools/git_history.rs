@@ -1,4 +1,4 @@
-//! Git history tools: `git_log`, `git_show`, and `git_blame`.
+//! Git 历史 — 查看 git 提交历史。
 //!
 //! These tools provide read-only access to commit history and attribution
 //! without exposing arbitrary shell execution.

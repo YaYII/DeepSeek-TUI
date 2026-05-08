@@ -69,7 +69,7 @@ pub fn summarize_project(root: &Path) -> String {
     key_files.sort();
 
     if key_files.is_empty() {
-        return "Unknown project type".to_string();
+        return "未知项目类型".to_string();
     }
 
     let mut types = Vec::new();
@@ -93,9 +93,9 @@ pub fn summarize_project(root: &Path) -> String {
     }
 
     if types.is_empty() {
-        format!("Project with key files: {}", key_files.join(", "))
+        format!("关键文件项目：{}", key_files.join(", "))
     } else {
-        format!("A {} project", types.join(" and "))
+        format!("{} 项目", types.join(" + "))
     }
 }
 
@@ -733,11 +733,11 @@ mod project_mapping_tests {
 
         let summary = summarize_project(root);
         assert!(
-            summary.starts_with("Project with key files: "),
+            summary.starts_with("关键文件项目："),
             "expected fallback branch; got: {summary}"
         );
         let suffix = summary
-            .strip_prefix("Project with key files: ")
+            .strip_prefix("关键文件项目：")
             .expect("prefix");
         assert_eq!(suffix, "Makefile, README.md");
     }

@@ -1,4 +1,4 @@
-//! Workspace trust prompt for onboarding.
+//! 信任目录选择步骤。
 
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};

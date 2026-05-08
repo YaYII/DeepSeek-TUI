@@ -1,7 +1,7 @@
-//! Operations submitted by the UI to the core engine.
+//! UI 向核心引擎提交的操作。
 //!
-//! These operations flow from the TUI to the engine via a channel,
-//! allowing the UI to remain responsive while the engine processes requests.
+//! 这些操作通过通道从 TUI 流向引擎，
+//! 使 UI 在引擎处理请求时保持响应。
 
 use crate::compaction::CompactionConfig;
 use crate::models::{Message, SystemPrompt};
@@ -9,22 +9,22 @@ use crate::tui::app::AppMode;
 use crate::tui::approval::ApprovalMode;
 use std::path::PathBuf;
 
-/// Operations that can be submitted to the engine.
+/// 可提交给引擎的操作。
 #[derive(Debug, Clone)]
 pub enum Op {
-    /// Send a message to the AI
+    /// 向 AI 发送消息
     SendMessage {
         content: String,
         mode: AppMode,
         model: String,
         goal_objective: Option<String>,
-        /// Reasoning-effort tier: `"off" | "low" | "medium" | "high" | "max"`.
-        /// `None` lets the provider apply its default.
+        /// 推理力度层级：`"off" | "low" | "medium" | "high" | "max"`。
+        /// `None` 让提供商应用其默认值。
         reasoning_effort: Option<String>,
-        /// True when the user selected auto thinking, even though the UI sends
-        /// a concrete per-turn value to the model API.
+        /// 当用户选择了自动思考时为 true，即使 UI 向模型 API 发送
+        /// 具体的每轮值。
         reasoning_effort_auto: bool,
-        /// True when the user selected auto model routing.
+        /// 当用户选择了自动模型路由时为 true。
         auto_model: bool,
         allow_shell: bool,
         trust_mode: bool,
@@ -32,37 +32,37 @@ pub enum Op {
         approval_mode: ApprovalMode,
     },
 
-    /// Cancel the current request
+    /// 取消当前请求
     #[allow(dead_code)]
     CancelRequest,
 
-    /// Approve a tool call that requires permission
+    /// 批准需要权限的工具调用
     #[allow(dead_code)]
     ApproveToolCall { id: String },
 
-    /// Deny a tool call that requires permission
+    /// 拒绝需要权限的工具调用
     #[allow(dead_code)]
     DenyToolCall { id: String },
 
-    /// Spawn a sub-agent
+    /// 生成子代理
     #[allow(dead_code)]
     SpawnSubAgent { prompt: String },
 
-    /// List current sub-agents and their status
+    /// 列出当前子代理及其状态
     ListSubAgents,
 
-    /// Change the operating mode
+    /// 更改操作模式
     #[allow(dead_code)]
     ChangeMode { mode: AppMode },
 
-    /// Update the model being used
+    /// 更新正在使用的模型
     #[allow(dead_code)]
     SetModel { model: String },
 
-    /// Update auto-compaction settings
+    /// 更新自动压缩设置
     SetCompaction { config: CompactionConfig },
 
-    /// Sync engine session state (used for resume/load)
+    /// 同步引擎会话状态（用于恢复/加载）
     SyncSession {
         messages: Vec<Message>,
         system_prompt: Option<SystemPrompt>,
@@ -70,29 +70,28 @@ pub enum Op {
         workspace: PathBuf,
     },
 
-    /// Run context compaction immediately.
+    /// 立即运行上下文压缩。
     CompactContext,
 
-    /// Run a Recursive Language Model (RLM) turn per Algorithm 1 of
-    /// Zhang et al. (arXiv:2512.24601). The prompt is stored in the REPL
-    /// as `context`; the root LLM only sees metadata.
+    /// 按 Zhang et al. (arXiv:2512.24601) 算法 1 运行递归语言模型（RLM）轮次。
+    /// 提示存储在 REPL 中作为 `context`；根 LLM 只看到元数据。
     Rlm {
-        /// The user's prompt — stored in REPL, NOT in the LLM context.
+        /// 用户的提示 — 存储在 REPL 中，而非 LLM 上下文中。
         content: String,
-        /// The model to use for root LLM calls.
+        /// 用于根 LLM 调用的模型。
         model: String,
-        /// The model to use for sub-LLM (llm_query) calls.
+        /// 用于子 LLM（llm_query）调用的模型。
         child_model: String,
-        /// Recursion budget for `sub_rlm()` calls. Paper experiments use
-        /// depth=1; defaults set by the `/rlm` command.
+        /// `sub_rlm()` 调用的递归预算。论文实验使用
+        /// depth=1；默认值由 `/rlm` 命令设置。
         max_depth: u32,
     },
 
-    /// Edit the last user message: remove the last user+assistant exchange
-    /// from the session, then re-send with the new content.
+    /// 编辑最后一条用户消息：从会话中移除最后的用户+助手交换，
+    /// 然后用新内容重新发送。
     #[allow(dead_code)]
     EditLastTurn { new_message: String },
 
-    /// Shutdown the engine
+    /// 关闭引擎
     Shutdown,
 }

@@ -1,4 +1,4 @@
-//! GitHub context and guarded write tools backed by the `gh` CLI.
+//! GitHub 工具 — GitHub API 集成。
 
 use std::path::{Path, PathBuf};
 use std::process::Command;

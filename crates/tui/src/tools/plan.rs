@@ -1,4 +1,4 @@
-//! Plan tool implementation with step tracking and validation
+//! 计划工具 — `update_plan` 和计划管理。
 
 use std::sync::Arc;
 use std::time::{Duration, Instant};

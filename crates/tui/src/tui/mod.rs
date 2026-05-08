@@ -1,4 +1,4 @@
-//! Terminal UI (TUI) module for `DeepSeek` CLI.
+//! `DeepSeek` CLI 的终端 UI（TUI）模块。
 
 // === Submodules ===
 

@@ -1,13 +1,13 @@
-//! Mailbox abstraction for sub-agent runtime coordination.
+//! 子代理运行时协调的邮箱抽象。
 //!
-//! Monotonic sequence numbers give every consumer a consistent ordering even
-//! when multiple subscribers (e.g. UI card + parent agent) drain
-//! independently; close-as-cancel lets a single signal both stop new mail and
-//! propagate cancellation through nested children.
+//! 单调递增的序列号为每个消费者提供一致的排序，即使
+//! 多个订阅者（例如 UI 卡片 + 父级代理）独立消费时也是如此；
+//! "关闭即取消"让一个信号既可以停止新邮件，也可以
+//! 通过嵌套的子级传播取消。
 
-// Some surface here is producer-only inside this crate today and consumed by
-// #128's UI cards in a follow-up; suppress the dead-code warnings until then
-// rather than deleting capabilities the design depends on.
+// 这里的一些接口目前仅在此 crate 内部是生产者端，将在后续
+// #128 的 UI 卡片中使用；在之前抑制死代码警告
+// 而不是删除设计所依赖的能力。
 #![allow(dead_code)]
 
 use std::collections::VecDeque;
@@ -23,57 +23,57 @@ use crate::models::Usage;
 
 use super::SubAgentType;
 
-/// Stable, structured progress envelope shared across the sub-agent surface.
+/// 在子代理表面共享的稳定、结构化进度信封。
 ///
-/// Tracks the lifecycle of a single agent (identified by `agent_id`) end to
-/// end: spawn, per-step progress, tool execution, completion / failure /
-/// cancellation, and parent → child topology so consumers can render trees.
+/// 端到端跟踪单个代理（由 `agent_id` 标识）的生命周期：
+/// 生成、每步进度、工具执行、完成/失败/取消，
+/// 以及父→子拓扑，以便消费者可以渲染树。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum MailboxMessage {
-    /// Agent has been started (background task is running).
+    /// 代理已启动（后台任务正在运行）。
     Started {
         agent_id: String,
         agent_type: String,
     },
-    /// Free-form human-readable progress (mirrors `Event::AgentProgress`).
+    /// 自由格式的人类可读进度（镜像 `Event::AgentProgress`）。
     Progress { agent_id: String, status: String },
-    /// A tool call inside the agent has started.
+    /// 代理内部的工具调用已开始。
     ToolCallStarted {
         agent_id: String,
         tool_name: String,
         step: u32,
     },
-    /// A tool call inside the agent has finished.
+    /// 代理内部的工具调用已完成。
     ToolCallCompleted {
         agent_id: String,
         tool_name: String,
         step: u32,
         ok: bool,
     },
-    /// A child agent was spawned by this agent.
+    /// 此代理生成了一个子代理。
     ChildSpawned { parent_id: String, child_id: String },
-    /// Agent completed successfully (carries the summary line shown in the
-    /// transcript; full result is still available via `agent_result`).
+    /// 代理成功完成（携带显示在记录中的摘要行；
+    /// 完整结果仍可通过 `agent_result` 获取）。
     Completed { agent_id: String, summary: String },
-    /// Agent failed with the carried error message.
+    /// 代理失败，携带错误消息。
     Failed { agent_id: String, error: String },
-    /// Cancellation propagated to this agent.
+    /// 取消已传播到此代理。
     Cancelled { agent_id: String },
-    /// Incremental token usage from a sub-agent's API call.
-    /// Published after each turn so the parent's cost counter updates live.
+    /// 来自子代理 API 调用的增量 token 使用量。
+    /// 每轮后发布，以便父级的成本计数器实时更新。
     TokenUsage {
         agent_id: String,
-        /// Model that produced this usage, used for pricing.
+        /// 产生此使用量的模型，用于定价。
         model: String,
-        /// Provider usage payload, including cache-hit/cache-miss fields.
+        /// 提供方使用量负载，包括缓存命中/未命中字段。
         usage: Usage,
     },
 }
 
 impl MailboxMessage {
-    /// `agent_id` of the message subject (for `ChildSpawned` this is the
-    /// child, since that's the new lifecycle being announced).
+    /// 消息主体的 `agent_id`（对于 `ChildSpawned` 这是子级，
+    /// 因为这是正在宣布的新生命周期）。
     #[must_use]
     pub fn agent_id(&self) -> &str {
         match self {
@@ -116,21 +116,21 @@ impl MailboxMessage {
     }
 }
 
-/// One delivery: a sequence number plus the message. The sequence is
-/// monotonic across the entire mailbox (not per-agent) so a single ordering
-/// is well-defined even when multiple sub-agents share one mailbox.
+/// 一次投递：一个序列号加上消息。序列在整个邮箱上是
+/// 单调递增的（不是按代理），因此即使多个子代理共享
+/// 一个邮箱，单个排序也是明确定义的。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MailboxEnvelope {
     pub seq: u64,
     pub message: MailboxMessage,
 }
 
-/// Sender side of the mailbox.
+/// 邮箱的发送端。
 ///
-/// Cheaply cloneable (everything inside is `Arc`/atomic). Cloning a
-/// `Mailbox` shares the same delivery channel, sequence counter, watch
-/// notifier, and close/cancel state — so a child runtime that clones its
-/// parent's `Mailbox` participates in the same stream.
+/// 可廉价克隆（内部所有内容都是 `Arc`/atomic）。克隆
+/// `Mailbox` 共享相同的投递通道、序列计数器、watch
+/// 通知器和关闭/取消状态——因此克隆了其父级 `Mailbox`
+/// 的子运行时参与相同的流。
 #[derive(Clone)]
 pub struct Mailbox {
     inner: Arc<MailboxInner>,
@@ -144,18 +144,19 @@ struct MailboxInner {
     cancel_token: CancellationToken,
 }
 
-/// Receiver side of the mailbox. Not `Clone` — only the original creator
-/// can drain. Use `Mailbox::subscribe()` for fanout (UI cards + parent both
-/// observing the same stream).
+/// 邮箱的接收端。不可 `Clone`——只有原始创建者
+/// 可以消费。使用 `Mailbox::subscribe()` 进行扇出
+///（UI 卡片 + 父级都观察同一个流）。
 pub struct MailboxReceiver {
     rx: mpsc::UnboundedReceiver<MailboxEnvelope>,
     pending: VecDeque<MailboxEnvelope>,
 }
 
 impl Mailbox {
-    /// Create a new mailbox bound to the given cancellation token. Closing
-    /// the mailbox (or dropping the last sender) cancels this token, which
-    /// propagates to children via `child_token()` per `SubAgentRuntime`.
+    /// 创建一个绑定到给定取消令牌的新邮箱。关闭
+    /// 邮箱（或丢弃最后一个发送者）会取消此令牌，
+    /// 并通过 `child_token()` 传播到子级，如
+    /// `SubAgentRuntime` 所述。
     #[must_use]
     pub fn new(cancel_token: CancellationToken) -> (Self, MailboxReceiver) {
         let (tx, rx) = mpsc::unbounded_channel();
@@ -178,18 +179,19 @@ impl Mailbox {
         )
     }
 
-    /// Subscribe to seq-bump notifications. Each `recv()` returns when the
-    /// sequence counter advances, signaling new mail without copying it —
-    /// the consumer then calls `drain` (or `recv_one` on its own receiver).
-    /// Multiple subscribers may exist; this is the fanout primitive.
+    /// 订阅 seq 增加通知。每次 `recv()` 在序列计数器
+    /// 前进时返回，表示有新邮件而无需复制它——
+    /// 消费者随后在其自己的接收器上调用 `drain`
+    ///（或 `recv_one`）。可能存在多个订阅者；
+    /// 这是扇出原语。
     #[must_use]
     pub fn subscribe(&self) -> watch::Receiver<u64> {
         self.inner.seq_tx.subscribe()
     }
 
-    /// Send a message; returns `Some(seq)` on success, `None` if the
-    /// mailbox is already closed (callers should treat this as "the
-    /// receiver is gone, stop publishing").
+    /// 发送消息；成功时返回 `Some(seq)`，如果邮箱
+    /// 已关闭则返回 `None`（调用方应将其视为
+    /// "接收者已消失，停止发布"）。
     pub fn send(&self, message: MailboxMessage) -> Option<u64> {
         if self.inner.closed.load(Ordering::Acquire) {
             return None;
@@ -203,18 +205,17 @@ impl Mailbox {
         Some(seq)
     }
 
-    /// Whether the mailbox has been closed.
+    /// 邮箱是否已关闭。
     #[must_use]
     pub fn is_closed(&self) -> bool {
         self.inner.closed.load(Ordering::Acquire)
     }
 
-    /// Close the mailbox AND cancel the bound cancellation token.
+    /// 关闭邮箱并取消绑定的取消令牌。
     ///
-    /// "Close-as-cancel": there's no useful state where the consumer is
-    /// gone but children should keep producing. Closing the parent's
-    /// mailbox cascades to every nested child because each child runtime
-    /// derived its `cancel_token` via `child_token()` from the parent's.
+    /// "关闭即取消"：不存在消费者已消失但子级应该继续生产的有用状态。
+    /// 关闭父级的邮箱会级联到每个嵌套的子级，因为每个子级运行时
+    /// 通过父级的 `child_token()` 派生其 `cancel_token`。
     pub fn close(&self) {
         if !self.inner.closed.swap(true, Ordering::AcqRel) {
             self.inner.cancel_token.cancel();
@@ -229,20 +230,20 @@ impl MailboxReceiver {
         }
     }
 
-    /// Whether any envelopes are buffered (or arrived since last check).
+    /// 是否有任何信封已缓冲（或自上次检查以来到达）。
     pub fn has_pending(&mut self) -> bool {
         self.sync_pending();
         !self.pending.is_empty()
     }
 
-    /// Drain all currently available envelopes, in delivery order.
+    /// 按投递顺序清空所有当前可用的信封。
     pub fn drain(&mut self) -> Vec<MailboxEnvelope> {
         self.sync_pending();
         self.pending.drain(..).collect()
     }
 
-    /// Await the next envelope, with backpressure-aware blocking. Returns
-    /// `None` when every sender has been dropped and the buffer is drained.
+    /// 等待下一个信封，具有背压感知阻塞。当
+    /// 所有发送者都已丢弃且缓冲区已清空时返回 `None`。
     pub async fn recv(&mut self) -> Option<MailboxEnvelope> {
         if let Some(env) = self.pending.pop_front() {
             return Some(env);
@@ -250,7 +251,7 @@ impl MailboxReceiver {
         self.rx.recv().await
     }
 
-    /// Awaits the next envelope with a timeout. Useful in tests.
+    /// 带超时等待下一个信封。在测试中有用。
     #[allow(dead_code)]
     pub async fn recv_timeout(&mut self, timeout: Duration) -> Option<MailboxEnvelope> {
         tokio::time::timeout(timeout, self.recv())
@@ -260,8 +261,8 @@ impl MailboxReceiver {
     }
 }
 
-/// Convenience handle: a mailbox + the matching cancellation token, ready to
-/// hand to a runtime. The receiver lives on the spawning side.
+/// 便捷句柄：一个邮箱 + 匹配的取消令牌，准备交给运行时。
+/// 接收端存在于生成方一侧。
 pub type SharedMailbox = Arc<Mutex<Option<MailboxReceiver>>>;
 
 #[cfg(test)]
@@ -323,20 +324,20 @@ mod tests {
         let (mb, _rx, _tok) = open();
         let mut sub_a = mb.subscribe();
         let mut sub_b = mb.subscribe();
-        // Initial state: both at 0.
+        // 初始状态：两者都在 0。
         assert_eq!(*sub_a.borrow(), 0);
         assert_eq!(*sub_b.borrow(), 0);
 
         mb.send(MailboxMessage::progress("x", "tick"));
-        sub_a.changed().await.expect("subscriber a sees bump");
-        sub_b.changed().await.expect("subscriber b sees bump");
+        sub_a.changed().await.expect("订阅者 a 看到增加");
+        sub_b.changed().await.expect("订阅者 b 看到增加");
         assert_eq!(*sub_a.borrow(), 1);
         assert_eq!(*sub_b.borrow(), 1);
 
-        // A second send updates both subscribers' watch values too — even
-        // though they share a single watch channel, fanout is N-to-many.
+        // 第二次发送也会更新两个订阅者的 watch 值——即使
+        // 它们共享单个 watch 通道，扇出也是 N 对多的。
         mb.send(MailboxMessage::progress("x", "tick2"));
-        sub_a.changed().await.expect("a sees second bump");
+        sub_a.changed().await.expect("a 看到第二次增加");
         assert_eq!(*sub_a.borrow(), 2);
     }
 
@@ -346,9 +347,9 @@ mod tests {
         assert!(!token.is_cancelled());
         mb.send(MailboxMessage::progress("a", "before close"));
         mb.close();
-        assert!(token.is_cancelled(), "close-as-cancel: token must fire");
+        assert!(token.is_cancelled(), "关闭即取消：令牌必须触发");
         assert!(mb.is_closed());
-        // Further sends are no-ops, returning None instead of poisoning seq.
+        // 后续发送是空操作，返回 None 而不是破坏 seq。
         assert!(
             mb.send(MailboxMessage::progress("a", "after close"))
                 .is_none()
@@ -357,7 +358,7 @@ mod tests {
 
     #[tokio::test]
     async fn close_propagates_to_child_tokens_across_max_spawn_depth() {
-        // Mirror the runtime: root → child → grandchild (default depth 3).
+        // 镜像运行时：根 → 子 → 孙（默认深度 3）。
         let root = CancellationToken::new();
         let child = root.child_token();
         let grandchild = child.child_token();
@@ -366,10 +367,10 @@ mod tests {
         assert!(!child.is_cancelled());
         assert!(!grandchild.is_cancelled());
         mb.close();
-        assert!(child.is_cancelled(), "child inherits root close");
+        assert!(child.is_cancelled(), "子级继承根关闭");
         assert!(
             grandchild.is_cancelled(),
-            "grandchild inherits too — covers default max_spawn_depth = 3"
+            "孙级也继承——覆盖默认 max_spawn_depth = 3"
         );
     }
 
@@ -377,14 +378,14 @@ mod tests {
     async fn recv_returns_envelope_then_none_after_close_and_drop() {
         let (mb, mut rx, _tok) = open();
         mb.send(MailboxMessage::progress("a", "queued"));
-        let env = rx.recv().await.expect("buffered envelope");
+        let env = rx.recv().await.expect("缓冲的信封");
         assert_eq!(env.seq, 1);
 
-        // After closing AND dropping the sender, recv must yield None.
+        // 关闭并丢弃发送者后，recv 必须返回 None。
         mb.close();
         drop(mb);
         let next = rx.recv_timeout(Duration::from_millis(100)).await;
-        assert!(next.is_none(), "drained + dropped → recv yields None");
+        assert!(next.is_none(), "已清空 + 已丢弃 → recv 返回 None");
     }
 
     #[tokio::test]
@@ -398,12 +399,12 @@ mod tests {
             .send(MailboxMessage::progress("a", "from clone"))
             .unwrap();
         assert_eq!(s1, 1);
-        assert_eq!(s2, 2, "clones share the seq counter");
+        assert_eq!(s2, 2, "克隆共享序列计数器");
 
         let drained = rx.drain();
         assert_eq!(drained.len(), 2);
 
-        // Closing through one clone closes them all (the AtomicBool is shared).
+        // 通过一个克隆关闭会关闭所有克隆（AtomicBool 是共享的）。
         mb_clone.close();
         assert!(mb.is_closed());
         assert!(token.is_cancelled());
@@ -472,7 +473,7 @@ mod tests {
             ),
         ];
         for (msg, expected) in cases {
-            assert_eq!(msg.agent_id(), expected, "extract failed for {msg:?}");
+            assert_eq!(msg.agent_id(), expected, "从 {msg:?} 提取失败");
         }
     }
 }

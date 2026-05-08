@@ -1,4 +1,4 @@
-//! Modal for request_user_input tool prompts.
+//! 用户输入 — 提示输入处理、自动完成和历史导航。
 
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::layout::{Alignment, Rect};

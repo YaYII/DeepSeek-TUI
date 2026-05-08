@@ -1,6 +1,6 @@
-## Mode: normal
+## 模式：普通
 
-Reads and `rlm` run silently. Writes, patches, and shell commands ask for approval.
+读取和 `rlm` 静默运行。写入、修补和 shell 命令需要审批。
 
-Before requesting writes, use `checklist_write` to outline your approach — visible plans build trust.
-For complex work, layer `update_plan` (strategy) above `checklist_write` (tactics).
+在请求写入之前，使用 `checklist_write` 概述你的方法——可见的计划建立信任。
+对于复杂工作，在 `checklist_write`（战术）之上叠加 `update_plan`（战略）。

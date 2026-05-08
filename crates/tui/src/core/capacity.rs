@@ -1,8 +1,8 @@
-//! Capacity-aware guardrail controller for context pressure management.
+//! 上下文压力管理的容量感知护栏控制器。
 
 use std::collections::{HashMap, VecDeque};
 
-/// Controller settings.
+/// 控制器设置。
 #[derive(Debug, Clone, PartialEq)]
 pub struct CapacityControllerConfig {
     pub enabled: bool,
@@ -28,19 +28,17 @@ impl Default for CapacityControllerConfig {
         model_priors.insert("deepseek_v4_flash".to_string(), 4.2);
 
         Self {
-            // OFF BY DEFAULT since v0.8.11. The capacity controller's
-            // interventions (TargetedContextRefresh, VerifyAndReplan)
-            // silently rewrite or clear the session message log, which
-            // surprises the user and destroys V4's prefix cache. v0.8.11
-            // committed to "trust the model with the full 1M-token
-            // context, only compact on explicit user `/compact`."
-            // Auto-managing the prefix on the user's behalf works against
-            // that posture. Power users who want the controller can opt
-            // in via `capacity.enabled = true` in
-            // `~/.deepseek/config.toml`.
+            // 自 v0.8.11 起默认关闭。容量控制器的干预措施
+            //（TargetedContextRefresh、VerifyAndReplan）
+            // 会静默地重写或清除会话消息日志，这会让用户感到意外
+            // 并破坏 V4 的前缀缓存。v0.8.11 承诺"信任模型使用完整的 1M 令牌
+            // 上下文，仅在用户显式 `/compact` 时压缩。"
+            // 代表用户自动管理前缀与此立场相悖。
+            // 需要控制器的专业用户可以通过
+            // `~/.deepseek/config.toml` 中的 `capacity.enabled = true` 选择启用。
             enabled: false,
-            // Thresholds retained for the opt-in path; tuning notes live
-            // in git history (#63 follow-up).
+            // 为选择启用路径保留的阈值；调优说明
+            // 在 git 历史中（#63 后续）。
             low_risk_max: 0.50,
             medium_risk_max: 0.62,
             severe_min_slack: -0.25,
@@ -57,7 +55,7 @@ impl Default for CapacityControllerConfig {
 }
 
 impl CapacityControllerConfig {
-    /// Build effective capacity config from app config.
+    /// 从应用配置构建有效的容量配置。
     #[must_use]
     pub fn from_app_config(config: &crate::config::Config) -> Self {
         let mut out = Self::default();
@@ -117,7 +115,7 @@ impl CapacityControllerConfig {
     }
 }
 
-/// Guardrail decision output.
+/// 护栏决策输出。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GuardrailAction {
     NoIntervention,
@@ -138,7 +136,7 @@ impl GuardrailAction {
     }
 }
 
-/// Coarse failure risk band.
+/// 粗略的失败风险等级。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RiskBand {
     Low,
@@ -157,7 +155,7 @@ impl RiskBand {
     }
 }
 
-/// Input used to observe current turn pressure.
+/// 用于观察当前轮次压力的输入。
 #[derive(Debug, Clone)]
 pub struct CapacityObservationInput {
     pub turn_index: u64,
@@ -168,7 +166,7 @@ pub struct CapacityObservationInput {
     pub context_used_ratio: f64,
 }
 
-/// Rolling slack profile.
+/// 滚动松弛度配置。
 #[derive(Debug, Clone, Copy, Default)]
 pub struct DynamicSlackProfile {
     pub final_slack: f64,
@@ -178,7 +176,7 @@ pub struct DynamicSlackProfile {
     pub slack_drop: f64,
 }
 
-/// Per-checkpoint capacity snapshot.
+/// 每个检查点的容量快照。
 #[derive(Debug, Clone)]
 pub struct CapacitySnapshot {
     pub turn_index: u64,
@@ -191,7 +189,7 @@ pub struct CapacitySnapshot {
     pub severe: bool,
 }
 
-/// Full controller decision including reason and block flags.
+/// 完整的控制器决策，包括原因和阻塞标志。
 #[derive(Debug, Clone)]
 pub struct CapacityDecision {
     pub action: GuardrailAction,

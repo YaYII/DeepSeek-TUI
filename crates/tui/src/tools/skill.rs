@@ -1,4 +1,4 @@
-//! `load_skill` tool — fetch a `SKILL.md` body and its companion-file
+//! 技能工具 — 加载和执行技能。
 //! list into the model's context (#434).
 //!
 //! ## Why a tool when skills already surface in the system prompt?
@@ -126,27 +126,26 @@ impl ToolSpec for LoadSkillTool {
     }
 }
 
-/// Render the skill body the model will see. Includes the description
-/// up top so a single tool result is self-contained — no need to
-/// cross-reference the system-prompt catalogue. Companion-file paths
-/// land at the bottom under a clearly-named heading so the model can
-/// open them with `read_file` if they're relevant to the task.
+/// 渲染模型将看到的技能内容。将描述放在顶部，
+/// 使单个工具结果自包含——无需交叉引用系统提示词目录。
+/// 配套文件路径放在底部，使用清晰命名的标题，
+/// 以便模型在任务需要时可以用 `read_file` 打开它们。
 fn format_skill_body(skill: &Skill) -> String {
     let mut out = String::new();
-    out.push_str(&format!("# Skill: {}\n\n", skill.name));
+    out.push_str(&format!("# 技能：{}\n\n", skill.name));
     if !skill.description.trim().is_empty() {
         out.push_str(&format!("> {}\n\n", skill.description.trim()));
     }
-    out.push_str(&format!("Source: `{}`\n\n", skill.path.display()));
+    out.push_str(&format!("来源：`{}`\n\n", skill.path.display()));
     out.push_str("## SKILL.md\n\n");
     out.push_str(skill.body.trim());
     out.push('\n');
 
     let companions = collect_companion_files(skill);
     if !companions.is_empty() {
-        out.push_str("\n## Companion files\n\n");
+        out.push_str("\n## 配套文件\n\n");
         out.push_str(
-            "Sibling files in the skill directory. Use `read_file` to open them when the task requires.\n\n",
+            "技能目录中的同级文件。当任务需要时，使用 `read_file` 打开它们。\n\n",
         );
         for path in &companions {
             out.push_str(&format!("- `{}`\n", path.display()));
@@ -155,10 +154,10 @@ fn format_skill_body(skill: &Skill) -> String {
     out
 }
 
-/// List sibling files of `SKILL.md` in the skill's own directory.
-/// Skips the `SKILL.md` itself and any nested directories so the
-/// listing stays focused on at-hand resources. Sorted lexically for
-/// deterministic output (matters for transcript diffing in tests).
+/// 列出技能自身目录中 `SKILL.md` 的同级文件。
+/// 跳过 `SKILL.md` 本身和任何嵌套目录，
+/// 使列表聚焦于手头资源。按字典序排序以确保
+/// 确定性输出（对测试中的转录本差异比较很重要）。
 fn collect_companion_files(skill: &Skill) -> Vec<std::path::PathBuf> {
     let Some(dir) = skill.path.parent() else {
         return Vec::new();
@@ -214,7 +213,7 @@ mod tests {
             .unwrap()
             .clone();
         let body = format_skill_body(&skill);
-        assert!(body.contains("# Skill: review-pr"));
+        assert!(body.contains("# 技能：review-pr"));
         assert!(body.contains("Run a focused PR review"));
         assert!(body.contains("# Steps"));
         assert!(body.contains("Read the diff."));
@@ -272,7 +271,7 @@ mod tests {
         let registry = SkillRegistry::discover(tmp.path());
         let skill = registry.get("skill-with-friends").unwrap();
         let body = format_skill_body(skill);
-        assert!(body.contains("## Companion files"));
+        assert!(body.contains("## 配套文件"));
         assert!(body.contains("helper.sh"));
     }
 
@@ -284,7 +283,7 @@ mod tests {
         let skill = registry.get("solo").unwrap();
         let body = format_skill_body(skill);
         assert!(
-            !body.contains("## Companion files"),
+            !body.contains("## 配套文件"),
             "solo skills shouldn't emit an empty Companion files section"
         );
     }
@@ -316,7 +315,7 @@ mod tests {
             .expect("load_skill should succeed");
         assert!(result.success);
         assert!(
-            result.content.contains("# Skill: from-opencode"),
+            result.content.contains("# 技能：from-opencode"),
             "body header missing: {}",
             &result.content
         );

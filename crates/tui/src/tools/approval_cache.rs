@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-//! Per‑call approval cache with fingerprint keys (§5.A).
+//! 审批缓存 — 缓存工具审批决策。
 //!
 //! Instead of caching by tool name alone (which would let an approved
 //! `exec_shell "cat foo"` silently pass `exec_shell "rm -rf /"`), the

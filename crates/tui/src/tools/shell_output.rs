@@ -1,4 +1,4 @@
-//! Output truncation and summarization helpers for shell tools.
+//! Shell 输出 — shell 工具的输出截断和摘要辅助函数。
 
 /// Maximum output size before truncation (30KB like Claude Code).
 const MAX_OUTPUT_SIZE: usize = 30_000;

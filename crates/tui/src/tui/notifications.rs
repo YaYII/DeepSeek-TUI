@@ -1,4 +1,4 @@
-//! OSC 9 / BEL desktop notifications for long agent-turn completion.
+//! 通知 — 吐司风格的通知弹窗。
 //!
 //! Writes a terminal escape to the provided sink (or stdout for the public
 //! API) when a turn takes longer than the configured threshold. Supports

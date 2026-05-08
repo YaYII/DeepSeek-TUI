@@ -1,4 +1,4 @@
-//! File system tools: `read_file`, `write_file`, `edit_file`, `list_dir`
+//! 文件工具 — `read_file`、`write_file`、`edit_file`。
 //!
 //! These tools provide safe file system operations within the workspace,
 //! with path validation to prevent escaping the workspace boundary.
@@ -26,7 +26,7 @@ impl ToolSpec for ReadFileTool {
     }
 
     fn description(&self) -> &'static str {
-        "Read a file from the workspace. Plain text is returned as-is; PDFs are auto-extracted via `pdftotext` (poppler) when available."
+        "从工作区读取文件。纯文本按原样返回；PDF 在可用时通过 `pdftotext`（poppler）自动提取。"
     }
 
     fn input_schema(&self) -> Value {
@@ -35,11 +35,11 @@ impl ToolSpec for ReadFileTool {
             "properties": {
                 "path": {
                     "type": "string",
-                    "description": "Path to the file (relative to workspace or absolute)"
+                    "description": "文件路径（相对于工作区或绝对路径）"
                 },
                 "pages": {
                     "type": "string",
-                    "description": "PDF only: page range to extract, e.g. \"1-5\" or \"10\". Ignored for non-PDF files."
+                    "description": "仅 PDF：要提取的页面范围，例如 \"1-5\" 或 \"10\"。非 PDF 文件忽略。"
                 }
             },
             "required": ["path"]
@@ -64,7 +64,7 @@ impl ToolSpec for ReadFileTool {
         }
 
         let contents = fs::read_to_string(&file_path).map_err(|e| {
-            ToolError::execution_failed(format!("Failed to read {}: {}", file_path.display(), e))
+            ToolError::execution_failed(format!("读取 {} 失败：{}", file_path.display(), e))
         })?;
 
         Ok(ToolResult::success(contents))
@@ -130,7 +130,7 @@ fn read_pdf(path: &Path, pages: Option<&str>) -> Result<ToolResult, ToolError> {
             }
             None => {
                 return Err(ToolError::invalid_input(format!(
-                    "invalid `pages` value `{spec}` (expected `N` or `N-M`, e.g. `1-5`)"
+                    "invalid `pages` value `{spec}`（需要 `N` 或 `N-M` 格式，例如 `1-5`）"
                 )));
             }
         }
@@ -149,8 +149,8 @@ fn read_pdf(path: &Path, pages: Option<&str>) -> Result<ToolResult, ToolError> {
                 "type": "binary_unavailable",
                 "path": path.display().to_string(),
                 "kind": "pdf",
-                "reason": "pdftotext not installed",
-                "hint": "install poppler (macOS: `brew install poppler`; Debian/Ubuntu: `apt install poppler-utils`)"
+                "reason": "未安装 pdftotext",
+                "hint": "请安装 poppler（macOS：`brew install poppler`；Debian/Ubuntu：`apt install poppler-utils`）"
             }))
             .map_err(|e| {
                 ToolError::execution_failed(format!("failed to serialize response: {e}"))
@@ -158,19 +158,19 @@ fn read_pdf(path: &Path, pages: Option<&str>) -> Result<ToolResult, ToolError> {
         }
         Err(e) => {
             return Err(ToolError::execution_failed(format!(
-                "failed to launch pdftotext: {e}"
+                "启动 pdftotext 失败：{e}"
             )));
         }
     };
 
     let output = child
         .wait_with_output()
-        .map_err(|e| ToolError::execution_failed(format!("pdftotext failed to complete: {e}")))?;
+        .map_err(|e| ToolError::execution_failed(format!("pdftotext 运行失败：{e}")))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
         return Err(ToolError::execution_failed(format!(
-            "pdftotext failed (exit {:?}): {stderr}",
+            "pdftotext 失败（退出码 {:?}）：{stderr}",
             output.status.code()
         )));
     }
@@ -191,7 +191,7 @@ impl ToolSpec for WriteFileTool {
     }
 
     fn description(&self) -> &'static str {
-        "Write content to a UTF-8 file in the workspace."
+        "将内容写入工作区中的 UTF-8 文件。"
     }
 
     fn input_schema(&self) -> Value {
@@ -200,11 +200,11 @@ impl ToolSpec for WriteFileTool {
             "properties": {
                 "path": {
                     "type": "string",
-                    "description": "Path to the file"
+                    "description": "文件路径"
                 },
                 "content": {
                     "type": "string",
-                    "description": "Content to write"
+                    "description": "要写入的内容"
                 }
             },
             "required": ["path", "content"]
@@ -242,7 +242,7 @@ impl ToolSpec for WriteFileTool {
         if let Some(parent) = file_path.parent() {
             fs::create_dir_all(parent).map_err(|e| {
                 ToolError::execution_failed(format!(
-                    "Failed to create directory {}: {}",
+                    "创建目录 {} 失败：{}",
                     parent.display(),
                     e
                 ))
@@ -250,18 +250,18 @@ impl ToolSpec for WriteFileTool {
         }
 
         fs::write(&file_path, file_content).map_err(|e| {
-            ToolError::execution_failed(format!("Failed to write {}: {}", file_path.display(), e))
+            ToolError::execution_failed(format!("写入 {} 失败：{}", file_path.display(), e))
         })?;
 
         let display = file_path.display().to_string();
         let diff = make_unified_diff(&display, &prior_contents, file_content);
         let summary = if existed_before {
-            format!("Wrote {} bytes to {}", file_content.len(), display)
+            format!("已写入 {} 字节到 {}", file_content.len(), display)
         } else {
-            format!("Created {} ({} bytes)", display, file_content.len())
+            format!("已创建 {}（{} 字节）", display, file_content.len())
         };
         let body = if diff.is_empty() {
-            format!("{summary}\n(no changes)")
+            format!("{summary}\n（无更改）")
         } else {
             format!("{diff}\n{summary}")
         };
@@ -290,7 +290,7 @@ impl ToolSpec for EditFileTool {
     }
 
     fn description(&self) -> &'static str {
-        "Replace text in a file using search/replace. Required: 'path' (file to edit), 'search' (exact text to find), 'replace' (text to substitute)."
+        "使用搜索/替换来替换文件中的文本。必需：'path'（要编辑的文件）、'search'（要查找的确切文本）、'replace'（要替换的文本）。"
     }
 
     fn input_schema(&self) -> Value {
@@ -299,15 +299,15 @@ impl ToolSpec for EditFileTool {
             "properties": {
                 "path": {
                     "type": "string",
-                    "description": "Path to the file"
+                    "description": "文件路径"
                 },
                 "search": {
                     "type": "string",
-                    "description": "Text to search for"
+                    "description": "要搜索的文本"
                 },
                 "replace": {
                     "type": "string",
-                    "description": "Text to replace with"
+                    "description": "要替换为的文本"
                 }
             },
             "required": ["path", "search", "replace"]
@@ -334,13 +334,13 @@ impl ToolSpec for EditFileTool {
         let file_path = context.resolve_path(path_str)?;
 
         let contents = fs::read_to_string(&file_path).map_err(|e| {
-            ToolError::execution_failed(format!("Failed to read {}: {}", file_path.display(), e))
+            ToolError::execution_failed(format!("读取 {} 失败：{}", file_path.display(), e))
         })?;
 
         let count = contents.matches(search).count();
         if count == 0 {
             return Err(ToolError::execution_failed(format!(
-                "Search string not found in {}",
+                "在 {} 中未找到搜索字符串",
                 file_path.display()
             )));
         }
@@ -348,14 +348,14 @@ impl ToolSpec for EditFileTool {
         let updated = contents.replace(search, replace);
 
         fs::write(&file_path, &updated).map_err(|e| {
-            ToolError::execution_failed(format!("Failed to write {}: {}", file_path.display(), e))
+            ToolError::execution_failed(format!("写入 {} 失败：{}", file_path.display(), e))
         })?;
 
         let display = file_path.display().to_string();
         let diff = make_unified_diff(&display, &contents, &updated);
-        let summary = format!("Replaced {count} occurrence(s) in {display}");
+        let summary = format!("在 {display} 中替换了 {count} 处");
         let body = if diff.is_empty() {
-            format!("{summary}\n(no textual changes)")
+            format!("{summary}\n（无文本更改）")
         } else {
             format!("{diff}\n{summary}")
         };
@@ -384,7 +384,7 @@ impl ToolSpec for ListDirTool {
     }
 
     fn description(&self) -> &'static str {
-        "List entries in a directory relative to the workspace."
+        "列出工作区中目录的内容。"
     }
 
     fn input_schema(&self) -> Value {
@@ -393,7 +393,7 @@ impl ToolSpec for ListDirTool {
             "properties": {
                 "path": {
                     "type": "string",
-                    "description": "Relative path (default: .)"
+                    "description": "相对路径（默认：.）"
                 }
             },
             "required": []
@@ -416,7 +416,7 @@ impl ToolSpec for ListDirTool {
 
         for entry in fs::read_dir(&dir_path).map_err(|e| {
             ToolError::execution_failed(format!(
-                "Failed to read directory {}: {}",
+                "读取目录 {} 失败：{}",
                 dir_path.display(),
                 e
             ))
@@ -569,7 +569,7 @@ mod tests {
         assert!(result.success);
         // New file → "Created …" summary; the unified diff above the summary
         // primes the TUI's diff-aware renderer (#505).
-        assert!(result.content.contains("Created"), "{}", result.content);
+        assert!(result.content.contains("已创建"), "{}", result.content);
         assert!(result.content.contains("--- a/"), "{}", result.content);
         assert!(
             result.content.contains("+test content"),
@@ -622,7 +622,7 @@ mod tests {
             .expect("execute");
 
         assert!(result.success);
-        assert!(result.content.contains("2 occurrence(s)"));
+        assert!(result.content.contains("替换了 2 处"));
         // Inline diff (#505) — the unified diff lands above the summary
         // line so the TUI's diff-aware renderer kicks in.
         assert!(result.content.contains("--- a/"), "{}", result.content);
@@ -661,7 +661,7 @@ mod tests {
 
         assert!(result.is_err());
         let err = result.unwrap_err();
-        assert!(err.to_string().contains("not found"));
+        assert!(err.to_string().contains("未找到"));
     }
 
     /// #157 — When the model uses `replacement` instead of `replace`,

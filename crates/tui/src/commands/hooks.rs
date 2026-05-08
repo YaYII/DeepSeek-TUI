@@ -1,5 +1,4 @@
-//! `/hooks` slash command — read-only listing of configured
-//! lifecycle hooks (#460 MVP).
+//! `/hooks` 命令 — 管理会话钩子。
 //!
 //! The full picker / persisted enable-disable surface in #460 is
 //! still M-sized. This MVP gives the user a no-typing view of what's

@@ -1,26 +1,26 @@
-## Compaction Handoff
+## 压缩交接
 
-The conversation above this point has been compacted. Below is a structured summary of what was discussed and decided. Read this first — it replaces re-reading the compressed transcript.
+此点以上的对话已被压缩。以下是讨论和决定事项的结构化摘要。请先阅读此内容——它替代了重新阅读压缩后的抄本。
 
-### Goal
-[The user's high-level objective for this session]
+### 目标
+[用户在此会话中的高层目标]
 
-### Constraints
-[What's off-limits, what bounds the work, what the user explicitly does NOT want changed]
+### 约束条件
+[哪些内容受限、工作的边界、用户明确不希望更改的内容]
 
-### Progress
+### 进展
 
-#### Done
-[What's complete and verified — landed commits, passing tests, shipped patches]
+#### 已完成
+[已完成并已验证的内容——已落地的提交、通过的测试、已发布的补丁]
 
-#### In Progress
-[What's mid-flight — partial implementations, open PRs, work-in-tree]
+#### 进行中
+[正在进行中的内容——部分实现、开放的 PR、树中的工作]
 
-#### Blocked
-[What's stuck, why, and what would unblock it]
+#### 阻塞
+[被卡住的内容、原因以及如何解除阻塞]
 
-### Key Decisions
-[Architectural choices, design decisions, trade-offs made — the WHY behind the work]
+### 关键决策
+[架构选择、设计决策、已做的权衡——工作背后的原因]
 
-### Next step
-[The single next action to take when resuming — one line, concrete]
+### 下一步
+[恢复时接下来要采取的单个行动——一行，具体明确]

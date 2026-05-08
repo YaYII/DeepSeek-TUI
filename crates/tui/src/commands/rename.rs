@@ -1,4 +1,4 @@
-//! `/rename` command — set a custom title for the current session.
+//! `/rename` 命令 — 重命名当前会话。
 
 use crate::session_manager::{SessionManager, update_session};
 use crate::tui::app::App;

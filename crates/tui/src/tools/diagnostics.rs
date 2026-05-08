@@ -1,4 +1,4 @@
-//! Workspace diagnostics tool: `diagnostics`.
+//! 诊断 — LSP 诊断工具。
 //!
 //! This tool gathers lightweight, best-effort environment information without
 //! failing hard when optional commands are unavailable.

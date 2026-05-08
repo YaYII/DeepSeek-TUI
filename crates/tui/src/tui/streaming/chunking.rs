@@ -1,8 +1,7 @@
-//! Adaptive stream chunking policy for two-gear streaming.
+//! 将流式文本分割为可渲染的块。
 //!
-//! Ported from `codex-rs/tui/src/streaming/chunking.rs`, adapted for deepseek-tui's
-//! text-based streaming pipeline. The policy is queue-pressure driven and
-//! source-agnostic.
+//! 从 `codex-rs/tui/src/streaming/chunking.rs` 移植，针对 deepseek-tui 的
+//! 基于文本的流式管道进行了适配。策略是队列压力驱动的，且与来源无关。
 //!
 //! # Mental model
 //!

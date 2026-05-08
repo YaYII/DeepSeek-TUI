@@ -1,4 +1,4 @@
-//! Config commands: config, settings, mode switches, trust, logout
+//! `/config` 命令 — 查看和修改配置设置。
 
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -738,13 +738,13 @@ pub struct AutoRouteSelection {
 }
 
 pub const AUTO_MODEL_ROUTER_SYSTEM_PROMPT: &str = "\
-You are the DeepSeek TUI auto-routing classifier. Return only compact JSON: \
-{\"model\":\"deepseek-v4-flash|deepseek-v4-pro\",\"thinking\":\"off|high|max\"}. \
-Use deepseek-v4-flash for trivial, conversational, status, or single-step work. \
-Use deepseek-v4-pro for coding, debugging, release work, multi-step tasks, high-risk decisions, \
-tool-heavy work, ambiguous requests, or anything that benefits from deeper reasoning. \
-Use thinking off only for trivial no-tool answers, high for ordinary reasoning, and max for \
-agentic, coding, multi-file, release, architecture, debugging, security, tool-heavy, or uncertain work.";
+你是 DeepSeek TUI 自动路由分类器。只返回紧凑的 JSON：\
+{\"model\":\"deepseek-v4-flash|deepseek-v4-pro\",\"thinking\":\"off|high|max\"}。\
+对于琐碎、对话、状态查询或单步工作，使用 deepseek-v4-flash。\
+对于编码、调试、发布工作、多步骤任务、高风险决策、\
+工具密集型工作、模糊请求或任何受益于更深层推理的内容，使用 deepseek-v4-pro。\
+仅在琐碎的无工具答案时使用 thinking off，普通推理时使用 high，\
+代理型工作、编码、多文件、发布、架构、调试、安全、工具密集型或不确定的工作时使用 max。";
 
 /// Parse the Flash router's JSON-only response.
 ///
@@ -891,11 +891,11 @@ fn auto_route_prompt(
     selected_thinking_mode: &str,
 ) -> String {
     format!(
-        "Session mode: agent\nSelected model mode: {}\nSelected thinking mode: {}\n\nRecent context:\n{}\n\nLatest user request:\n{}\n\nReturn JSON only.",
+        "会话模式：agent\n选择的模型模式：{}\n选择的思考模式：{}\n\n最近的上下文：\n{}\n\n最新的用户请求：\n{}\n\n仅返回 JSON。",
         selected_model_mode,
         selected_thinking_mode,
         if recent_context.trim().is_empty() {
-            "No prior context."
+            "没有先前的上下文。"
         } else {
             recent_context
         },

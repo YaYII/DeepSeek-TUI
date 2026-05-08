@@ -1,7 +1,7 @@
-//! HTTP client for DeepSeek's OpenAI-compatible Chat Completions API.
+//! DeepSeek 的 OpenAI 兼容 Chat Completions API 的 HTTP 客户端。
 //!
-//! DeepSeek documents `/chat/completions` as the primary endpoint, and this
-//! client now routes all normal traffic through that surface.
+//! DeepSeek 将 `/chat/completions` 作为主要端点，此客户端
+//! 现在将所有常规流量路由通过该接口。
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex as StdMutex, OnceLock};
@@ -346,14 +346,14 @@ fn validate_base_url_security(base_url: &str) -> Result<()> {
 
     if base_url.starts_with("http://") {
         anyhow::bail!(
-            "Refusing insecure base URL '{}'. Use HTTPS or set {}=1 to override for trusted environments.",
+            "拒绝不安全的 base URL '{}'。请使用 HTTPS 或设置 {}=1 以在可信环境中覆盖。",
             base_url,
             ALLOW_INSECURE_HTTP_ENV
         );
     }
 
     anyhow::bail!(
-        "Refusing base URL '{}': only HTTPS (or explicitly allowed HTTP) URLs are supported.",
+        "拒绝 base URL '{}'：仅支持 HTTPS（或明确允许的 HTTP）URL。",
         base_url,
     )
 }
@@ -570,7 +570,7 @@ impl DeepSeekClient {
         let status = response.status();
         if !status.is_success() {
             let error_text = bounded_error_text(response, ERROR_BODY_MAX_BYTES).await;
-            anyhow::bail!("Failed to list models: HTTP {status}: {error_text}");
+            anyhow::bail!("列出模型失败：HTTP {status}：{error_text}");
         }
         let response_text = response.text().await.unwrap_or_default();
 
@@ -964,15 +964,15 @@ impl DeepSeekClient {
         let status = response.status();
         if !status.is_success() {
             let error_text = bounded_error_text(response, ERROR_BODY_MAX_BYTES).await;
-            anyhow::bail!("FIM API error: HTTP {status}: {error_text}");
+            anyhow::bail!("FIM API 错误：HTTP {status}：{error_text}");
         }
         let response_text = response.text().await.unwrap_or_default();
         let value: serde_json::Value =
-            serde_json::from_str(&response_text).context("Failed to parse FIM API response")?;
+            serde_json::from_str(&response_text).context("解析 FIM API 响应失败")?;
         let text = value
             .pointer("/choices/0/text")
             .and_then(serde_json::Value::as_str)
-            .ok_or_else(|| anyhow::anyhow!("FIM response missing choices[0].text"))?;
+            .ok_or_else(|| anyhow::anyhow!("FIM 响应缺少 choices[0].text"))?;
         Ok(text.to_string())
     }
 }
@@ -2221,7 +2221,7 @@ mod tests {
     fn base_url_security_rejects_insecure_non_local_http() {
         let err = validate_base_url_security("http://api.deepseek.com")
             .expect_err("non-local insecure HTTP should be rejected");
-        assert!(err.to_string().contains("Refusing insecure base URL"));
+        assert!(err.to_string().contains("拒绝不安全的 base URL"));
     }
 
     #[test]

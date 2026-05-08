@@ -1,4 +1,4 @@
-//! Finance quote tool backed by Yahoo Finance-style public endpoints.
+//! 财务工具 — 股票和加密货币数据。
 //!
 //! The tool prefers Yahoo's quote endpoint and falls back to the chart endpoint
 //! when quote access is unavailable or returns no data.

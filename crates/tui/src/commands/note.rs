@@ -1,4 +1,4 @@
-//! Note command: append to persistent notes file
+//! `/note` 命令 — 添加会话笔记。
 
 use crate::tui::app::App;
 use std::fs;

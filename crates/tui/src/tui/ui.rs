@@ -1,4 +1,4 @@
-//! TUI event loop and rendering logic for `DeepSeek` CLI.
+//! `DeepSeek` CLI 的 TUI 事件循环和渲染逻辑。
 
 use std::collections::HashSet;
 use std::io::{self, Stdout, Write};

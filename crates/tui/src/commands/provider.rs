@@ -1,4 +1,4 @@
-//! Provider switching: flip between DeepSeek, hosted providers, and self-hosted
+//! `/provider` 命令 — 切换 API 提供者。
 //! OpenAI-compatible DeepSeek V4 servers at runtime.
 //!
 //! `/provider` with no args opens the picker modal (#52). `/provider <name>`

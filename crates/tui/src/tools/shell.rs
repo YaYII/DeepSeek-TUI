@@ -1,4 +1,4 @@
-//! Advanced shell execution with background process support and sandboxing.
+//! Shell 工具 — `exec_shell` 命令执行，支持后台进程和沙箱化。
 //!
 //! Provides:
 //! - Synchronous command execution with timeout
@@ -1422,9 +1422,9 @@ use crate::tools::spec::{
 use async_trait::async_trait;
 use serde_json::json;
 
-const FOREGROUND_TIMEOUT_RECOVERY_HINT: &str = "Foreground exec_shell is for bounded commands. \
-The timed-out process was killed; rerun long work with task_shell_start or exec_shell with \
-background: true, then poll with task_shell_wait or exec_shell_wait.";
+const FOREGROUND_TIMEOUT_RECOVERY_HINT: &str = "前台的 exec_shell 适用于有界命令。\
+超时的进程已被杀死；长时间运行的工作请使用 task_shell_start 或带 background: true \
+的 exec_shell，然后使用 task_shell_wait 或 exec_shell_wait 轮询。";
 
 fn command_likely_needs_network(command: &str) -> bool {
     let normalized = command.to_ascii_lowercase();
@@ -1610,7 +1610,7 @@ impl ToolSpec for ExecShellTool {
     }
 
     fn description(&self) -> &'static str {
-        "Execute a shell command in the workspace directory. Foreground mode is for bounded commands; use background=true or task_shell_start for long-running work, then poll/wait."
+        "在工作区目录中执行 shell 命令。前台模式适用于有界命令；长时间运行的工作请使用 background=true 或 task_shell_start，然后轮询/等待。"
     }
 
     fn input_schema(&self) -> serde_json::Value {
@@ -1619,31 +1619,31 @@ impl ToolSpec for ExecShellTool {
             "properties": {
                 "command": {
                     "type": "string",
-                    "description": "The shell command to execute"
+                    "description": "要执行的 shell 命令"
                 },
                 "timeout_ms": {
                     "type": "integer",
-                    "description": "Timeout in milliseconds (default: 120000, max: 600000)"
+                    "description": "超时时间（毫秒）（默认：120000，最大：600000）"
                 },
                 "background": {
                     "type": "boolean",
-                    "description": "Run in background and return task_id (default: false). Prefer true for commands that may run for minutes; poll with exec_shell_wait or task_shell_wait."
+                    "description": "后台运行并返回 task_id（默认：false）。对于可能需要运行数分钟的命令，请设为 true；使用 exec_shell_wait 或 task_shell_wait 轮询。"
                 },
                 "interactive": {
                     "type": "boolean",
-                    "description": "Run interactively with terminal IO (default: false)"
+                    "description": "以交互模式运行（带终端 IO）（默认：false）"
                 },
                 "stdin": {
                     "type": "string",
-                    "description": "Optional stdin data to send before waiting (non-interactive only)"
+                    "description": "可选的 stdin 数据（非交互模式）"
                 },
                 "cwd": {
                     "type": "string",
-                    "description": "Optional working directory for the command"
+                    "description": "命令的可选工作目录"
                 },
                 "tty": {
                     "type": "boolean",
-                    "description": "Allocate a pseudo-terminal for interactive programs (implies background)"
+                    "description": "为交互式程序分配伪终端（隐含 background）"
                 }
             },
             "required": ["command"]
@@ -1681,17 +1681,17 @@ impl ToolSpec for ExecShellTool {
 
         if interactive && background {
             return Ok(ToolResult::error(
-                "Interactive commands cannot run in background mode.",
+                "交互命令无法在后台模式下运行。",
             ));
         }
         if interactive && tty {
             return Ok(ToolResult::error(
-                "Interactive mode cannot be combined with TTY sessions.",
+                "交互模式不能与 TTY 会话结合。",
             ));
         }
         if interactive && stdin_data.is_some() {
             return Ok(ToolResult::error(
-                "Interactive mode cannot be combined with stdin data.",
+                "交互模式不能与 stdin 数据结合。",
             ));
         }
 
@@ -1706,7 +1706,7 @@ impl ToolSpec for ExecShellTool {
             execpolicy_decision = Some(decision.clone());
             if let ExecPolicyDecision::Deny(reason) = decision {
                 return Ok(ToolResult {
-                    content: format!("BLOCKED: {reason}"),
+                    content: format!("已阻止：{reason}"),
                     success: false,
                     metadata: Some(json!({
                         "execpolicy": {
@@ -1727,11 +1727,11 @@ impl ToolSpec for ExecShellTool {
                     let suggestions = if safety.suggestions.is_empty() {
                         String::new()
                     } else {
-                        format!("\nSuggestions: {}", safety.suggestions.join("; "))
+                        format!("\n建议：{}", safety.suggestions.join("; "))
                     };
                     return Ok(ToolResult {
                         content: format!(
-                            "BLOCKED: This command was blocked for safety reasons.\n\nReasons: {reasons}{suggestions}"
+                            "已阻止：出于安全原因已阻止此命令。\n\n原因：{reasons}{suggestions}"
                         ),
                         success: false,
                         metadata: Some(json!({
@@ -1779,17 +1779,17 @@ impl ToolSpec for ExecShellTool {
         if let Some(backend) = &context.sandbox_backend {
             if interactive {
                 return Ok(ToolResult::error(
-                    "Interactive mode is not supported with external sandbox backends.",
+                    "外部沙箱后端不支持交互模式。",
                 ));
             }
             if background {
                 return Ok(ToolResult::error(
-                    "Background mode is not supported with external sandbox backends.",
+                    "外部沙箱后端不支持后台模式。",
                 ));
             }
             if tty {
                 return Ok(ToolResult::error(
-                    "TTY mode is not supported with external sandbox backends.",
+                    "外部沙箱后端不支持 TTY 模式。",
                 ));
             }
 
@@ -1824,7 +1824,7 @@ impl ToolSpec for ExecShellTool {
                     }
                 }
                 Err(e) => {
-                    return Ok(ToolResult::error(format!("Sandbox backend error: {e}")));
+                    return Ok(ToolResult::error(format!("沙箱后端错误：{e}")));
                 }
             };
 
@@ -1837,11 +1837,11 @@ impl ToolSpec for ExecShellTool {
                 stdout_summary.clone()
             };
             let output = if result.stdout.is_empty() && result.stderr.is_empty() {
-                "(no output)".to_string()
+                "（无输出）".to_string()
             } else if result.stderr.is_empty() {
                 result.stdout.clone()
             } else {
-                format!("{}\n\nSTDERR:\n{}", result.stdout, result.stderr)
+                format!("{}\n\nSTDERR：\n{}", result.stdout, result.stderr)
             };
 
             let metadata = json!({
@@ -1943,38 +1943,38 @@ impl ToolSpec for ExecShellTool {
                     shell_network_restricted_hint(context, command, &result).map(str::to_string);
                 let mut output = if interactive {
                     format!(
-                        "Interactive command completed (exit code: {:?})",
+                        "交互命令已完成（退出码：{:?}）",
                         result.exit_code
                     )
                 } else if result.status == ShellStatus::Completed {
                     if result.stdout.is_empty() && result.stderr.is_empty() {
-                        "(no output)".to_string()
+                        "（无输出）".to_string()
                     } else if result.stderr.is_empty() {
                         result.stdout.clone()
                     } else {
-                        format!("{}\n\nSTDERR:\n{}", result.stdout, result.stderr)
+                        format!("{}\n\nSTDERR：\n{}", result.stdout, result.stderr)
                     }
                 } else if result.status == ShellStatus::Running {
                     if backgrounded_foreground {
                         format!(
-                            "Command moved to background: {task_id_str}\n\nPoll with exec_shell_wait or cancel with exec_shell_cancel."
+                            "命令已移至后台：{task_id_str}\n\n使用 exec_shell_wait 轮询或使用 exec_shell_cancel 取消。"
                         )
                     } else {
-                        format!("Background task started: {task_id_str}")
+                        format!("后台任务已启动：{task_id_str}")
                     }
                 } else if result.status == ShellStatus::Killed && was_cancelled {
                     format!(
-                        "Command canceled; process killed.\n\nSTDOUT:\n{}\n\nSTDERR:\n{}",
+                        "命令已取消；进程已被杀死。\n\nSTDOUT：\n{}\n\nSTDERR：\n{}",
                         result.stdout, result.stderr
                     )
                 } else if result.status == ShellStatus::TimedOut {
                     format!(
-                        "Command timed out after {timeout_ms}ms; process killed.\n\n{FOREGROUND_TIMEOUT_RECOVERY_HINT}\n\nSTDOUT:\n{}\n\nSTDERR:\n{}",
+                        "命令在 {timeout_ms}ms 后超时；进程已被杀死。\n\n{FOREGROUND_TIMEOUT_RECOVERY_HINT}\n\nSTDOUT：\n{}\n\nSTDERR：\n{}",
                         result.stdout, result.stderr
                     )
                 } else {
                     format!(
-                        "Command failed (exit code: {:?})\n\nSTDOUT:\n{}\n\nSTDERR:\n{}",
+                        "命令失败（退出码：{:?}）\n\nSTDOUT：\n{}\n\nSTDERR：\n{}",
                         result.exit_code, result.stdout, result.stderr
                     )
                 };
@@ -2090,16 +2090,16 @@ fn build_shell_delta_tool_result(delta: ShellDeltaResult, context: &ToolContext)
 
     let mut output = if result.stdout.is_empty() && result.stderr.is_empty() {
         match result.status {
-            ShellStatus::Running => "Background task running (no new output).".to_string(),
-            ShellStatus::Completed => "(no new output)".to_string(),
-            ShellStatus::Failed => format!("Command failed (exit code: {:?})", result.exit_code),
-            ShellStatus::TimedOut => "Command timed out (no new output).".to_string(),
-            ShellStatus::Killed => "Command killed (no new output).".to_string(),
+            ShellStatus::Running => "后台任务正在运行（暂无新输出）。".to_string(),
+            ShellStatus::Completed => "（无新输出）".to_string(),
+            ShellStatus::Failed => format!("命令失败（退出码：{:?}）", result.exit_code),
+            ShellStatus::TimedOut => "命令超时（暂无新输出）。".to_string(),
+            ShellStatus::Killed => "命令已被杀死（暂无新输出）。".to_string(),
         }
     } else if result.stderr.is_empty() {
         result.stdout.clone()
     } else {
-        format!("{}\n\nSTDERR:\n{}", result.stdout, result.stderr)
+        format!("{}\n\nSTDERR：\n{}", result.stdout, result.stderr)
     };
     if let Some(hint) = network_restricted_hint.as_deref() {
         output = format!("{hint}\n\n{output}");
@@ -2262,7 +2262,7 @@ impl ToolSpec for ShellCancelTool {
     }
 
     fn description(&self) -> &'static str {
-        "Cancel a running background shell task by task_id, or cancel all running background shell tasks with all=true."
+        "通过 task_id 取消正在运行的后台 shell 任务，或使用 all=true 取消所有正在运行的后台 shell 任务。"
     }
 
     fn input_schema(&self) -> serde_json::Value {
@@ -2271,15 +2271,15 @@ impl ToolSpec for ShellCancelTool {
             "properties": {
                 "task_id": {
                     "type": "string",
-                    "description": "Task ID returned by exec_shell or task_shell_start"
+                    "description": "由 exec_shell 或 task_shell_start 返回的任务 ID"
                 },
                 "id": {
                     "type": "string",
-                    "description": "Alias for task_id"
+                    "description": "task_id 的别名"
                 },
                 "all": {
                     "type": "boolean",
-                    "description": "Cancel all currently running background shell tasks"
+                    "description": "取消所有当前正在运行的后台 shell 任务"
                 }
             }
         })
@@ -2326,9 +2326,8 @@ impl ToolSpec for ShellCancelTool {
                 .collect::<Vec<_>>();
             return Ok(ToolResult {
                 content: format!(
-                    "Canceled {} background shell job{}: {}",
+                    "已取消 {} 个后台 shell 任务：{}",
                     task_ids.len(),
-                    if task_ids.len() == 1 { "" } else { "s" },
                     task_ids.join(", ")
                 ),
                 success: true,
@@ -2349,7 +2348,7 @@ impl ToolSpec for ShellCancelTool {
             .clone()
             .unwrap_or_else(|| task_id.to_string());
         Ok(ToolResult {
-            content: format!("Canceled background shell job: {task_id}"),
+            content: format!("已取消后台 shell 任务：{task_id}"),
             success: true,
             metadata: Some(json!({
                 "status": format!("{:?}", result.status),
@@ -2368,7 +2367,7 @@ impl ToolSpec for ShellWaitTool {
     }
 
     fn description(&self) -> &'static str {
-        "Wait for a background shell task and return incremental output. Turn cancellation stops waiting but leaves the background task running."
+        "等待后台 shell 任务并返回增量输出。轮次取消会停止等待，但后台任务继续运行。"
     }
 
     fn input_schema(&self) -> serde_json::Value {
@@ -2377,15 +2376,15 @@ impl ToolSpec for ShellWaitTool {
             "properties": {
                 "task_id": {
                     "type": "string",
-                    "description": "Task ID returned by exec_shell"
+                    "description": "由 exec_shell 返回的任务 ID",
                 },
                 "timeout_ms": {
                     "type": "integer",
-                    "description": "Timeout in milliseconds (default: 5000)"
+                    "description": "超时时间（毫秒）（默认：5000）"
                 },
                 "wait": {
                     "type": "boolean",
-                    "description": "Wait for completion before returning (default: true)"
+                    "description": "等待完成后再返回（默认：true）"
                 }
             },
             "required": ["task_id"]
@@ -2427,7 +2426,7 @@ impl ToolSpec for ShellWaitTool {
         if wait_canceled {
             if matches!(status, ShellStatus::Running) {
                 result.content = format!(
-                    "Wait canceled; background shell task {task_id} is still running.\n\n{}",
+                    "等待已取消；后台 shell 任务 {task_id} 仍在运行。\n\n{}",
                     result.content
                 );
             }
@@ -2449,7 +2448,7 @@ impl ToolSpec for ShellInteractTool {
     }
 
     fn description(&self) -> &'static str {
-        "Send input to a background shell task and return incremental output."
+        "向后台 shell 任务发送输入并返回增量输出。"
     }
 
     fn input_schema(&self) -> serde_json::Value {
@@ -2458,27 +2457,27 @@ impl ToolSpec for ShellInteractTool {
             "properties": {
                 "task_id": {
                     "type": "string",
-                    "description": "Task ID returned by exec_shell"
+                    "description": "由 exec_shell 返回的任务 ID"
                 },
                 "input": {
                     "type": "string",
-                    "description": "Input to send to the task's stdin"
+                    "description": "要发送到任务 stdin 的输入"
                 },
                 "stdin": {
                     "type": "string",
-                    "description": "Alias for input"
+                    "description": "input 的别名"
                 },
                 "data": {
                     "type": "string",
-                    "description": "Alias for input"
+                    "description": "input 的别名"
                 },
                 "timeout_ms": {
                     "type": "integer",
-                    "description": "Wait for output after sending input (default: 1000)"
+                    "description": "发送输入后等待输出的时间（毫秒）（默认：1000）"
                 },
                 "close_stdin": {
                     "type": "boolean",
-                    "description": "Close stdin after sending input"
+                    "description": "发送输入后关闭 stdin"
                 }
             },
             "required": ["task_id"]
@@ -2577,7 +2576,7 @@ impl ToolSpec for NoteTool {
     }
 
     fn description(&self) -> &'static str {
-        "Append a note to the agent notes file for persistent context across sessions."
+        "将笔记追加到代理笔记文件中，以便在会话之间保持持久上下文。"
     }
 
     fn input_schema(&self) -> serde_json::Value {
@@ -2586,7 +2585,7 @@ impl ToolSpec for NoteTool {
             "properties": {
                 "content": {
                     "type": "string",
-                    "description": "The note content to append"
+                    "description": "要追加的笔记内容"
                 }
             },
             "required": ["content"]

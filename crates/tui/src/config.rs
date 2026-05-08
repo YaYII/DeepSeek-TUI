@@ -1,4 +1,4 @@
-//! Configuration loading and defaults for DeepSeek TUI.
+//! DeepSeek TUI 的配置加载和默认值。
 
 use std::collections::HashMap;
 use std::fmt::Write;

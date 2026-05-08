@@ -1,8 +1,8 @@
 #![allow(dead_code)]
 
-//! Sandbox module for secure command execution.
+//! 安全命令执行的沙箱模块。
 //!
-//! This module provides sandboxing capabilities for shell commands executed by
+//! 本模块为代理执行的 shell 命令提供沙箱能力。
 //! DeepSeek TUI. Sandboxing restricts what system resources a command can access,
 //! preventing accidental or malicious damage to the system.
 //!

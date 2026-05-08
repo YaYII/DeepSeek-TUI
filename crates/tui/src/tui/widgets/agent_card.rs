@@ -1,7 +1,6 @@
-//! In-transcript cards for sub-agent activity (issue #128).
+//! 代理卡片 — 渲染子代理状态和输出。
 //!
-//! Two cards consume the #130 mailbox stream and render live in the chat
-//! transcript:
+//! 两张卡片消费 #130 邮箱流并在聊天转录本中实时渲染：
 //!
 //! - [`DelegateCard`] — single `agent_spawn` invocation. Live tree of the
 //!   last 3 actions plus a header with status / glyph / role.

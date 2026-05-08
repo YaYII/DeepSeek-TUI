@@ -1,9 +1,8 @@
-//! Capacity-controller checkpoints and interventions for the engine loop.
+//! 引擎循环的容量控制器检查点和干预。
 //!
-//! Extracted from `core/engine.rs` for issue #74. The main turn loop still
-//! decides when checkpoints run; this module owns the guardrail policy side
-//! effects, replay verification, canonical-state persistence, and event
-//! emission helpers.
+//! 从 `core/engine.rs` 提取用于 issue #74。主轮次循环仍然
+//! 决定检查点何时运行；本模块拥有护栏策略的副作用、
+//! 重放验证、规范状态持久化和事件发射辅助函数。
 
 use super::*;
 
@@ -87,10 +86,10 @@ impl Engine {
             return false;
         }
 
-        // Categorize this step's failures by typed `ErrorCategory` rather than
-        // substring-matching error strings. Context overflow always escalates;
-        // network / rate-limit / timeout are transient and skip escalation;
-        // anything else only escalates with consecutive consecutive failures.
+        // 按类型化的 `ErrorCategory` 分类此步骤的失败，而不是
+        // 通过子字符串匹配错误字符串。上下文溢出始终升级；
+        // 网络 / 速率限制 / 超时是瞬态的，跳过升级；
+        // 其他情况仅在连续失败时才升级。
         let has_context_overflow = error_categories.contains(&ErrorCategory::InvalidInput);
         let only_transient = !error_categories.is_empty()
             && error_categories.iter().all(|c| {
@@ -778,7 +777,7 @@ impl Engine {
                     _ => None,
                 })
             })
-            .unwrap_or_else(|| "Continue current task from compact state".to_string());
+            .unwrap_or_else(|| "从压缩状态继续当前任务".to_string());
 
         let mut constraints = vec![
             format!("model={}", self.session.model),
@@ -819,11 +818,11 @@ impl Engine {
             .collect();
 
         let pending_actions: Vec<String> = if open_loops.is_empty() {
-            vec!["Continue with next smallest verifiable step".to_string()]
+            vec!["继续下一步最小可验证步骤".to_string()]
         } else {
             vec![
-                "Re-evaluate failed tool steps with narrower scope".to_string(),
-                "Re-derive plan from canonical facts before further edits".to_string(),
+                "以更窄的范围重新评估失败的工具步骤".to_string(),
+                "从规范事实重新推导计划后再进行编辑".to_string(),
             ]
         };
 
@@ -852,37 +851,37 @@ impl Engine {
     ) -> SystemPrompt {
         let mut lines = vec![
             COMPACTION_SUMMARY_MARKER.to_string(),
-            format!("Capacity Canonical State [{}]", action.as_str()),
-            format!("Goal: {}", canonical.goal),
-            "Constraints:".to_string(),
+            format!("容量规范状态 [{}]", action.as_str()),
+            format!("目标：{}", canonical.goal),
+            "约束条件：".to_string(),
         ];
         for item in &canonical.constraints {
             lines.push(format!("- {}", summarize_text(item, 200)));
         }
-        lines.push("Confirmed Facts:".to_string());
+        lines.push("已确认的事实：".to_string());
         for item in &canonical.confirmed_facts {
             lines.push(format!("- {}", summarize_text(item, 200)));
         }
-        lines.push("Open Loops:".to_string());
+        lines.push("未完成的循环：".to_string());
         if canonical.open_loops.is_empty() {
-            lines.push("- none".to_string());
+            lines.push("- 无".to_string());
         } else {
             for item in &canonical.open_loops {
                 lines.push(format!("- {}", summarize_text(item, 200)));
             }
         }
-        lines.push("Pending Actions:".to_string());
+        lines.push("待处理操作：".to_string());
         for item in &canonical.pending_actions {
             lines.push(format!("- {}", summarize_text(item, 200)));
         }
-        lines.push("Critical Refs:".to_string());
+        lines.push("关键引用：".to_string());
         for item in &canonical.critical_refs {
             lines.push(format!("- {}", summarize_text(item, 200)));
         }
         if let Some(extra) = extra {
-            lines.push(format!("Instruction: {}", summarize_text(extra, 240)));
+            lines.push(format!("指令：{}", summarize_text(extra, 240)));
         }
-        lines.push(format!("Memory Pointer: {pointer}"));
+        lines.push(format!("记忆指针：{pointer}"));
 
         SystemPrompt::Blocks(vec![crate::models::SystemBlock {
             block_type: "text".to_string(),

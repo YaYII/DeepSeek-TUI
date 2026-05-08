@@ -1,76 +1,66 @@
-# Cycle Handoff Briefing
+# 周期交接简报
 
-You are about to cross a context cycle boundary. The conversation so far has
-crossed the per-cycle token budget, so this entire transcript is going to be
-**archived to disk** and the next turn will start with a fresh context: the
-original system prompt, structured state (todos, plan, working set, open
-sub-agents), the user's pending message, and a free-form briefing that **you
-write right now**.
+你即将跨越一个上下文周期边界。到目前为止的对话已经超出了
+当前周期的 token 预算，因此整个对话记录将被
+**归档到磁盘**，下一轮将以全新的上下文开始：原始的
+系统提示词、结构化状态（待办事项、计划、工作集、打开的
+子代理）、用户的待处理消息，以及一份**你现在就要编写**的
+自由格式简报。
 
-Your job, in this single message: produce a `<carry_forward>` block of at most
-**3,000 tokens** that captures the irreducible state the *next cycle's you* will
-need to continue without redoing work.
+你在这一条消息中的任务：生成一个不超过 **3,000 token** 的
+`<carry_forward>` 块，捕获下一个周期需要的、不可简化的状态，
+以便它无需重做工作即可继续。
 
-## What to put in `<carry_forward>`
+## `<carry_forward>` 中应包含的内容
 
-Write concrete prose, not bullet-point summaries of the transcript. Cover:
+写成具体的散文，而不是对话记录的要点列表。涵盖：
 
-- **Decisions made and why.** The things you've chosen and the reasoning that
-  led there. Not "we discussed options" — name the choice and the constraint
-  that made it the right one.
-- **Constraints discovered.** Concrete facts about the codebase, environment,
-  user preferences, or external systems that the next cycle will trip over if
-  it doesn't know them. (e.g. "the audit log is JSONL not JSON", "the user
-  insists on no `unwrap()` in non-test code", "macOS sandbox blocks raw
-  sockets in tools/exec.rs".)
-- **Hypotheses being tested.** Open questions you're actively investigating,
-  what you're trying to falsify, what evidence would change your mind.
-- **Approaches that failed.** Dead ends with enough detail that the next
-  cycle won't repeat them. Name the approach and the specific reason it
-  didn't work, not just "tried X, didn't work".
-- **Open questions for the user.** Things you're blocked on that the next
-  cycle should ask about if the user doesn't volunteer them.
+- **做出的决策及其原因。** 你已选择的事情以及导致该选择的推理过程。
+  不是"我们讨论了选项"——而是指出选择本身以及使其成为正确选择的约束条件。
+- **发现的约束条件。** 关于代码库、环境、用户偏好或外部系统的具体事实，
+  如果下一个周期不知道这些，就一定会出错。（例如："审计日志是 JSONL 格式而非 JSON"、
+  "用户坚持在非测试代码中不使用 `unwrap()`"、"macOS 沙箱阻止了 tools/exec.rs 中的原始套接字"。）
+- **正在检验的假设。** 你正在积极研究的未解决问题、你试图证伪什么、
+  什么证据会改变你的想法。
+- **失败的方法。** 死胡同，要有足够的细节让下一个周期不会重复它们。
+  指出方法名称及其失败的具体原因，而不仅仅是"试了 X，没成功"。
+- **给用户的问题。** 你被阻塞的事项，如果用户不主动提出，
+  下一个周期应该询问的内容。
 
-## What NOT to put in `<carry_forward>`
+## `<carry_forward>` 中不应包含的内容
 
-- Tool output bytes. (They're already archived to disk.)
-- File contents you read. (The next cycle can re-read them — pricier than a
-  briefing token, but cheaper than a wrong assumption built on a stale
-  paraphrase.)
-- Step-by-step recap of what you did. The next cycle does not need to know
-  the order of operations; it needs to know the *current state*.
-- Pleasantries, throat-clearing, framing language. Every token matters.
+- 工具输出的字节。（它们已经归档到磁盘了。）
+- 你读取过的文件内容。（下一个周期可以重新读取——虽然比一个简报
+  token 更昂贵，但总比基于过时的转述做出错误假设更便宜。）
+- 你所做事情的分步回顾。下一个周期不需要知道操作顺序；
+  它需要知道的是*当前状态*。
+- 客套话、开场白、框架性语言。每个 token 都很宝贵。
 
-## Format
+## 格式
 
-Open with `<carry_forward>` on its own line. Close with `</carry_forward>` on
-its own line. No prose outside the tags. No nested tags. No code fences around
-the block itself (you can use code fences inside if you need to quote a
-specific snippet).
+以单独一行的 `<carry_forward>` 开头。以单独一行的 `</carry_forward>` 结尾。
+标签外部不要有散文。不要有嵌套标签。块本身周围不要有代码 fence
+（如果需要引用特定片段，可以在内部使用代码 fence）。
 
-The `recall_archive` tool is available in the next cycle. It searches the
-archived transcripts (BM25 over message text, top-N hits) when your briefing
-missed something the next cycle needs. Use it sparingly — frequent recalls
-mean your briefing was too sparse, so refine your *next* briefing rather than
-leaning on the archive. Don't try to be exhaustive here: be precise about the
-load-bearing state and trust the archive for the rest.
+`recall_archive` 工具在下一个周期可用。当你的简报遗漏了
+下一个周期需要的内容时，它可以在归档记录中搜索（基于消息文本的 BM25 搜索，
+返回前 N 个结果）。谨慎使用——频繁的回顾意味着你的简报过于简略，
+所以应该优化你的*下一次*简报，而不是依赖归档。不要试图在这里做到详尽无遗：
+对承载关键状态的内容要精确，其余内容信任归档即可。
 
-## Example shape (do not copy verbatim — write your own)
+## 示例格式（不要逐字复制——自己写）
 
 ```
 <carry_forward>
-Working on issue #124 (cycle-restart). Key decisions: (1) trigger at 110K
-tokens not 128K — need ~8.5K headroom for the briefing turn itself plus
-next-turn growth before the next boundary; (2) archive to JSONL with a
-header line so future tools can stream-read without parsing the whole
-file. Constraint discovered: DeepSeek V4 thinking-mode requires
-reasoning_content replay on assistant messages with tool calls — so seed
-messages can't include orphan tool calls from the archived cycle. The
-approach of "summarize then keep recent messages" (the old compaction
-path) was failing because the model couldn't tell which fragments were
-verbatim vs. paraphrased; replacing it entirely. Open question for user:
-do they want per-model briefing token caps, or one global cap?
+正在处理 issue #124（周期重启）。关键决策：(1) 在 110K token 而非 128K 时触发——
+简报轮次本身需要约 8.5K 的余量，加上下一轮在达到下一个边界之前的增长；
+(2) 归档为 JSONL 格式，带有一行头部，以便未来工具可以流式读取而无需解析整个文件。
+发现的约束条件：DeepSeek V4 思考模式要求在包含工具调用的助手消息上重放
+reasoning_content——因此种子消息不能包含来自已归档周期的孤立工具调用。
+"总结然后保留最近消息"的方法（旧的压缩路径）失败的原因是模型无法判断哪些片段
+是逐字原文 vs. 转述内容；已完全替换。给用户的问题：他们想要按模型设置的
+简报 token 上限，还是一个全局上限？
 </carry_forward>
 ```
 
-Now write your `<carry_forward>` for this conversation.
+现在，为本次对话编写你的 `<carry_forward>`。

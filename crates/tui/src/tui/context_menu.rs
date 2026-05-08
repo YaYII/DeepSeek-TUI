@@ -1,4 +1,4 @@
-//! Right-click context menu for mouse-captured TUI sessions.
+//! 上下文菜单 — 转录本中文本选择的右键菜单。
 
 use std::cell::Cell;
 

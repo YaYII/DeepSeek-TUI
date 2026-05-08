@@ -1,4 +1,4 @@
-//! Local media attachment commands.
+//! `/attachment` 命令 — 管理文件附件。
 
 use std::path::{Path, PathBuf};
 

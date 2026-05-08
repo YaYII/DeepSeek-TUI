@@ -1,4 +1,4 @@
-//! File search tool with fuzzy matching and scoring.
+//! `file_search` 工具 — 按名称搜索文件。
 
 use std::cmp::Ordering;
 use std::path::Path;

@@ -1,11 +1,11 @@
-//! Core engine for `DeepSeek` CLI.
+//! `DeepSeek` CLI 的核心引擎。
 //!
-//! The engine handles all AI interactions in a background task,
-//! communicating with the UI via channels. This enables:
-//! - Non-blocking UI during API calls
-//! - Real-time streaming updates
-//! - Proper cancellation support
-//! - Tool execution orchestration
+//! 引擎在后台任务中处理所有 AI 交互，
+//! 通过通道与 UI 通信。这实现了：
+//! - API 调用期间的非阻塞 UI
+//! - 实时流式更新
+//! - 正确的取消支持
+//! - 工具执行编排
 
 use std::collections::HashMap;
 use std::collections::hash_map::DefaultHasher;
@@ -73,85 +73,80 @@ use super::turn::{TurnContext, TurnToolCall, post_turn_snapshot, pre_turn_snapsh
 
 // === Types ===
 
-/// Configuration for the engine
+/// 引擎配置
 #[derive(Debug, Clone)]
 pub struct EngineConfig {
-    /// Model identifier to use for responses.
+    /// 用于响应的模型标识符。
     pub model: String,
-    /// Workspace root for tool execution and file operations.
+    /// 工具执行和文件操作的工作区根目录。
     pub workspace: PathBuf,
-    /// Allow shell tool execution when true.
+    /// 为 true 时允许执行 shell 工具。
     pub allow_shell: bool,
-    /// Enable trust mode (skip approvals) when true.
+    /// 为 true 时启用信任模式（跳过审批）。
     pub trust_mode: bool,
-    /// Path to the notes file used by the notes tool.
+    /// 笔记工具使用的笔记文件路径。
     pub notes_path: PathBuf,
-    /// Path to the MCP configuration file.
+    /// MCP 配置文件路径。
     pub mcp_config_path: PathBuf,
-    /// Directory containing discoverable skills.
+    /// 包含可发现技能的目录。
     pub skills_dir: PathBuf,
-    /// Additional instruction files concatenated into the system
-    /// prompt (#454). Loaded in declared order from the user's
-    /// `instructions = [...]` config (or the per-project override).
-    /// Resolved via `expand_path` so `~` works.
+    /// 附加指令文件，拼接到系统提示中（#454）。
+    /// 按用户 `instructions = [...]` 配置（或项目级覆盖）中声明的顺序加载。
+    /// 通过 `expand_path` 解析，因此 `~` 可用。
     pub instructions: Vec<PathBuf>,
-    /// Maximum number of assistant steps before stopping.
+    /// 停止前的最大助手步数。
     pub max_steps: u32,
-    /// Maximum number of concurrently active subagents.
+    /// 最大并发活跃子代理数。
     pub max_subagents: usize,
-    /// Feature flags controlling tool availability.
+    /// 控制工具可用性的功能标志。
     pub features: Features,
-    /// Auto-compaction settings for long conversations.
+    /// 长对话的自动压缩设置。
     ///
-    /// As of v0.6.6 the high-level summarization compaction (`compact_messages_safe`)
-    /// is **disabled by default**; the checkpoint-restart cycle architecture
-    /// (`cycle_manager`) replaces it. The compaction config is still wired through
-    /// for the per-tool-result truncation path (`compact_tool_result_for_context`)
-    /// and for users who explicitly opt back in through the `auto_compact`
-    /// setting or a direct engine config.
+    /// 自 v0.6.6 起，高级摘要压缩（`compact_messages_safe`）
+    /// **默认禁用**；检查点重启循环架构（`cycle_manager`）替代了它。
+    /// 压缩配置仍然为每个工具结果的截断路径（`compact_tool_result_for_context`）
+    /// 以及通过 `auto_compact` 设置或直接引擎配置显式选择重新启用的用户保留。
     pub compaction: CompactionConfig,
-    /// Checkpoint-restart cycle settings (issue #124).
+    /// 检查点重启循环设置（issue #124）。
     pub cycle: CycleConfig,
-    /// Capacity-controller settings.
+    /// 容量控制器设置。
     pub capacity: CapacityControllerConfig,
-    /// Shared Todo list state.
+    /// 共享的待办列表状态。
     pub todos: SharedTodoList,
-    /// Shared Plan state.
+    /// 共享的计划状态。
     pub plan_state: SharedPlanState,
-    /// Maximum sub-agent recursion depth (default 3). See
-    /// `SubAgentRuntime::max_spawn_depth`. Override via
-    /// `[runtime] max_spawn_depth = N` in `~/.deepseek/config.toml`.
+    /// 最大子代理递归深度（默认 3）。参见
+    /// `SubAgentRuntime::max_spawn_depth`。通过
+    /// `~/.deepseek/config.toml` 中的 `[runtime] max_spawn_depth = N` 覆盖。
     pub max_spawn_depth: u32,
-    /// Per-domain network policy decider (#135). Shared across the session so
-    /// session-scoped approvals (`/network allow <host>`) persist for the
-    /// remainder of the run.
+    /// 按域网络策略决策器（#135）。跨会话共享，
+    /// 因此会话范围的审批（`/network allow <host>`）在运行剩余时间内持续有效。
     pub network_policy: Option<crate::network_policy::NetworkPolicyDecider>,
-    /// Whether to take side-git workspace snapshots before/after each turn.
+    /// 是否在每轮前后进行侧 git 工作区快照。
     pub snapshots_enabled: bool,
-    /// Post-edit LSP diagnostics injection (#136). When `None`, the engine
-    /// constructs a disabled manager so the field is always present.
+    /// 编辑后 LSP 诊断注入（#136）。当为 `None` 时，引擎
+    /// 构造一个禁用的管理器，因此该字段始终存在。
     pub lsp_config: Option<crate::lsp::LspConfig>,
-    /// Durable runtime services exposed to model-visible tools.
+    /// 暴露给模型可见工具的持久运行时服务。
     pub runtime_services: RuntimeToolServices,
-    /// Per-role/type sub-agent model overrides already resolved from config.
+    /// 已从配置解析的按角色/类型子代理模型覆盖。
     pub subagent_model_overrides: HashMap<String, String>,
-    /// Whether the user-memory feature is enabled (#489). When `true` the
-    /// engine reads `memory_path` on each prompt assembly and prepends a
-    /// `<user_memory>` block to the system prompt.
+    /// 用户记忆功能是否启用（#489）。当为 `true` 时，
+    /// 引擎在每次提示组装时读取 `memory_path`，并在系统提示前添加
+    /// `<user_memory>` 块。
     pub memory_enabled: bool,
-    /// Path to the user memory file (#489). Always populated; only
-    /// consulted when `memory_enabled` is `true`.
+    /// 用户记忆文件路径（#489）。始终填充；仅在
+    /// `memory_enabled` 为 `true` 时使用。
     pub memory_path: PathBuf,
     pub goal_objective: Option<String>,
-    /// Resolved BCP-47 locale tag (e.g. `"en"`, `"zh-Hans"`, `"ja"`)
-    /// for the `## Environment` block in the system prompt. The
-    /// caller resolves this from `Settings` once at engine
-    /// construction; the engine never touches disk for it.
+    /// 已解析的 BCP-47 语言区域标签（如 `"en"`、`"zh-Hans"`、`"ja"`），
+    /// 用于系统提示中的 `## 环境` 块。调用方在引擎构造时从 `Settings`
+    /// 解析一次；引擎不会为此访问磁盘。
     pub locale_tag: String,
-    /// When true, force `tool_choice: "required"` and opt compatible function
-    /// schemas into DeepSeek beta strict mode.
+    /// 为 true 时，强制 `tool_choice: "required"`，使兼容的函数模式
+    /// 启用 DeepSeek beta 严格模式。
     pub strict_tool_mode: bool,
-    /// Workshop / large-tool-output routing (#548). `None` disables routing.
+    /// 工作坊 / 大工具输出路由（#548）。`None` 禁用路由。
     pub workshop: Option<crate::tools::large_output_router::WorkshopConfig>,
 }
 
@@ -190,20 +185,20 @@ impl Default for EngineConfig {
     }
 }
 
-/// Handle to communicate with the engine
+/// 与引擎通信的句柄
 #[derive(Clone)]
 pub struct EngineHandle {
-    /// Send operations to the engine
+    /// 向引擎发送操作
     pub tx_op: mpsc::Sender<Op>,
-    /// Receive events from the engine
+    /// 从引擎接收事件
     pub rx_event: Arc<RwLock<mpsc::Receiver<Event>>>,
-    /// Shared pointer to the cancellation token for the current request.
+    /// 指向当前请求取消令牌的共享指针。
     cancel_token: Arc<StdMutex<CancellationToken>>,
-    /// Send approval decisions to the engine
+    /// 向引擎发送审批决策
     tx_approval: mpsc::Sender<ApprovalDecision>,
-    /// Send user input responses to the engine
+    /// 向引擎发送用户输入响应
     tx_user_input: mpsc::Sender<UserInputDecision>,
-    /// Send steer input for an in-flight turn.
+    /// 为进行中的轮次发送引导输入。
     tx_steer: mpsc::Sender<String>,
 }
 
@@ -607,13 +602,13 @@ impl Engine {
                     // Tool approval handling will be implemented in tools module
                     let _ = self
                         .tx_event
-                        .send(Event::status(format!("Approved tool call: {id}")))
+                        .send(Event::status(format!("已批准工具调用：{id}")))
                         .await;
                 }
                 Op::DenyToolCall { id } => {
                     let _ = self
                         .tx_event
-                        .send(Event::status(format!("Denied tool call: {id}")))
+                        .send(Event::status(format!("已拒绝工具调用：{id}")))
                         .await;
                 }
                 Op::SpawnSubAgent { prompt } => {
@@ -621,9 +616,9 @@ impl Engine {
                         let message = self
                             .deepseek_client_error
                             .as_deref()
-                            .map(|err| format!("Failed to spawn sub-agent: {err}"))
+                            .map(|err| format!("生成子代理失败：{err}"))
                             .unwrap_or_else(|| {
-                                "Failed to spawn sub-agent: API client not configured".to_string()
+                                "生成子代理失败：API 客户端未配置".to_string()
                             });
                         let _ = self
                             .tx_event
@@ -696,7 +691,7 @@ impl Engine {
                 Op::ChangeMode { mode } => {
                     let _ = self
                         .tx_event
-                        .send(Event::status(format!("Mode changed to: {mode:?}")))
+                        .send(Event::status(format!("模式已更改为：{mode:?}")))
                         .await;
                 }
                 Op::SetModel { model } => {
@@ -706,7 +701,7 @@ impl Engine {
                     let _ = self
                         .tx_event
                         .send(Event::status(format!(
-                            "Model set to: {}",
+                            "模型已设置为：{}",
                             self.session.model
                         )))
                         .await;
@@ -748,7 +743,7 @@ impl Engine {
                     self.emit_session_updated().await;
                     let _ = self
                         .tx_event
-                        .send(Event::status("Session context synced".to_string()))
+                        .send(Event::status("会话上下文已同步".to_string()))
                         .await;
                 }
                 Op::CompactContext => {
@@ -921,8 +916,8 @@ impl Engine {
             let message = self
                 .deepseek_client_error
                 .as_deref()
-                .map(|err| format!("Failed to send message: {err}"))
-                .unwrap_or_else(|| "Failed to send message: API client not configured".to_string());
+                .map(|err| format!("发送消息失败：{err}"))
+                .unwrap_or_else(|| "发送消息失败：API 客户端未配置".to_string());
             let _ = self
                 .tx_event
                 .send(Event::error(ErrorEnvelope::fatal_auth(message.clone())))
@@ -1139,7 +1134,7 @@ impl Engine {
             ..Usage::default()
         };
         let Some(client) = self.deepseek_client.clone() else {
-            let message = "Manual compaction unavailable: API client not configured".to_string();
+            let message = "手动压缩不可用：API 客户端未配置".to_string();
             self.emit_compaction_failed(id, false, message.clone())
                 .await;
             let _ = self
@@ -1157,7 +1152,7 @@ impl Engine {
             return;
         };
 
-        let start_message = "Manual context compaction started".to_string();
+        let start_message = "手动上下文压缩已开始".to_string();
         self.emit_compaction_started(id.clone(), false, start_message)
             .await;
 
@@ -1189,12 +1184,12 @@ impl Engine {
                     let removed = messages_before.saturating_sub(messages_after);
                     let message = if result.retries_used > 0 {
                         format!(
-                            "Compaction complete: {messages_before} → {messages_after} messages ({removed} removed, {} retries)",
+                            "压缩完成：{messages_before} → {messages_after} 条消息（已移除 {removed} 条，重试 {} 次）",
                             result.retries_used
                         )
                     } else {
                         format!(
-                            "Compaction complete: {messages_before} → {messages_after} messages ({removed} removed)"
+                            "压缩完成：{messages_before} → {messages_after} 条消息（已移除 {removed} 条）"
                         )
                     };
                     self.emit_compaction_completed(
@@ -1206,7 +1201,7 @@ impl Engine {
                     )
                     .await;
                 } else {
-                    let message = "Compaction skipped: produced empty result".to_string();
+                    let message = "压缩已跳过：产生空结果".to_string();
                     self.emit_compaction_failed(id, false, message.clone())
                         .await;
                     turn_status = TurnOutcomeStatus::Failed;
@@ -1214,7 +1209,7 @@ impl Engine {
                 }
             }
             Err(err) => {
-                let message = format!("Manual context compaction failed: {err}");
+                let message = format!("手动上下文压缩失败：{err}");
                 self.emit_compaction_failed(id, false, message.clone())
                     .await;
                 let _ = self.tx_event.send(Event::status(message.clone())).await;
@@ -1358,7 +1353,7 @@ impl Engine {
         };
 
         let id = format!("compact_{}", &uuid::Uuid::new_v4().to_string()[..8]);
-        let start_message = format!("Emergency context compaction started ({reason})");
+        let start_message = format!("紧急上下文压缩已开始（{reason}）");
         self.emit_compaction_started(id.clone(), true, start_message)
             .await;
 
@@ -1399,7 +1394,7 @@ impl Engine {
                 let _ = self
                     .tx_event
                     .send(Event::status(format!(
-                        "Emergency compaction API pass failed: {err}. Falling back to local trim."
+                        "紧急压缩 API 调用失败：{err}。回退到本地裁剪。"
                     )))
                     .await;
             }
@@ -1420,13 +1415,13 @@ impl Engine {
         if recovered {
             let removed = before_count.saturating_sub(after_count);
             let mut details = format!(
-                "Emergency compaction complete: {before_count} → {after_count} messages ({removed} removed), ~{before_tokens} → ~{after_tokens} tokens"
+                "紧急压缩完成：{before_count} → {after_count} 条消息（已移除 {removed} 条），约 {before_tokens} → {after_tokens} tokens"
             );
             if retries_used > 0 {
-                details.push_str(&format!(" ({} retries)", retries_used));
+                details.push_str(&format!("（重试 {} 次）", retries_used));
             }
             if trimmed > 0 {
-                details.push_str(&format!(", trimmed {trimmed} oldest"));
+                details.push_str(&format!("，已裁剪最早的 {trimmed} 条"));
             }
             self.emit_compaction_completed(
                 id,
@@ -1441,8 +1436,8 @@ impl Engine {
         }
 
         let message = format!(
-            "Emergency context compaction failed to reduce request below model limit \
-             (estimate ~{} tokens, budget ~{}).",
+            "紧急上下文压缩未能将请求减少到模型限制以下（\
+             估计约 {} tokens，预算约 {}）。",
             after_tokens, target_budget
         );
         self.emit_compaction_failed(id, true, message.clone()).await;
@@ -1515,7 +1510,7 @@ impl Engine {
             return Ok(Arc::clone(pool));
         }
         let mut pool = McpPool::from_config_path(&self.session.mcp_config_path)
-            .map_err(|e| ToolError::execution_failed(format!("Failed to load MCP config: {e}")))?;
+            .map_err(|e| ToolError::execution_failed(format!("加载 MCP 配置失败：{e}")))?;
         if let Some(decider) = self.config.network_policy.as_ref() {
             pool = pool.with_network_policy(decider.clone());
         }
@@ -1539,7 +1534,7 @@ impl Engine {
             let _ = self
                 .tx_event
                 .send(Event::status(format!(
-                    "Failed to connect MCP server '{server}': {err}"
+                    "连接 MCP 服务器 '{server}' 失败：{err}"
                 )))
                 .await;
         }
@@ -1687,7 +1682,7 @@ impl Engine {
         let _ = self
             .tx_event
             .send(Event::status(format!(
-                "↻ context refreshing (cycle {from} → {to}, generating briefing…)"
+                "↻ 上下文刷新中（周期 {from} → {to}，正在生成简报…）"
             )))
             .await;
 
@@ -1729,12 +1724,12 @@ impl Engine {
                         Ok(text) => text,
                         Err(err2) => {
                             crate::logging::warn(format!(
-                                "Cycle briefing turn failed; skipping cycle advance: {err2}"
+                                "周期简报轮次失败；跳过周期推进：{err2}"
                             ));
                             let _ = self
                                 .tx_event
                                 .send(Event::status(format!(
-                                    "↻ cycle handoff failed (continuing in cycle {from}): {err2}"
+                                    "↻ 周期交接失败（在周期 {from} 中继续）：{err2}"
                                 )))
                                 .await;
                             return;
@@ -1754,12 +1749,12 @@ impl Engine {
                 Ok(text) => text,
                 Err(err) => {
                     crate::logging::warn(format!(
-                        "Cycle briefing turn failed; skipping cycle advance: {err}"
+                        "周期简报轮次失败；跳过周期推进：{err}"
                     ));
                     let _ = self
                         .tx_event
                         .send(Event::status(format!(
-                            "↻ cycle handoff failed (continuing in cycle {from}): {err}"
+                            "↻ 周期交接失败（在周期 {from} 中继续）：{err}"
                         )))
                         .await;
                     return;

@@ -1,4 +1,4 @@
-//! Queue commands: queue list/edit/drop/clear
+//! `/queue` 命令 — 管理命令队列。
 
 use crate::tui::app::App;
 

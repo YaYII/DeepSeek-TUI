@@ -1,4 +1,4 @@
-//! Cross-session composer input history (#366).
+//! 跨会话的编辑器输入历史（#366）。
 //!
 //! Persists user-typed prompts to `~/.deepseek/composer_history.txt` so
 //! pressing Up-arrow at the composer recalls submissions from previous

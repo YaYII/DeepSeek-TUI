@@ -1,4 +1,4 @@
-//! Checkpoint-restart cycle management for long-running sessions (issue #124).
+//! 长时间运行会话的检查点重启周期管理（问题 #124）。
 //!
 //! ## Why
 //!
@@ -264,15 +264,15 @@ impl StructuredState {
     #[must_use]
     pub fn to_system_block(&self) -> Option<String> {
         let mut out = String::new();
-        out.push_str("## Cycle State (Auto-Preserved)\n\n");
-        out.push_str(&format!("- Mode: `{}`\n", self.mode_label));
-        out.push_str(&format!("- Workspace: `{}`\n", self.workspace.display()));
+        out.push_str("## 周期状态（自动保留）\n\n");
+        out.push_str(&format!("- 模式：`{}`\n", self.mode_label));
+        out.push_str(&format!("- 工作区：`{}`\n", self.workspace.display()));
         if let Some(cwd) = self.cwd.as_ref() {
-            out.push_str(&format!("- Cwd: `{}`\n", cwd.display()));
+            out.push_str(&format!("- 当前目录：`{}`\n", cwd.display()));
         }
 
         if let Some(plan) = self.plan_snapshot.as_ref() {
-            out.push_str("\n### Plan\n");
+            out.push_str("\n### 计划\n");
             if let Some(explanation) = plan.explanation.as_ref() {
                 out.push_str(&format!("{explanation}\n\n"));
             }
@@ -288,7 +288,7 @@ impl StructuredState {
 
         if let Some(todos) = self.todo_snapshot.as_ref() {
             out.push_str(&format!(
-                "\n### Todos ({}% complete)\n",
+                "\n### 待办事项（{}% 完成）\n",
                 todos.completion_pct
             ));
             for item in &todos.items {
@@ -302,11 +302,11 @@ impl StructuredState {
         }
 
         if !self.subagent_snapshots.is_empty() {
-            out.push_str("\n### Open Sub-Agents\n");
+            out.push_str("\n### 开放的子代理\n");
             for s in &self.subagent_snapshots {
                 let role = s.assignment.role.as_deref().unwrap_or("—");
                 let goal = if s.assignment.objective.is_empty() {
-                    "(no objective set)"
+                    "(未设定目标)"
                 } else {
                     s.assignment.objective.as_str()
                 };
@@ -324,7 +324,7 @@ impl StructuredState {
     }
 }
 
-/// Build the prompt the model uses to produce its `<carry_forward>` briefing.
+/// 构建模型用于生成其 `<carry_forward>` 简报的提示词。
 pub const CYCLE_HANDOFF_TEMPLATE: &str = include_str!("prompts/cycle_handoff.md");
 
 /// Run the briefing turn. The caller drives this just before swapping the
@@ -349,9 +349,9 @@ pub async fn produce_briefing(
         role: "user".to_string(),
         content: vec![ContentBlock::Text {
             text: format!(
-                "[CYCLE BOUNDARY] {}\n\nProduce your `<carry_forward>` block now. \
-                 Stay under {} tokens. Output only the block — no other text.",
-                "The next turn starts in a fresh context.", max_briefing_tokens
+                "[周期边界] {}\n\n请立即生成你的 `<carry_forward>` 块。\
+                 保持在 {} tokens 以下。仅输出该块——不要包含其他文本。",
+                "下一轮将在全新的上下文中开始。", max_briefing_tokens
             ),
             cache_control: None,
         }],
@@ -383,7 +383,7 @@ pub async fn produce_briefing(
     let response = client
         .create_message(request)
         .await
-        .with_context(|| format!("Cycle briefing turn failed for model {model}"))?;
+        .with_context(|| format!("周期简报轮次失败（模型 {model}）"))?;
     // Cycle briefing calls are billed; route through the side-channel
     // (#526) so the footer total matches the DeepSeek website.
     crate::cost_status::report(&response.model, &response.usage);
@@ -436,7 +436,7 @@ fn enforce_briefing_cap(text: &str, max_tokens: usize) -> String {
         return text.to_string();
     }
     let mut out: String = text.chars().take(max_chars).collect();
-    out.push_str("\n\n[...briefing truncated to fit cap...]");
+    out.push_str("\n\n[...简报已截断以符合上限...]");
     out
 }
 
@@ -483,7 +483,7 @@ pub fn archive_cycle(
     let dir = archive_dir_for(session_id)?;
     std::fs::create_dir_all(&dir).with_context(|| {
         format!(
-            "Failed to create cycle archive directory at {}",
+            "创建周期存档目录失败：{}",
             dir.display()
         )
     })?;
@@ -500,7 +500,7 @@ pub fn archive_cycle(
     };
 
     write_archive_file(&path, &header, messages)
-        .with_context(|| format!("Failed to write cycle archive at {}", path.display()))?;
+        .with_context(|| format!("写入周期存档失败：{}", path.display()))?;
 
     Ok(path)
 }
@@ -543,21 +543,21 @@ pub fn open_archive(path: &Path) -> Result<(CycleArchiveHeader, ArchiveMessageRe
     use std::io::{BufRead, BufReader};
 
     let file = File::open(path)
-        .with_context(|| format!("Failed to open cycle archive at {}", path.display()))?;
+        .with_context(|| format!("打开周期存档失败：{}", path.display()))?;
     let mut reader = BufReader::new(file);
     let mut header_line = String::new();
     reader.read_line(&mut header_line)?;
     let header: CycleArchiveHeader =
         serde_json::from_str(header_line.trim()).with_context(|| {
             format!(
-                "Cycle archive at {} is missing a valid header",
+                "周期存档 {} 缺少有效的头部信息",
                 path.display()
             )
         })?;
 
     if header.schema_version > CYCLE_ARCHIVE_SCHEMA_VERSION {
         anyhow::bail!(
-            "Cycle archive schema v{} at {} is newer than supported v{}",
+            "周期存档 schema v{} ({}): 当前仅支持最高 v{}",
             header.schema_version,
             path.display(),
             CYCLE_ARCHIVE_SCHEMA_VERSION
@@ -604,7 +604,7 @@ impl Iterator for ArchiveMessageReader {
 ///
 /// Layout (deterministic order):
 ///
-/// 1. (system prompt is provided separately, not as a `Message`)
+/// 1.（系统提示词单独提供，不作为 `Message`）
 /// 2. Optional structured-state user message (todos / plan / working set /
 ///    sub-agents) — labeled with `[CYCLE STATE]` so the assistant can tell
 ///    it apart from a real user turn.
@@ -613,8 +613,8 @@ impl Iterator for ArchiveMessageReader {
 ///    cycle.
 /// 4. Optional pending user message that hadn't been sent yet.
 ///
-/// The original system prompt is composed by the engine and stays separate
-/// from this list — the engine sets `session.system_prompt` directly.
+/// 原始系统提示词由引擎组合，与此列表保持分离——
+/// 引擎直接设置 `session.system_prompt`。
 #[must_use]
 pub fn build_seed_messages(
     structured_state_block: Option<&str>,
@@ -630,7 +630,7 @@ pub fn build_seed_messages(
             role: "user".to_string(),
             content: vec![ContentBlock::Text {
                 text: format!(
-                    "[CYCLE STATE — auto-preserved across the cycle boundary]\n\n{}",
+                    "[周期状态——跨周期边界自动保留]\n\n{}",
                     state.trim()
                 ),
                 cache_control: None,
@@ -641,7 +641,7 @@ pub fn build_seed_messages(
         out.push(Message {
             role: "assistant".to_string(),
             content: vec![ContentBlock::Text {
-                text: "Acknowledged. State carried into the new cycle.".to_string(),
+                text: "已确认。状态已携带到新周期中。".to_string(),
                 cache_control: None,
             }],
         });
@@ -654,7 +654,7 @@ pub fn build_seed_messages(
             role: "user".to_string(),
             content: vec![ContentBlock::Text {
                 text: format!(
-                    "[CYCLE BRIEFING — written by you on cycle {} at {}]\n\n<carry_forward>\n{}\n</carry_forward>",
+                    "[周期简报——你在周期 {} 于 {} 编写]\n\n<carry_forward>\n{}\n</carry_forward>",
                     brief.cycle,
                     brief.timestamp.to_rfc3339(),
                     brief.briefing_text.trim()
@@ -665,7 +665,7 @@ pub fn build_seed_messages(
         out.push(Message {
             role: "assistant".to_string(),
             content: vec![ContentBlock::Text {
-                text: "Briefing absorbed. Continuing.".to_string(),
+                text: "简报已吸收。继续。".to_string(),
                 cache_control: None,
             }],
         });
@@ -893,7 +893,7 @@ mod tests {
         let big = "x".repeat(200);
         let bounded = enforce_briefing_cap(&big, max_tokens);
         assert!(bounded.starts_with(&"x".repeat(40)));
-        assert!(bounded.contains("[...briefing truncated"));
+        assert!(bounded.contains("[...简报已截断"));
     }
 
     #[test]
@@ -918,7 +918,7 @@ mod tests {
         };
 
         let seeds = build_seed_messages(
-            Some("## Cycle State\n- Mode: agent"),
+            Some("## 周期状态\n- Mode: agent"),
             Some(&briefing),
             Some("Continue working on issue #124"),
         );
@@ -932,13 +932,13 @@ mod tests {
         assert_eq!(seeds[4].role, "user");
 
         if let ContentBlock::Text { text, .. } = &seeds[0].content[0] {
-            assert!(text.contains("[CYCLE STATE"));
+            assert!(text.contains("[周期状态"));
             assert!(text.contains("agent"));
         } else {
             panic!("expected text block");
         }
         if let ContentBlock::Text { text, .. } = &seeds[2].content[0] {
-            assert!(text.contains("[CYCLE BRIEFING"));
+            assert!(text.contains("[周期简报"));
             assert!(text.contains("<carry_forward>"));
             assert!(text.contains("Decisions: chose A."));
         } else {
@@ -972,8 +972,8 @@ mod tests {
             subagent_snapshots: Vec::new(),
         };
         let block = state.to_system_block().expect("renders");
-        assert!(block.contains("Mode: `agent`"));
-        assert!(block.contains("Workspace: `/tmp/ws`"));
+        assert!(block.contains("模式：`agent`"));
+        assert!(block.contains("工作区：`/tmp/ws`"));
     }
 
     #[test]
@@ -1056,7 +1056,7 @@ mod tests {
 
         let err = open_archive(&path).expect_err("must reject newer schema version");
         let msg = format!("{err:#}");
-        assert!(msg.contains("newer than supported"), "got: {msg}");
+        assert!(msg.contains("当前仅支持最高"), "got: {msg}");
     }
 
     /// Mock `produce_briefing`-style flow purely client-side: we feed a known

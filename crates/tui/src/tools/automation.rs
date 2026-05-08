@@ -1,4 +1,4 @@
-//! Model-visible automation tools over `AutomationManager`.
+//! 自动化 — 自动化工具执行。
 
 use std::path::PathBuf;
 

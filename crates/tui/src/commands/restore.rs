@@ -1,4 +1,4 @@
-//! `/restore` slash command — roll back the workspace to a prior snapshot.
+//! `/restore` 命令 — 从检查点恢复会话。
 //!
 //! `/restore` (no arg) lists the most recent snapshots so the user can
 //! see what's available. `/restore <N>` restores the *N*th-most-recent

@@ -1,4 +1,4 @@
-//! Tool for structured code reviews of files, diffs, or pull requests.
+//! 审查工具 — 审查会话输出。
 
 use std::fs;
 use std::path::Path;
@@ -23,29 +23,28 @@ const MAX_MAX_CHARS: usize = 1_000_000;
 const REVIEW_MAX_TOKENS: u32 = 2048;
 const FALLBACK_MAX_CHARS: usize = 4000;
 
-const REVIEW_SYSTEM_PROMPT: &str = "You are a senior code reviewer. Return ONLY valid JSON with \
-the following schema:\n\
+const REVIEW_SYSTEM_PROMPT: &str = "你是高级代码审查员。只返回符合以下模式的合法 JSON：\n\
 {\n\
-  \"summary\": \"short overview\",\n\
+  \"summary\": \"简短概述\",\n\
   \"issues\": [\n\
     {\n\
       \"severity\": \"error|warning|info\",\n\
-      \"title\": \"issue title\",\n\
-      \"description\": \"details and impact\",\n\
-      \"path\": \"relative/file/path or null\",\n\
+      \"title\": \"问题标题\",\n\
+      \"description\": \"详细信息和影响\",\n\
+      \"path\": \"relative/file/path 或 null\",\n\
       \"line\": 123\n\
     }\n\
   ],\n\
   \"suggestions\": [\n\
     {\n\
-      \"path\": \"relative/file/path or null\",\n\
+      \"path\": \"relative/file/path 或 null\",\n\
       \"line\": 123,\n\
-      \"suggestion\": \"actionable improvement\"\n\
+      \"suggestion\": \"可操作的改进建议\"\n\
     }\n\
   ],\n\
-  \"overall_assessment\": \"final assessment\"\n\
+  \"overall_assessment\": \"最终评估\"\n\
 }\n\
-If a field is unknown, use an empty string or null. Prioritize correctness and missing tests.";
+如果某个字段未知，使用空字符串或 null。优先考虑代码正确性和缺失的测试。";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReviewIssue {
@@ -410,20 +409,20 @@ fn build_review_prompt(source: &ReviewSource, max_chars: usize) -> String {
             let numbered = format_with_line_numbers(content);
             let truncated = truncate_with_ellipsis(&numbered, max_chars, "\n...[truncated]\n");
             format!(
-                "Review the following file and provide feedback.\n\
-Path: {display}\n\n{truncated}\n\nEnd of file."
+                "请审查以下文件并提供反馈。\n\
+路径：{display}\n\n{truncated}\n\n文件结束。"
             )
         }
         ReviewSource::Diff { label, diff } => {
             let truncated = truncate_with_ellipsis(diff, max_chars, "\n...[truncated]\n");
             format!(
-                "Review the following {label} and provide feedback.\n\n{truncated}\n\nEnd of diff."
+                "请审查以下 {label} 并提供反馈。\n\n{truncated}\n\n差异结束。"
             )
         }
         ReviewSource::PullRequest { label, diff } => {
             let truncated = truncate_with_ellipsis(diff, max_chars, "\n...[truncated]\n");
             format!(
-                "Review the following pull request diff ({label}) and provide feedback.\n\n{truncated}\n\nEnd of diff."
+                "请审查以下拉取请求差异 ({label}) 并提供反馈。\n\n{truncated}\n\n差异结束。"
             )
         }
     }

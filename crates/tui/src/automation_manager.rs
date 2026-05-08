@@ -1,4 +1,4 @@
-//! Durable automation records and scheduler support.
+//! 持久化自动化记录和调度器支持。
 //!
 //! Automations are local-first recurring jobs that enqueue standard background
 //! tasks. This module stores automation definitions and run history under

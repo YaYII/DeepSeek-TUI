@@ -1,24 +1,20 @@
-//! API request/response models for `DeepSeek` and OpenAI-compatible endpoints.
+//! DeepSeek 和 OpenAI 兼容端点的 API 请求/响应模型。
 
 use serde::{Deserialize, Serialize};
 
-/// Context window used only for legacy DeepSeek model IDs that do not name a
-/// newer V4 alias and do not carry an explicit `*k` suffix.
+/// 仅用于未命名较新 V4 别名且不带显式 `*k` 后缀的旧版 DeepSeek 模型 ID 的上下文窗口。
 pub const LEGACY_DEEPSEEK_CONTEXT_WINDOW_TOKENS: u32 = 128_000;
 pub const DEEPSEEK_V4_CONTEXT_WINDOW_TOKENS: u32 = 1_000_000;
-/// Last-resort compaction trigger when [`context_window_for_model`] returns
-/// `None` (an unrecognised model id). v0.8.11 raised this from `50_000` to
-/// `102_400` (80% of [`LEGACY_DEEPSEEK_CONTEXT_WINDOW_TOKENS`]) so unknown
-/// models inherit the same late-trigger discipline as V4 instead of paying
-/// the prefix-cache hit at 5% of the V4 window. Known DeepSeek / Claude
-/// models resolve to their own scaled value via
-/// [`compaction_threshold_for_model`] (#664).
+/// 当 [`context_window_for_model`] 返回 `None`（无法识别的模型 ID）时的最后手段压缩触发器。
+/// v0.8.11 将此值从 `50_000` 提升到 `102_400`（[`LEGACY_DEEPSEEK_CONTEXT_WINDOW_TOKENS`] 的 80%），
+/// 这样未知模型继承与 V4 相同的延迟触发规则，而不是在 V4 窗口的 5% 时支付前缀缓存命中成本。
+/// 已知的 DeepSeek / Claude 模型通过 [`compaction_threshold_for_model`] 解析到其自身的缩放值（#664）。
 pub const DEFAULT_COMPACTION_TOKEN_THRESHOLD: usize = 102_400;
 const COMPACTION_THRESHOLD_PERCENT: u32 = 80;
 
-// === Core Message Types ===
+// === 核心消息类型 ===
 
-/// Request payload for sending a message to the API.
+/// 向 API 发送消息的请求负载。
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MessageRequest {
     pub model: String,
@@ -34,8 +30,8 @@ pub struct MessageRequest {
     pub metadata: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub thinking: Option<serde_json::Value>,
-    /// DeepSeek reasoning-effort tier: "off" | "low" | "medium" | "high" | "max".
-    /// Translated by the client into DeepSeek's `reasoning_effort` + `thinking` fields.
+    /// DeepSeek 推理努力层级："off" | "low" | "medium" | "high" | "max"。
+    /// 由客户端转换为 DeepSeek 的 `reasoning_effort` + `thinking` 字段。
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reasoning_effort: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -46,7 +42,7 @@ pub struct MessageRequest {
     pub top_p: Option<f32>,
 }
 
-/// System prompt representation (plain text or structured blocks).
+/// 系统提示词表示（纯文本或结构化块）。
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(untagged)]
 pub enum SystemPrompt {
@@ -54,7 +50,7 @@ pub enum SystemPrompt {
     Blocks(Vec<SystemBlock>),
 }
 
-/// A structured system prompt block.
+/// 一个结构化的系统提示词块。
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct SystemBlock {
     #[serde(rename = "type")]

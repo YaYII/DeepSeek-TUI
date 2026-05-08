@@ -1,4 +1,4 @@
-//! Shared error taxonomy across client, tools, runtime, and UI.
+//! 跨客户端、工具、运行时和 UI 的共享错误分类。
 use std::fmt;
 
 use crate::llm_client::LlmError;

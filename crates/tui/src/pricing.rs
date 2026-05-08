@@ -1,6 +1,6 @@
-//! Cost estimation for DeepSeek API usage.
+//! DeepSeek API 使用的成本估算。
 //!
-//! Pricing based on DeepSeek's published rates (per million tokens).
+//! 基于 DeepSeek 公布的费率（每百万 token）定价。
 
 use chrono::{DateTime, TimeZone, Utc};
 

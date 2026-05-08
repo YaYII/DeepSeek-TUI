@@ -1,5 +1,4 @@
-//! Long-lived Python REPL runtime used by the RLM loop and by inline
-//! `` ```repl `` block execution in the agent loop.
+//! RLM 循环和代理循环中内联 `` ```repl `` 块执行所使用的长生命周期 Python REPL 运行时。
 
 pub mod runtime;
 pub mod sandbox;

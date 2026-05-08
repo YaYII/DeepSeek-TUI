@@ -1,8 +1,8 @@
-//! Async MCP (Model Context Protocol) Implementation
+//! 异步 MCP（模型上下文协议）实现
 //!
-//! This module provides full async support for MCP servers with:
-//! - Connection pooling for server reuse
-//! - Automatic tool discovery via `tools/list`
+//! 本模块为 MCP 服务器提供完整的异步支持，包括：
+//! - 连接池以复用服务器
+//! - 通过 `tools/list` 自动发现工具
 //! - Configurable timeouts per-server and globally
 
 use std::collections::HashMap;

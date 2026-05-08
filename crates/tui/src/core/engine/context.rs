@@ -1,69 +1,66 @@
-//! Context budgeting and prompt-shaping helpers for the engine.
+//! 引擎的上下文预算和提示塑形辅助函数。
 //!
-//! These functions are shared by the streaming turn loop, capacity flow, and
-//! engine session maintenance code. Keeping them here prevents the top-level
-//! engine module from accumulating unrelated context-policy details.
+//! 这些函数由流式轮次循环、容量流和引擎会话维护代码共享。
+//! 将它们保留在此处可防止顶层引擎模块积累不相关的上下文策略细节。
 
 use crate::compaction::estimate_tokens;
 use crate::error_taxonomy::ErrorCategory;
 use crate::models::{Message, SystemPrompt, context_window_for_model};
 use crate::tools::spec::ToolResult;
 
-/// Max output tokens requested for normal agent turns. Generous on purpose:
-/// V4 thinking models can produce tens of thousands of reasoning tokens on
-/// hard prompts before the visible reply, and DeepSeek V4 ships with a 1M
-/// context window. v0.7.5 keeps this cap fixed instead of silently lowering
-/// `max_tokens` near pressure; hard-cycle/preflight checks reserve this budget
-/// plus safety headroom before sending the next request.
+/// 为普通代理轮次请求的最大输出令牌数。故意设置得很大：
+/// V4 思考模型在困难提示上可以在可见回复之前产生数万个推理令牌，
+/// 而 DeepSeek V4 提供 1M 上下文窗口。v0.7.5 将此上限保持固定，
+/// 而不是在接近压力时静默降低 `max_tokens`；
+/// 硬循环/预检检查在发送下一个请求之前保留此预算加上安全余量。
 pub(super) const TURN_MAX_OUTPUT_TOKENS: u32 = 262_144;
 
-/// Safe max output tokens sent in the API request. This must be low enough to
-/// work with providers that have smaller context limits than the model's native
-/// window (e.g., self-hosted vLLM/SGLang with `--max-model-len 131072`).
-/// DeepSeek's API will still produce as many tokens as needed for thinking;
-/// this cap just prevents HTTP 400 from providers with tight limits.
+/// API 请求中发送的安全最大输出令牌数。此值必须足够低，
+/// 以兼容上下文限制小于模型原生窗口的提供商
+/// （例如，使用 `--max-model-len 131072` 的自托管 vLLM/SGLang）。
+/// DeepSeek 的 API 仍会根据需要生成尽可能多的思考令牌；
+/// 此上限仅防止上下文限制较紧的提供商返回 HTTP 400。
 const API_MAX_OUTPUT_TOKENS: u32 = 65_536;
 
-/// Compute the effective `max_tokens` to send in the API request for a given
-/// model. Uses `API_MAX_OUTPUT_TOKENS` (64K) which fits within common provider
-/// limits (128K+ total). For non-V4 models with smaller context windows, caps
-/// at half the context window.
+/// 计算给定模型在 API 请求中发送的有效 `max_tokens`。
+/// 使用 `API_MAX_OUTPUT_TOKENS`（64K），适用于大多数提供商限制（128K+ 总量）。
+/// 对于上下文窗口较小的非 V4 模型，上限为上下文窗口的一半。
 pub(super) fn effective_max_output_tokens(model: &str) -> u32 {
     let window = context_window_for_model(model).unwrap_or(128_000);
     if window >= 500_000 {
-        // V4-class models on large-context providers: use 64K which is safe
-        // for most deployments while still allowing substantial output.
+        // 大上下文提供商上的 V4 级模型：使用 64K，
+        // 对大多数部署安全，同时仍允许大量输出。
         API_MAX_OUTPUT_TOKENS
     } else {
-        // Smaller models: cap at half the context window (leave room for input)
+        // 较小模型：上限为上下文窗口的一半（留出输入空间）
         let capped = window / 2;
         capped.min(API_MAX_OUTPUT_TOKENS)
     }
 }
-/// Keep this many most recent messages when emergency trimming is required.
+/// 在需要紧急修剪时保留最近的消息数。
 pub(super) const MIN_RECENT_MESSAGES_TO_KEEP: usize = 4;
-/// Allow a few emergency recovery attempts before failing the turn.
+/// 在轮次失败前允许的紧急恢复尝试次数。
 pub(super) const MAX_CONTEXT_RECOVERY_ATTEMPTS: u8 = 2;
-/// Reserve additional headroom to avoid hitting provider hard limits.
+/// 保留额外余量以避免触及提供商硬限制。
 const CONTEXT_HEADROOM_TOKENS: usize = 1024;
-/// Hard cap for any tool output inserted into model context.
+/// 插入模型上下文的任何工具输出的硬上限。
 const TOOL_RESULT_CONTEXT_HARD_LIMIT_CHARS: usize = 12_000;
-/// Soft cap for known noisy tools inserted into model context.
+/// 插入模型上下文的已知嘈杂工具的软上限。
 const TOOL_RESULT_CONTEXT_SOFT_LIMIT_CHARS: usize = 2_000;
-/// Snippet length kept when compacting tool output for model context.
+/// 压缩工具输出用于模型上下文时保留的片段长度。
 const TOOL_RESULT_CONTEXT_SNIPPET_CHARS: usize = 900;
-/// Hard cap for tool output inserted into a large-context model.
+/// 插入大上下文模型的工具输出的硬上限。
 const LARGE_CONTEXT_TOOL_RESULT_HARD_LIMIT_CHARS: usize = 180_000;
-/// Soft cap for known noisy tools inserted into a large-context model.
+/// 插入大上下文模型的已知嘈杂工具的软上限。
 const LARGE_CONTEXT_TOOL_RESULT_SOFT_LIMIT_CHARS: usize = 60_000;
-/// Snippet length kept when compacting large-context tool output.
+/// 压缩大上下文工具输出时保留的片段长度。
 const LARGE_CONTEXT_TOOL_RESULT_SNIPPET_CHARS: usize = 40_000;
-/// Context window size at which tool output limits can be relaxed.
+/// 可以放宽工具输出限制的上下文窗口大小。
 const LARGE_CONTEXT_WINDOW_TOKENS: u32 = 500_000;
-/// Max chars to keep from metadata-provided output summaries.
+/// 从元数据提供的输出摘要中保留的最大字符数。
 const TOOL_RESULT_METADATA_SUMMARY_CHARS: usize = 320;
 
-pub(super) const COMPACTION_SUMMARY_MARKER: &str = "Conversation Summary (Auto-Generated)";
+pub(super) const COMPACTION_SUMMARY_MARKER: &str = "对话摘要（自动生成）";
 
 #[derive(Debug, Clone, Copy)]
 struct ToolResultContextLimits {
@@ -213,12 +210,12 @@ fn compact_subagent_tool_result_for_context(tool_name: &str, raw: &str) -> Optio
         _ => return None,
     };
 
-    let mut out = String::from("[sub-agent result summarized for parent context]\n");
-    out.push_str("Use `agent_result` again only if you need the full raw payload.\n");
+    let mut out = String::from("[子代理结果已汇总到父上下文]\n");
+    out.push_str("仅在需要完整原始负载时再次使用 `agent_result`。\n");
     for (idx, snapshot) in snapshots.iter().enumerate() {
         if idx >= 8 {
             out.push_str(&format!(
-                "- ... {} more sub-agent result(s) omitted from context summary\n",
+                "- ... 还有 {} 个子代理结果因上下文摘要限制被省略\n",
                 snapshots.len().saturating_sub(idx)
             ));
             break;

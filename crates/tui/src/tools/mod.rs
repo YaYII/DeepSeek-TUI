@@ -1,4 +1,4 @@
-//! Tool system modules and re-exports.
+//! 工具系统 — 工具注册、执行和结果处理。
 
 pub mod apply_patch;
 pub mod approval_cache;

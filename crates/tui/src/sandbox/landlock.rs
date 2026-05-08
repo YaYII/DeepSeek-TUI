@@ -1,4 +1,4 @@
-//! Linux Landlock sandbox implementation.
+//! Linux Landlock 沙箱实现。
 //!
 //! Landlock is a security mechanism introduced in Linux kernel 5.13 that allows
 //! processes to restrict their own access rights. Unlike Seatbelt on macOS which

@@ -1,8 +1,7 @@
-//! `/model` picker modal: pick a DeepSeek model and a thinking-effort tier
-//! and apply both at once (#39).
+//! 模型选择器 — 交互式模型选择对话框。
 //!
-//! Two side-by-side panes — Models on the left, Thinking effort on the
-//! right. Tab swaps focus, ↑/↓ moves within the focused pane, Enter applies
+//! 两个并排面板 — 左侧是模型，右侧是推理力度。
+//! Tab 切换焦点，↑/↓ 在聚焦面板内移动，Enter 应用
 //! both and closes the modal, Esc cancels.
 //!
 //! The effort pane intentionally only exposes `Off / High / Max`. Per

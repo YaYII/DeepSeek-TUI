@@ -402,23 +402,23 @@ impl WorkingSet {
         }
 
         let mut lines: Vec<String> = Vec::new();
-        lines.push("## Repo Working Set".to_string());
-        lines.push(format!("Workspace: {}", workspace.display()));
+        lines.push("## 仓库工作集".to_string());
+        lines.push(format!("工作区：{}", workspace.display()));
 
         if let Some(summary) = repo_summary {
             lines.push(summary);
         }
 
         if !prompt_entries.is_empty() {
-            lines.push("Active paths (prioritize these):".to_string());
+            lines.push("活跃路径（优先处理这些）：".to_string());
             for entry in prompt_entries {
-                let kind = if entry.is_dir { "dir" } else { "file" };
+                let kind = if entry.is_dir { "目录" } else { "文件" };
                 lines.push(format!("- {} ({kind})", entry.path));
             }
         }
 
         lines.push(
-            "When in doubt, use tools to verify and keep changes focused on the working set."
+            "如有疑问，使用工具验证并将更改聚焦在工作集上。"
                 .to_string(),
         );
 
@@ -996,7 +996,7 @@ mod tests {
         ws.observe_user_message("src/lib.rs", tmp.path());
         let block = ws.summary_block(tmp.path()).expect("block");
 
-        assert!(block.contains("Repo Working Set"));
+        assert!(block.contains("仓库工作集"));
         assert!(block.contains("Cargo.toml"));
         assert!(block.contains("src"));
         assert!(block.contains("src/lib.rs"));

@@ -5,10 +5,10 @@
 pub const THRESHOLDS: [(f32, &str); 3] = [
     (
         0.9,
-        "Context at 90%: stop and write handoff to .deepseek/handoff.md now",
+        "上下文已达 90%：停止并立即将交接写入 .deepseek/handoff.md",
     ),
-    (0.8, "Context at 80%: draft handoff to .deepseek/handoff.md"),
-    (0.7, "Context at 70%: consider wrapping current sub-task"),
+    (0.8, "上下文已达 80%：将交接草稿写入 .deepseek/handoff.md"),
+    (0.7, "上下文已达 70%：考虑结束当前子任务"),
 ];
 #[allow(dead_code)]
 pub fn threshold_message(ratio: f32) -> Option<&'static str> {

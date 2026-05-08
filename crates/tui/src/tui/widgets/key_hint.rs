@@ -1,8 +1,8 @@
-//! Terminal-aware keybinding rendering.
+//! 键提示 — 显示当前上下文的可用键盘快捷键。
 //!
-//! `KeyBinding` is a typed representation of a chord (a [`KeyCode`] plus a
-//! [`KeyModifiers`] set) that knows how to render itself in a way that matches
-//! the host platform's conventions. On macOS the Option key renders as `⌥`
+//! `KeyBinding` 是一个和弦的类型化表示（一个 [`KeyCode`] 加上一个
+//! [`KeyModifiers`] 集合），它知道如何以匹配主机平台约定的方式渲染自己。
+//! 在 macOS 上，Option 键渲染为 `⌥`
 //! (matching how every other Mac app — including Terminal, iTerm2, and the
 //! system menu bar — labels Option chords). On Linux and Windows we keep the
 //! plain-text `alt + X` notation that users coming from other CLIs already

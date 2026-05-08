@@ -1,4 +1,4 @@
-//! Shared test-only helpers.
+//! 共享的仅测试辅助工具。
 
 use std::sync::{Mutex, MutexGuard, OnceLock};
 
@@ -7,10 +7,10 @@ fn env_lock() -> &'static Mutex<()> {
     LOCK.get_or_init(|| Mutex::new(()))
 }
 
-/// Acquire the process-wide env-var mutex.
+/// 获取进程级环境变量互斥锁。
 ///
-/// If a prior test panicked while holding the lock, recover the guard instead
-/// of cascading failures across unrelated tests.
+/// 如果之前的测试在持有锁时 panic，则恢复守卫，
+/// 而不是让故障级联到不相关的测试。
 pub(crate) fn lock_test_env() -> MutexGuard<'static, ()> {
     match env_lock().lock() {
         Ok(guard) => guard,
@@ -18,10 +18,10 @@ pub(crate) fn lock_test_env() -> MutexGuard<'static, ()> {
     }
 }
 
-/// Find the byte position of the first divergence between two strings,
-/// returning a windowed view (`±32 bytes` around the divergence) so failures
-/// in cache-prefix-stability tests show *which* bytes drifted, not just that
-/// they did. Returns `None` when the strings are byte-identical.
+/// 查找两个字符串之间第一个差异的字节位置，
+/// 返回一个窗口视图（差异周围的 `±32 字节`），
+/// 以便缓存前缀稳定性测试显示*哪些*字节发生了变化，
+/// 而不仅仅是它们发生了变化。当字符串字节完全相同时返回 `None`。
 pub(crate) fn first_divergence(a: &str, b: &str) -> Option<(usize, String, String)> {
     let a_bytes = a.as_bytes();
     let b_bytes = b.as_bytes();
@@ -46,16 +46,15 @@ pub(crate) fn first_divergence(a: &str, b: &str) -> Option<(usize, String, Strin
     None
 }
 
-/// Assert two strings are byte-identical, panicking with a windowed diff
-/// around the first divergence when they aren't. Used by the prefix-cache
-/// stability harness (#263, #280) to pin construction surfaces that land in
-/// DeepSeek's KV cache prefix.
+/// 断言两个字符串字节相同，当不相同时在第一个差异处
+/// 以窗口化 diff 的形式 panic。由前缀缓存稳定性测试套件
+///（#263, #280）用于固定落入 DeepSeek KV 缓存前缀的构造表面。
 #[track_caller]
 pub(crate) fn assert_byte_identical(label: &str, a: &str, b: &str) {
     if let Some((pos, a_ctx, b_ctx)) = first_divergence(a, b) {
         panic!(
-            "{label}: prompt construction is non-deterministic — first diff at byte {pos}\n\
-             ── side A (±32B) ──\n{a_ctx:?}\n── side B (±32B) ──\n{b_ctx:?}",
+            "{label}：prompt 构造非确定性——首个差异位于字节 {pos}\n\
+             ── 侧 A (±32B) ──\n{a_ctx:?}\n── 侧 B (±32B) ──\n{b_ctx:?}",
         );
     }
 }

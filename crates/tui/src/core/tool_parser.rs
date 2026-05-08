@@ -1,16 +1,16 @@
-//! Legacy parser for text-based tool calls from DeepSeek models.
+//! DeepSeek 模型基于文本的工具调用的旧版解析器。
 //!
-//! Structured tool-call items are preferred, so the engine no longer invokes
-//! this parser. It is kept for reference/debugging.
+//! 结构化工具调用项是首选，因此引擎不再调用此解析器。
+//! 保留用于参考/调试。
 //!
-//! Some DeepSeek outputs tool calls as text in various formats:
+//! 某些 DeepSeek 以各种格式将工具调用输出为文本：
 //! ```text
 //! [TOOL_CALL]
 //! {tool => "tool_name", args => {...}}
 //! [/TOOL_CALL]
 //! ```
 //!
-//! Or XML-style format:
+//! 或 XML 风格格式：
 //! ```text
 //! <deepseek:tool_call>
 //! <invoke name="tool_name">
@@ -19,29 +19,29 @@
 //! </deepseek:tool_call>
 //! ```
 //!
-//! This module parses these text patterns into structured tool calls.
+//! 本模块将这些文本模式解析为结构化工具调用。
 
 use regex::Regex;
 use serde_json::{Value, json};
 use std::sync::OnceLock;
 
-/// A parsed tool call from text content.
+/// 从文本内容解析出的工具调用。
 #[derive(Debug, Clone)]
 pub struct ParsedToolCall {
-    /// Tool name
+    /// 工具名称
     pub name: String,
-    /// Tool arguments as JSON
+    /// JSON 格式的工具参数
     pub args: Value,
-    /// Generated ID for the tool call
+    /// 工具调用的生成 ID
     pub id: String,
 }
 
-/// Result of parsing text for tool calls.
+/// 解析文本中工具调用的结果。
 #[derive(Debug)]
 pub struct ParseResult {
-    /// The text with tool call markers removed (for display)
+    /// 移除了工具调用标记的文本（用于显示）
     pub clean_text: String,
-    /// Parsed tool calls found in the text
+    /// 在文本中找到的已解析工具调用
     pub tool_calls: Vec<ParsedToolCall>,
 }
 
@@ -52,7 +52,7 @@ static THINKING_REGEX: OnceLock<Regex> = OnceLock::new();
 
 fn get_tool_call_regex() -> &'static Regex {
     TOOL_CALL_REGEX.get_or_init(|| {
-        // Match [TOOL_CALL] ... [/TOOL_CALL] blocks
+        // 匹配 [TOOL_CALL] ... [/TOOL_CALL] 块
         Regex::new(r"(?s)\[TOOL_CALL\]\s*(.*?)\s*\[/TOOL_CALL\]")
             .expect("TOOL_CALL regex pattern is valid")
     })
@@ -60,7 +60,7 @@ fn get_tool_call_regex() -> &'static Regex {
 
 fn get_xml_tool_call_regex() -> &'static Regex {
     XML_TOOL_CALL_REGEX.get_or_init(|| {
-        // Match <deepseek:tool_call>...</deepseek:tool_call> or similar XML patterns
+        // 匹配 <deepseek:tool_call>...</deepseek:tool_call> 或类似的 XML 模式
         Regex::new(r"(?s)<(?:deepseek:)?tool_call[^>]*>\s*(.*?)\s*</(?:deepseek:)?tool_call>")
             .expect("XML tool_call regex pattern is valid")
     })
@@ -68,7 +68,7 @@ fn get_xml_tool_call_regex() -> &'static Regex {
 
 fn get_invoke_regex() -> &'static Regex {
     INVOKE_REGEX.get_or_init(|| {
-        // Match <invoke name="tool_name">...</invoke> patterns
+        // 匹配 <invoke name="tool_name">...</invoke> 模式
         Regex::new(r#"(?s)<invoke\s+name\s*=\s*"([^"]+)"[^>]*>(.*?)</invoke>"#)
             .expect("invoke regex pattern is valid")
     })
@@ -76,23 +76,23 @@ fn get_invoke_regex() -> &'static Regex {
 
 fn get_thinking_regex() -> &'static Regex {
     THINKING_REGEX.get_or_init(|| {
-        // Match thinking blocks including partial closing tags
+        // 匹配思考块，包括部分闭合标签
         Regex::new(r"(?s)</?(?:think|thinking)[^>]*>").expect("thinking regex pattern is valid")
     })
 }
 
-/// Parse tool calls from text content.
-/// Returns the clean text (with markers removed) and any parsed tool calls.
+/// 从文本内容解析工具调用。
+/// 返回清理后的文本（移除了标记）和任何已解析的工具调用。
 pub fn parse_tool_calls(text: &str) -> ParseResult {
     let mut tool_calls = Vec::new();
     let mut clean_text = text.to_string();
     let mut id_counter = 0;
 
-    // First, remove thinking tags
+    // 首先，移除思考标签
     let thinking_regex = get_thinking_regex();
     clean_text = thinking_regex.replace_all(&clean_text, "").to_string();
 
-    // Parse [TOOL_CALL] format
+    // 解析 [TOOL_CALL] 格式
     let regex = get_tool_call_regex();
     for cap in regex.captures_iter(text) {
         let (Some(full_match), Some(inner)) = (cap.get(0), cap.get(1)) else {
@@ -108,7 +108,7 @@ pub fn parse_tool_calls(text: &str) -> ParseResult {
         clean_text = clean_text.replace(full_match, "");
     }
 
-    // Parse XML-style <deepseek:tool_call> or <tool_call> format
+    // 解析 XML 风格 <deepseek:tool_call> 或 <tool_call> 格式
     let xml_regex = get_xml_tool_call_regex();
     for cap in xml_regex.captures_iter(text) {
         let (Some(full_match), Some(inner)) = (cap.get(0), cap.get(1)) else {
@@ -117,7 +117,7 @@ pub fn parse_tool_calls(text: &str) -> ParseResult {
         let full_match = full_match.as_str();
         let inner = inner.as_str().trim();
 
-        // Parse invoke blocks inside
+        // 解析内部的 invoke 块
         if let Some(parsed) = parse_invoke_block(inner, &mut id_counter) {
             tool_calls.push(parsed);
         } else if let Some(parsed) = parse_tool_call_inner(inner, &mut id_counter) {
@@ -127,7 +127,7 @@ pub fn parse_tool_calls(text: &str) -> ParseResult {
         clean_text = clean_text.replace(full_match, "");
     }
 
-    // Also parse standalone <invoke> blocks that might not be wrapped
+    // 也解析可能未被包裹的独立 <invoke> 块
     let invoke_regex = get_invoke_regex();
     for cap in invoke_regex.captures_iter(&clean_text.clone()) {
         let (Some(full_match), Some(tool_name), Some(inner)) = (cap.get(0), cap.get(1), cap.get(2))
@@ -149,7 +149,7 @@ pub fn parse_tool_calls(text: &str) -> ParseResult {
         clean_text = clean_text.replace(full_match, "");
     }
 
-    // Clean up extra whitespace and empty lines
+    // 清理多余的空白和空行
     clean_text = clean_text
         .lines()
         .filter(|line| !line.trim().is_empty())
@@ -164,7 +164,7 @@ pub fn parse_tool_calls(text: &str) -> ParseResult {
     }
 }
 
-/// Parse an `<invoke>` block into a tool call.
+/// 将 `<invoke>` 块解析为工具调用。
 fn parse_invoke_block(content: &str, id_counter: &mut u32) -> Option<ParsedToolCall> {
     let invoke_regex = get_invoke_regex();
     let cap = invoke_regex.captures(content)?;
@@ -182,7 +182,7 @@ fn parse_invoke_block(content: &str, id_counter: &mut u32) -> Option<ParsedToolC
     })
 }
 
-/// Parse XML-style parameters like <parameter name="foo">value</parameter>
+/// 解析 XML 风格参数，如 <parameter name="foo">value</parameter>
 fn parse_xml_parameters(content: &str) -> Value {
     let param_regex = Regex::new(
         "<(?:parameter|param)\\s+name\\s*=\\s*\"([^\"]+)\"[^>]*>(.*?)</(?:parameter|param)>",

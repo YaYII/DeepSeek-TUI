@@ -1,4 +1,4 @@
-//! User-level memory file.
+//! 用户级记忆文件。
 //!
 //! v0.8.8 ships an MVP that lets the user keep a persistent personal
 //! note file the model sees on every turn:

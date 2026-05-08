@@ -1,5 +1,4 @@
-//! Language detection + the fixed dictionary mapping a language to the LSP
-//! server binary that handles it.
+//! 语言检测 + 将语言映射到处理它的 LSP 服务器二进制文件的固定字典。
 //!
 //! Kept intentionally small: a dozen languages, a hard-coded executable name
 //! per language, an optional list of args. Users can override the defaults

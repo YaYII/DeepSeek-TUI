@@ -1,4 +1,4 @@
-//! Alibaba OpenSandbox backend adapter.
+//! 阿里云 OpenSandbox 后端适配器。
 //!
 //! Sends shell commands to an OpenSandbox-compatible HTTP API for remote
 //! execution.  The API endpoint is `POST {base_url}/v1/sandbox/run` with

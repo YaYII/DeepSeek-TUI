@@ -1,4 +1,4 @@
-//! Wrapped-line cache for the live transcript overlay (#94).
+//! 转录本缓存 — 缓存已渲染的转录本行以提高滚动性能。
 //!
 //! Each cell's rendered output is cached under a `(CellId, width, revision)`
 //! key. The revision portion comes from `App.history_revisions` (or the

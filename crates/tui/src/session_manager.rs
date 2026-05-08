@@ -1,8 +1,8 @@
-//! Session management for resuming conversations.
+//! 恢复对话的会话管理。
 //!
-//! This module provides functionality for:
-//! - Saving sessions to disk
-//! - Listing previous sessions
+//! 本模块提供以下功能：
+//! - 将会话保存到磁盘
+//! - 列出之前的会话
 //! - Resuming sessions by ID
 //! - Managing session lifecycle
 
@@ -17,10 +17,10 @@ use uuid::Uuid;
 
 /// Maximum number of sessions to retain
 const MAX_SESSIONS: usize = 50;
-/// Maximum number of messages to persist per session (#402 P0).
-/// Beyond this limit, the oldest messages are dropped and a truncation
-/// note is prepended to the system prompt. Keeps session files bounded
-/// so save/load remains fast even for long-running conversations.
+/// 要持久化的最大消息数量（#402 P0）。
+/// 超出此限制时，最旧的消息被丢弃，一条截断
+/// 说明被前置到系统提示词中。这使会话文件保持有界，
+/// 即使对于长时间运行的对话，保存/加载也能保持快速。
 const MAX_PERSISTED_MESSAGES: usize = 500;
 const CURRENT_SESSION_SCHEMA_VERSION: u32 = 1;
 const CURRENT_QUEUE_SCHEMA_VERSION: u32 = 1;
@@ -108,7 +108,7 @@ pub struct SavedSession {
     pub metadata: SessionMetadata,
     /// Conversation messages
     pub messages: Vec<Message>,
-    /// System prompt if any
+    /// 系统提示词（如果有）
     pub system_prompt: Option<String>,
     /// Compact linked context references for user-visible `@path` and
     /// `/attach` mentions. Optional for backward-compatible session loads.
@@ -128,7 +128,7 @@ impl SessionManager {
         if trimmed.is_empty() {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
-                "Session id cannot be empty",
+                "会话 id 不能为空",
             ));
         }
         if !trimmed
@@ -137,7 +137,7 @@ impl SessionManager {
         {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
-                format!("Invalid session id '{id}'"),
+                format!("非法的会话 id '{id}'"),
             ));
         }
         Ok(self.sessions_dir.join(format!("{trimmed}.json")))
@@ -297,13 +297,13 @@ impl SessionManager {
         match matches.len() {
             0 => Err(std::io::Error::new(
                 std::io::ErrorKind::NotFound,
-                format!("No session found with prefix: {prefix}"),
+                format!("未找到前缀匹配的会话：{prefix}"),
             )),
             1 => self.load_session(&matches[0].id),
             _ => Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 format!(
-                    "Ambiguous prefix '{}' matches {} sessions",
+                    "前缀 '{}' 不明确，匹配了 {} 个会话",
                     prefix,
                     matches.len()
                 ),
@@ -370,7 +370,7 @@ impl SessionManager {
         extract_top_level_metadata(&buf).ok_or_else(|| {
             std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
-                "session file missing parseable `metadata` block",
+                "会话文件缺少可解析的 `metadata` 块",
             )
         })
     }
@@ -426,7 +426,7 @@ impl SessionManager {
                         target: "session",
                         session = session.id,
                         ?err,
-                        "session prune skipped a record",
+                        "会话修剪跳过了记录",
                     );
                     continue;
                 }
@@ -503,7 +503,7 @@ fn find_git_root(path: &Path) -> Option<PathBuf> {
 /// Resolve the default session directory path (`~/.deepseek/sessions`).
 pub fn default_sessions_dir() -> std::io::Result<PathBuf> {
     let home = dirs::home_dir().ok_or_else(|| {
-        std::io::Error::new(std::io::ErrorKind::NotFound, "Home directory not found")
+        std::io::Error::new(std::io::ErrorKind::NotFound, "未找到家目录")
     })?;
     Ok(home.join(".deepseek").join("sessions"))
 }
@@ -564,7 +564,7 @@ pub fn create_saved_session_with_mode(
                 _ => None,
             })
         })
-        .unwrap_or_else(|| "New Session".to_string());
+        .unwrap_or_else(|| "新会话".to_string());
 
     let (capped_messages, truncation_note) = cap_messages(messages);
 
@@ -619,9 +619,8 @@ fn cap_messages(messages: &[Message]) -> (Vec<Message>, Option<String>) {
     }
     let dropped = total - MAX_PERSISTED_MESSAGES;
     let note = format!(
-        "Note: {dropped} older messages were dropped from the session file \
-         to keep persistence bounded. The full conversation history may \
-         still be recoverable from cycle archives."
+        "注意：{dropped} 条较早的消息已从会话文件中删除，\
+         以保持持久性在限制范围内。完整的对话历史仍可从周期存档中恢复。"
     );
     (
         messages[total - MAX_PERSISTED_MESSAGES..].to_vec(),
@@ -629,13 +628,13 @@ fn cap_messages(messages: &[Message]) -> (Vec<Message>, Option<String>) {
     )
 }
 
-/// Merge an optional truncation note into the system prompt string.
+/// 将可选的截断说明合并到系统提示词字符串中。
 fn merge_truncation_note(system_prompt: Option<String>, note: Option<String>) -> Option<String> {
     match (system_prompt, note) {
         (None, None) => None,
         (Some(sp), None) => Some(sp),
-        (None, Some(note)) => Some(format!("[Session note]\n{note}")),
-        (Some(sp), Some(note)) => Some(format!("[Session note]\n{note}\n\n---\n\n{sp}")),
+        (None, Some(note)) => Some(format!("[会话备注]\n{note}")),
+        (Some(sp), Some(note)) => Some(format!("[会话备注]\n{note}\n\n---\n\n{sp}")),
     }
 }
 
@@ -783,7 +782,7 @@ pub fn format_session_line(meta: &SessionMetadata) -> String {
     let truncated_title = truncate_title(&meta.title, 40);
 
     format!(
-        "{} | {} | {} msgs | {}",
+        "{} | {} | {} 条消息 | {}",
         truncate_id(&meta.id),
         truncated_title,
         meta.message_count,
@@ -797,15 +796,15 @@ fn format_age(dt: &DateTime<Utc>) -> String {
     let duration = now.signed_duration_since(*dt);
 
     if duration.num_minutes() < 1 {
-        "just now".to_string()
+        "刚刚".to_string()
     } else if duration.num_hours() < 1 {
-        format!("{}m ago", duration.num_minutes())
+        format!("{} 分钟前", duration.num_minutes())
     } else if duration.num_days() < 1 {
-        format!("{}h ago", duration.num_hours())
+        format!("{} 小时前", duration.num_hours())
     } else if duration.num_weeks() < 1 {
-        format!("{}d ago", duration.num_days())
+        format!("{} 天前", duration.num_days())
     } else {
-        format!("{}w ago", duration.num_weeks())
+        format!("{} 周前", duration.num_weeks())
     }
 }
 
@@ -1073,13 +1072,13 @@ mod tests {
     #[test]
     fn test_format_age() {
         let now = Utc::now();
-        assert_eq!(format_age(&now), "just now");
+        assert_eq!(format_age(&now), "刚刚");
 
         let hour_ago = now - chrono::Duration::hours(2);
-        assert_eq!(format_age(&hour_ago), "2h ago");
+        assert_eq!(format_age(&hour_ago), "2 小时前");
 
         let day_ago = now - chrono::Duration::days(3);
-        assert_eq!(format_age(&day_ago), "3d ago");
+        assert_eq!(format_age(&day_ago), "3 天前");
     }
 
     #[test]

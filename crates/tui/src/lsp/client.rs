@@ -1,27 +1,26 @@
-//! Thin JSON-RPC over stdio client for LSP servers.
+//! 针对 LSP 服务器的基于 stdio 的轻量 JSON-RPC 客户端。
 //!
-//! We deliberately do **not** depend on `tower-lsp` — it is a server-side
-//! framework and dragging it in here would add hundreds of unnecessary
-//! transitive dependencies and slow down `cargo build` for every contributor.
-//! The LSP wire protocol is small enough that handling it ourselves is a
-//! self-contained ~400 LOC and lets us keep total control of the spawn
-//! lifecycle, timeouts, and the async surface.
+//! 我们特意**不**依赖 `tower-lsp`——它是一个服务端
+//! 框架，引入它会增加数百个不必要的
+//! 传递依赖，并拖慢每个贡献者的 `cargo build`。
+//! LSP 线协议足够小，自行处理只需约 400 行代码，
+//! 并让我们完全控制 spawn 生命周期、超时和异步表面。
 //!
-//! Architecture:
+//! 架构：
 //!
-//! - [`LspTransport`] is the trait the [`super::LspManager`] talks to. The
-//!   real implementation is [`StdioLspTransport`] (forks an LSP server with
-//!   `tokio::process::Command`); tests use `super::tests::FakeTransport`.
-//! - [`StdioLspTransport`] runs three tokio tasks: a reader, a writer, and
-//!   the public API. Communication uses tokio mpsc channels.
-//! - We parse `Content-Length`-framed JSON-RPC and route inbound messages
-//!   either to a per-request response slot (for replies) or to the
-//!   diagnostics queue (for `textDocument/publishDiagnostics` notifications).
+//! - [`LspTransport`] 是 [`super::LspManager`] 与之交互的 trait。
+//!   真正的实现是 [`StdioLspTransport`]（用 `tokio::process::Command` 创建 LSP 服务器进程）；
+//!   测试使用 `super::tests::FakeTransport`。
+//! - [`StdioLspTransport`] 运行三个 tokio 任务：一个读取器、一个写入器和
+//!   公共 API。通信使用 tokio mpsc 通道。
+//! - 我们解析 `Content-Length` 帧格式的 JSON-RPC，并将入站消息路由到
+//!   每个请求的响应槽（用于回复）或
+//!   诊断队列（用于 `textDocument/publishDiagnostics` 通知）。
 //!
-//! The transport is one-shot per file in MVP form: the manager spawns a
-//! transport on demand for a language and reuses it. We do not implement
-//! workspace sync beyond didOpen/didChange because the goal is "post-edit
-//! diagnostics," not full IDE smartness.
+//! 在 MVP 形式中，传输是每个文件一次性使用：管理器按需为某种语言
+//! 生成一个传输并重复使用它。我们不实现
+//! 超出 didOpen/didChange 的工作区同步，因为目标是"编辑后诊断"，
+//! 而非完整的 IDE 智能。
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -42,14 +41,14 @@ use super::diagnostics::{Diagnostic, Severity};
 use super::registry::Language;
 use crate::utils::spawn_supervised;
 
-/// Trait the LSP manager talks to. A real LSP server speaks this via stdio;
-/// tests use an in-process fake.
+/// LSP 管理器与之交互的 trait。真正的 LSP 服务器通过 stdio 使用此协议；
+/// 测试使用进程内的模拟实现。
 #[async_trait]
 pub trait LspTransport: Send + Sync {
-    /// Notify the server that a file was opened or its contents updated, then
-    /// wait up to `wait` for a `publishDiagnostics` notification for that
-    /// file. Returns the diagnostics list (possibly empty). Implementations
-    /// must NOT block past `wait`.
+    /// 通知服务器某个文件已打开或其内容已更新，然后
+    /// 最多等待 `wait` 时长，等待该文件的 `publishDiagnostics` 通知。
+    /// 返回诊断列表（可能为空）。实现
+    /// 不得阻塞超过 `wait`。
     async fn diagnostics_for(
         &self,
         path: &Path,
@@ -57,43 +56,42 @@ pub trait LspTransport: Send + Sync {
         wait: Duration,
     ) -> Result<Vec<Diagnostic>>;
 
-    /// Best-effort shutdown. Called via `LspManager::shutdown_all`.
+    /// 尽力关闭。通过 `LspManager::shutdown_all` 调用。
     #[allow(dead_code)]
     async fn shutdown(&self);
 }
 
-/// Stdio-backed transport. Spawns the LSP server as a child process and
-/// pipes JSON-RPC over stdin/stdout. Stderr is captured into a buffer so
-/// callers can include it in error messages without polluting our own stderr.
+/// 基于 stdio 的传输。将 LSP 服务器作为子进程生成，并通过
+/// stdin/stdout 传输 JSON-RPC。Stderr 被捕获到缓冲区，以便
+/// 调用方可以在错误消息中包含它，而不会污染我们自己的 stderr。
 pub struct StdioLspTransport {
-    /// JoinHandle for the running server. Held so the child stays alive for
-    /// the transport's lifetime; consumed during `shutdown`.
+    /// 正在运行的服务器的 JoinHandle。持有它以确保子进程在
+    /// 传输的生命周期内保持存活；在 `shutdown` 期间消耗。
     #[allow(dead_code)]
     child: AsyncMutex<Option<Child>>,
-    /// Outgoing message sender to the writer task.
+    /// 发送到写入器任务的出站消息发送器。
     tx_outbound: mpsc::Sender<Vec<u8>>,
-    /// Inbound diagnostics queue. We push every `publishDiagnostics`
-    /// notification into here and the public API drains the relevant entries.
+    /// 入站诊断队列。我们将每个 `publishDiagnostics`
+    /// 通知推送到这里，公共 API 从中取出相关条目。
     diagnostics_rx: AsyncMutex<mpsc::Receiver<(PathBuf, Vec<Diagnostic>)>>,
-    /// Map of in-flight request id -> reply slot. We do not currently call
-    /// methods that need replies after `initialize`, but this is the hook
-    /// for it.
+    /// 正在进行的请求 id -> 回复槽的映射。我们目前不调用
+    /// `initialize` 后需要回复的方法，但这是为它准备的挂钩。
     #[allow(dead_code)]
     pending: Arc<AsyncMutex<HashMap<i64, oneshot::Sender<Value>>>>,
-    /// Monotonic request id counter. Reserved for future LSP request/reply
-    /// methods (workspace symbol queries, etc.).
+    /// 单调递增的请求 id 计数器。为将来的 LSP 请求/回复方法
+    ///（工作区符号查询等）保留。
     #[allow(dead_code)]
     next_id: AsyncMutex<i64>,
-    /// Language id passed in `textDocument/didOpen` (e.g. "rust").
+    /// 在 `textDocument/didOpen` 中传递的语言 ID（例如 "rust"）。
     language_id: &'static str,
-    /// Track which files we have opened so the second touch sends
-    /// `didChange` instead of `didOpen`.
+    /// 跟踪我们已打开的文件，以便第二次操作发送
+    /// `didChange` 而不是 `didOpen`。
     opened: AsyncMutex<HashMap<PathBuf, i64>>,
 }
 
 impl StdioLspTransport {
-    /// Spawn `command args…` and run the LSP `initialize` handshake. Returns
-    /// `Err` immediately if the binary is not on PATH or `initialize` fails.
+    /// 生成 `command args…` 并运行 LSP `initialize` 握手。如果
+    /// 二进制文件不在 PATH 上或 `initialize` 失败，立即返回 `Err`。
     pub async fn spawn(
         command: &str,
         args: &[String],
@@ -124,21 +122,21 @@ impl StdioLspTransport {
         let (tx_inbound, rx_inbound) = mpsc::channel::<Value>(64);
         let (tx_diag, rx_diag) = mpsc::channel::<(PathBuf, Vec<Diagnostic>)>(64);
 
-        // Writer task: drain outbound channel, frame with Content-Length, write to stdin.
+        // 写入器任务：清空出站通道，用 Content-Length 组帧，写入 stdin。
         spawn_supervised(
             "lsp-writer",
             std::panic::Location::caller(),
             writer_task(stdin, rx_outbound),
         );
-        // Reader task: parse Content-Length frames from stdout, push to inbound queue.
+        // 读取器任务：从 stdout 解析 Content-Length 帧，推送到入站队列。
         spawn_supervised(
             "lsp-reader",
             std::panic::Location::caller(),
             reader_task(stdout, tx_inbound),
         );
-        // Inbound dispatcher: routes notifications to `tx_diag`, replies to a
-        // pending map. We keep the pending map for completeness even though
-        // diagnostics polling itself does not reuse it.
+        // 入站分发器：将通知路由到 `tx_diag`，将回复路由到
+        // pending 映射。为完整性保留 pending 映射，尽管
+        // 诊断轮询本身不重用它。
         let pending: Arc<AsyncMutex<HashMap<i64, oneshot::Sender<Value>>>> =
             Arc::new(AsyncMutex::new(HashMap::new()));
         spawn_supervised(
@@ -147,7 +145,7 @@ impl StdioLspTransport {
             dispatcher_task(rx_inbound, tx_diag, pending.clone()),
         );
 
-        // Send `initialize` and wait for `initialized`. We synthesize id=1.
+        // 发送 `initialize` 并等待 `initialized`。我们使用 id=1。
         let init_payload = json!({
             "jsonrpc": "2.0",
             "id": 1,
@@ -168,11 +166,10 @@ impl StdioLspTransport {
         });
         send_message(&tx_outbound, &init_payload).await?;
 
-        // We do not actually wait for the initialize response here in MVP —
-        // most servers buffer notifications until they are ready, and waiting
-        // for `initialize` reply doubles the latency of the first edit. Send
-        // `initialized` immediately and let publishDiagnostics arrive on its
-        // own clock.
+        // 在 MVP 中我们实际上不等待 initialize 响应——
+        // 大多数服务器会缓冲通知直到它们准备就绪，等待
+        // `initialize` 回复会使第一次编辑的延迟加倍。立即发送
+        // `initialized`，让 publishDiagnostics 按自己的节奏到达。
         let initialized = json!({
             "jsonrpc": "2.0",
             "method": "initialized",
@@ -203,7 +200,7 @@ impl LspTransport for StdioLspTransport {
         let path_buf = path.to_path_buf();
         let uri = uri_from_path(&path_buf);
 
-        // Either send didOpen (first time) or didChange (subsequent edits).
+        // 要么发送 didOpen（第一次），要么发送 didChange（后续编辑）。
         let mut opened = self.opened.lock().await;
         let is_new = !opened.contains_key(&path_buf);
         let new_version = opened.get(&path_buf).copied().unwrap_or(0) + 1;
@@ -238,10 +235,10 @@ impl LspTransport for StdioLspTransport {
         };
         send_message(&self.tx_outbound, &payload).await?;
 
-        // Drain matching `publishDiagnostics` notifications until `wait`
-        // elapses. Servers typically publish within a few hundred ms; for
-        // initial cold-start (rust-analyzer) it can be many seconds — but
-        // the manager guards us with a separate timeout.
+        // 清空匹配的 `publishDiagnostics` 通知，直到 `wait`
+        // 过期。服务器通常在几百毫秒内发布；对于
+        // 初始冷启动（rust-analyzer）可能需要数秒——但
+        // 管理器用单独的超时保护我们。
         let deadline = tokio::time::Instant::now() + wait;
         let mut latest: Option<Vec<Diagnostic>> = None;
 
@@ -261,12 +258,12 @@ impl LspTransport for StdioLspTransport {
             let (file, items) = next;
             if file == path_buf {
                 latest = Some(items);
-                // We have a payload — return immediately. If the server
-                // re-publishes after rapid edits, the next call will sync.
+                // 我们有了一个负载——立即返回。如果服务器
+                // 在快速编辑后重新发布，下一次调用将同步。
                 break;
             }
-            // Otherwise: notification was for a different file we previously
-            // opened. Discard and continue waiting.
+            // 否则：通知是针对我们之前打开的不同文件。
+            // 丢弃并继续等待。
         }
         Ok(latest.unwrap_or_default())
     }
@@ -280,7 +277,7 @@ impl LspTransport for StdioLspTransport {
     }
 }
 
-/// Send a JSON value as one Content-Length-framed JSON-RPC message.
+/// 发送一个 JSON 值作为一条 Content-Length 帧格式的 JSON-RPC 消息。
 async fn send_message(tx: &mpsc::Sender<Vec<u8>>, value: &Value) -> Result<()> {
     let body = serde_json::to_vec(value).context("serialize LSP message")?;
     let header = format!("Content-Length: {}\r\n\r\n", body.len());
@@ -293,8 +290,8 @@ async fn send_message(tx: &mpsc::Sender<Vec<u8>>, value: &Value) -> Result<()> {
     Ok(())
 }
 
-/// Background task that drains the outbound queue and writes each frame to
-/// the LSP server's stdin. Exits cleanly when the channel closes.
+/// 后台任务：清空出站队列并将每个帧写入 LSP 服务器的 stdin。
+/// 通道关闭时干净退出。
 async fn writer_task(mut stdin: tokio::process::ChildStdin, mut rx: mpsc::Receiver<Vec<u8>>) {
     while let Some(frame) = rx.recv().await {
         if stdin.write_all(&frame).await.is_err() {
@@ -306,10 +303,9 @@ async fn writer_task(mut stdin: tokio::process::ChildStdin, mut rx: mpsc::Receiv
     }
 }
 
-/// Background task that parses `Content-Length`-framed JSON-RPC frames from
-/// the LSP server's stdout. Pushes each parsed JSON value to `tx`. Exits
-/// when stdout closes or a frame is malformed (we choose to fail closed
-/// rather than risk hanging).
+/// 后台任务：解析来自 LSP 服务器 stdout 的 `Content-Length` 帧格式 JSON-RPC 消息。
+/// 将每个解析后的 JSON 值推送到 `tx`。当 stdout 关闭或
+/// 帧格式错误时退出（我们选择失败关闭而不是冒险挂起）。
 async fn reader_task(mut stdout: tokio::process::ChildStdout, tx: mpsc::Sender<Value>) {
     let mut buf: Vec<u8> = Vec::with_capacity(8 * 1024);
     let mut tmp = [0u8; 4096];
@@ -339,9 +335,9 @@ async fn reader_task(mut stdout: tokio::process::ChildStdout, tx: mpsc::Sender<V
     }
 }
 
-/// Parse a JSON-RPC header block. Returns `Some((header_end, content_length))`
-/// where `header_end` is the byte offset of the first body byte. The header
-/// terminator is `\r\n\r\n`. We require a `Content-Length` header.
+/// 解析 JSON-RPC 头部块。返回 `Some((header_end, content_length))`，
+/// 其中 `header_end` 是第一个消息体字节的偏移量。头部
+/// 终止符是 `\r\n\r\n`。我们需要一个 `Content-Length` 头部。
 fn parse_header(buf: &[u8]) -> Option<(usize, usize)> {
     let term = b"\r\n\r\n";
     let pos = buf.windows(term.len()).position(|window| window == term)?;
@@ -355,15 +351,15 @@ fn parse_header(buf: &[u8]) -> Option<(usize, usize)> {
     content_length.map(|cl| (pos + term.len(), cl))
 }
 
-/// Background task that consumes inbound JSON values, classifies them as
-/// notifications/responses, and routes accordingly.
+/// 后台任务：消费入站的 JSON 值，将其分类为
+/// 通知/响应，并进行相应路由。
 async fn dispatcher_task(
     mut rx: mpsc::Receiver<Value>,
     tx_diag: mpsc::Sender<(PathBuf, Vec<Diagnostic>)>,
     pending: Arc<AsyncMutex<HashMap<i64, oneshot::Sender<Value>>>>,
 ) {
     while let Some(value) = rx.recv().await {
-        // Notifications have a `method` and no `id`.
+        // 通知有 `method` 但没有 `id`。
         let method = value.get("method").and_then(|v| v.as_str());
         if method == Some("textDocument/publishDiagnostics") {
             if let Some((path, diags)) = parse_publish_diagnostics(&value) {
@@ -371,7 +367,7 @@ async fn dispatcher_task(
             }
             continue;
         }
-        // Replies have an `id` and a `result` or `error`.
+        // 回复有 `id` 以及 `result` 或 `error`。
         if let Some(id) = value.get("id").and_then(|v| v.as_i64()) {
             let mut map = pending.lock().await;
             if let Some(slot) = map.remove(&id) {
@@ -381,7 +377,7 @@ async fn dispatcher_task(
     }
 }
 
-/// Decode a `textDocument/publishDiagnostics` notification.
+/// 解码 `textDocument/publishDiagnostics` 通知。
 fn parse_publish_diagnostics(value: &Value) -> Option<(PathBuf, Vec<Diagnostic>)> {
     let params = value.get("params")?;
     let uri = params.get("uri")?.as_str()?;
@@ -410,10 +406,9 @@ fn parse_publish_diagnostics(value: &Value) -> Option<(PathBuf, Vec<Diagnostic>)
     Some((path, out))
 }
 
-/// Convert a filesystem path to a `file://` URI. Best-effort — we do not
-/// support Windows drive letters perfectly, but the LSP servers in our
-/// registry accept percent-encoded paths well enough for the post-edit
-/// diagnostics use case.
+/// 将文件系统路径转换为 `file://` URI。尽力而为——我们不完美支持
+/// Windows 驱动器号，但我们注册表中的 LSP 服务器
+/// 能够很好地接受百分比编码的路径，满足编辑后诊断用例。
 fn uri_from_path(path: &Path) -> String {
     let canonical = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
     let s = canonical.to_string_lossy();
@@ -424,7 +419,7 @@ fn uri_from_path(path: &Path) -> String {
     }
 }
 
-/// Inverse of [`uri_from_path`]. Returns `None` when the URI is not a `file://`.
+/// [`uri_from_path`] 的反函数。当 URI 不是 `file://` 时返回 `None`。
 fn path_from_uri(uri: &str) -> Option<PathBuf> {
     let stripped = uri.strip_prefix("file://")?;
     Some(PathBuf::from(stripped))
@@ -437,7 +432,7 @@ mod tests {
     #[test]
     fn parses_lsp_header() {
         let frame = b"Content-Length: 5\r\n\r\nhello";
-        let (end, len) = parse_header(frame).expect("header parses");
+        let (end, len) = parse_header(frame).expect("头部解析成功");
         assert_eq!(end, 21);
         assert_eq!(len, 5);
     }
@@ -467,7 +462,7 @@ mod tests {
                 ]
             }
         });
-        let (path, diags) = parse_publish_diagnostics(&payload).expect("parses");
+        let (path, diags) = parse_publish_diagnostics(&payload).expect("解析成功");
         assert_eq!(path, PathBuf::from("/tmp/foo.rs"));
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].line, 12);

@@ -1,4 +1,4 @@
-//! Tool and types for requesting user input via the TUI.
+//! 用户输入工具 — `request_user_input`。
 
 use super::spec::{
     ApprovalRequirement, ToolCapability, ToolContext, ToolError, ToolResult, ToolSpec,

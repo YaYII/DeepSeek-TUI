@@ -1,4 +1,4 @@
-//! Community-skill installer (#140).
+//! 社区技能安装器（#140）。
 //!
 //! Pulls user-authored skills from GitHub or direct tarball URLs, validates them
 //! against a path-traversal- and size-bounded extractor, and writes them into

@@ -1,4 +1,4 @@
-//! Path resolution for the per-workspace snapshot side-repos.
+//! 每个工作区快照侧仓库的路径解析。
 //!
 //! Snapshots live in `~/.deepseek/snapshots/<project_hash>/<worktree_hash>/`.
 //! The two-level hash split lets us snapshot multiple worktrees of the same

@@ -1,4 +1,4 @@
-//! Shared text helpers for TUI selection and clipboard workflows.
+//! UI 文本 — TUI 中使用的本地化文本字符串。
 
 use ratatui::text::Line;
 use unicode_width::UnicodeWidthChar;

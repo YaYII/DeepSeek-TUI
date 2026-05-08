@@ -1,4 +1,4 @@
-//! Full-screen pager overlay for long outputs.
+//! 分页器 — 用于查看长输出的类 less 分页器。
 //!
 //! Vim-style key bindings (mirroring the codex pager_overlay):
 //! - `j` / Down — scroll down one line

@@ -1,4 +1,4 @@
-//! Slash commands for the persistent network allow/deny list.
+//! `/network` 命令 — 管理网络设置。
 
 use std::fs;
 use std::path::Path;

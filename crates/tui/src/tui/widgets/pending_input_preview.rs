@@ -1,4 +1,4 @@
-//! Pending-input preview widget for the composer area.
+//! 待处理输入预览 — 显示待处理的用户输入请求。
 //!
 //! Port of `codex-rs/tui/src/bottom_pane/pending_input_preview.rs` for
 //! issue #85. Renders queued/steered messages above the composer when a

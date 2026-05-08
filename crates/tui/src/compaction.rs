@@ -1,4 +1,4 @@
-//! Context compaction for long conversations.
+//! 长对话的上下文压缩。
 
 use anyhow::Result;
 use regex::Regex;
@@ -805,7 +805,7 @@ pub fn prune_tool_results(messages: &mut [Message], protected_window: usize) -> 
         }
 
         let summary = format!(
-            "[{}] tool result pruned ({} bytes; args: {})",
+            "[{}] 工具结果已修剪（{} 字节；参数：{}）",
             candidate.tool_name, candidate.original_len, candidate.args_preview
         );
         if summary.len() >= candidate.original_len {
@@ -1029,18 +1029,18 @@ pub async fn compact_messages(
         block_type: "text".to_string(),
         text: format!(
             "{anchors_section}\
-             ## 📋 Conversation Summary (Auto-Generated)\n\n\
+             ## 📋 对话摘要（自动生成）\n\n\
              {summary}\n\n\
              ---\n\n\
-             ## 🔍 Workflow Context\n\n\
+             ## 🔍 工作流上下文\n\n\
              {workflow_context}\n\n\
              ---\n\n\
-             ## 💡 What to Do Next\n\n\
-             You have just resumed from a context compaction. The conversation above was summarized to save space. \
-             Review the summary and workflow context, then continue helping the user with their task. \
-             If you need more details about the summarized portion, ask the user to clarify.\n\n\
+             ## 💡 接下来做什么\n\n\
+     你刚刚从上下文压缩中恢复。以上对话已被摘要以节省空间。\
+     请查看摘要和工作流上下文，然后继续帮助用户完成任务。\
+     如果需要了解摘要部分的更多细节，请让用户澄清。\n\n\
              ---\n\n\
-             Pinned messages follow:"
+             置顶消息如下："
         ),
         cache_control: if config.cache_summary {
             Some(CacheControl {
@@ -1204,11 +1204,11 @@ fn should_use_cache_aligned_summary(model: &str, messages: &[Message]) -> bool {
 
 fn summary_instruction(word_limit: usize) -> String {
     format!(
-        "Summarize the conversation above in a concise but comprehensive way. \
-         Preserve key information, decisions made, exact file paths, commands, \
-         errors, and tool-result facts needed to continue the work. \
-         Tool outputs may be abbreviated only when they are repetitive. \
-         Keep it under {word_limit} words."
+        "用简洁但全面的方式总结上述对话。\
+         保留关键信息、已做的决策、确切的文件路径、命令、\
+         错误以及继续工作所需的工具结果事实。\
+         工具输出仅在重复时可以缩写。\
+         保持在 {word_limit} 字以内。"
     )
 }
 
@@ -1303,7 +1303,7 @@ fn build_formatted_summary_request(
         }],
         max_tokens: limits.max_tokens,
         system: Some(SystemPrompt::Text(
-            "You are a helpful assistant that creates concise conversation summaries.".to_string(),
+            "你是一个有用的助手，负责创建简洁的对话摘要。".to_string(),
         )),
         tools: None,
         tool_choice: None,
@@ -1351,7 +1351,7 @@ fn extract_workflow_context(messages: &[Message], workspace: Option<&Path>) -> S
     let mut context = String::new();
 
     if !files_touched.is_empty() {
-        context.push_str("**Files Modified/Read:**\n");
+        context.push_str("**已修改/读取的文件：**\n");
         for file in &files_touched {
             if let Some(ws) = workspace {
                 let relative = Path::new(file)
@@ -1367,13 +1367,13 @@ fn extract_workflow_context(messages: &[Message], workspace: Option<&Path>) -> S
     }
 
     if !tools_used.is_empty() {
-        context.push_str("**Tools Used:** ");
+        context.push_str("**已使用的工具：** ");
         context.push_str(&tools_used.join(", "));
         context.push_str("\n\n");
     }
 
     if !tasks_identified.is_empty() {
-        context.push_str("**Tasks/TODOs Identified:**\n");
+        context.push_str("**已识别的任务/TODO：**\n");
         for task in &tasks_identified {
             context.push_str(&format!("- {}\n", task));
         }
@@ -1381,7 +1381,7 @@ fn extract_workflow_context(messages: &[Message], workspace: Option<&Path>) -> S
     }
 
     if context.is_empty() {
-        context.push_str("No specific workflow context detected. Continue assisting the user with their current task.\n");
+        context.push_str("未检测到特定的工作流上下文。请继续帮助用户完成当前任务。\n");
     }
 
     context
@@ -1548,7 +1548,7 @@ mod tests {
         let ContentBlock::ToolResult { content, .. } = &messages[1].content[0] else {
             panic!("expected tool result");
         };
-        assert!(content.contains("[read_file] tool result pruned"));
+        assert!(content.contains("[read_file] 工具结果已修剪"));
         assert!(content.contains("Cargo.toml"));
         assert!(content.len() < verbose.len());
     }
@@ -1589,7 +1589,7 @@ mod tests {
         let ContentBlock::ToolResult { content: older, .. } = &messages[1].content[0] else {
             panic!("expected older tool result");
         };
-        assert!(older.contains("tool result pruned"));
+        assert!(older.contains("工具结果已修剪"));
         let ContentBlock::ToolResult {
             content: latest, ..
         } = &messages[3].content[0]
@@ -1690,7 +1690,7 @@ mod tests {
         assert_eq!(last.role, "user");
         assert!(matches!(
             &last.content[..],
-            [ContentBlock::Text { text, .. }] if text.contains("conversation above")
+            [ContentBlock::Text { text, .. }] if text.contains("上述对话")
         ));
     }
 

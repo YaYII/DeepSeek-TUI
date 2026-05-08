@@ -1,7 +1,7 @@
-//! LLM Client Trait and Retry Logic
+//! LLM 客户端 Trait 和重试逻辑
 //!
-//! This module provides a unified interface for LLM providers with robust retry logic,
-//! exponential backoff, and proper error classification.
+//! 本模块为 LLM 提供者提供统一接口，具有健壮的重试逻辑、
+//! 指数退避和正确的错误分类。
 //!
 //! # Architecture
 //!

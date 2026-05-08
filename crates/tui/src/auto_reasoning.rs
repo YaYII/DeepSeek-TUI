@@ -1,4 +1,4 @@
-//! Adaptive reasoning-effort tier selection for `Auto` mode (#663).
+//! `Auto` 模式的自适应推理力度层级选择（#663）。
 //!
 //! When the user sets `reasoning_effort = "auto"`, the engine calls
 //! [`select`] before each turn-level request to pick the actual tier

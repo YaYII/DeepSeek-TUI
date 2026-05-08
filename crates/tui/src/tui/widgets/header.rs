@@ -1,4 +1,4 @@
-//! Header bar widget displaying mode, workspace/model context, and session status.
+//! 页眉 — 顶部栏，显示会话标题和控件。
 
 use ratatui::{
     buffer::Buffer,

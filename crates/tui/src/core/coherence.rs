@@ -1,10 +1,10 @@
-//! Plain-language session coherence state derived from capacity events.
+//! 从容量事件派生的自然语言会话一致性状态。
 
 use serde::{Deserialize, Serialize};
 
 use crate::core::capacity::{GuardrailAction, RiskBand};
 
-/// User-facing coherence ladder for session health.
+/// 面向用户的会话健康一致性阶梯。
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CoherenceState {
@@ -20,31 +20,31 @@ impl CoherenceState {
     #[must_use]
     pub fn label(self) -> &'static str {
         match self {
-            Self::Healthy => "healthy",
-            Self::GettingCrowded => "getting crowded",
-            Self::RefreshingContext => "refreshing context",
-            Self::VerifyingRecentWork => "verifying recent work",
-            Self::ResettingPlan => "resetting plan",
+            Self::Healthy => "健康",
+            Self::GettingCrowded => "变得拥挤",
+            Self::RefreshingContext => "刷新上下文",
+            Self::VerifyingRecentWork => "验证最近工作",
+            Self::ResettingPlan => "重置计划",
         }
     }
 
     #[must_use]
     pub fn description(self) -> &'static str {
         match self {
-            Self::Healthy => "The session is stable and focused.",
-            Self::GettingCrowded => "The session is approaching context pressure.",
-            Self::RefreshingContext => "The engine is refreshing context before continuing.",
+            Self::Healthy => "会话稳定且专注。",
+            Self::GettingCrowded => "会话正在接近上下文压力。",
+            Self::RefreshingContext => "引擎正在继续之前刷新上下文。",
             Self::VerifyingRecentWork => {
-                "The engine is checking recent tool results before continuing."
+                "引擎正在继续之前检查最近的工具结果。"
             }
             Self::ResettingPlan => {
-                "The engine is rebuilding from canonical context and replanning."
+                "引擎正在从规范上下文重建并重新规划。"
             }
         }
     }
 }
 
-/// Synthetic input to the coherence reducer.
+/// 一致性归约器的合成输入。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CoherenceSignal {
     CapacityDecision {
@@ -60,7 +60,7 @@ pub enum CoherenceSignal {
     CompactionFailed,
 }
 
-/// Pure transition function for the plain-language coherence ladder.
+/// 自然语言一致性阶梯的纯转换函数。
 #[must_use]
 pub fn next_coherence_state(current: CoherenceState, signal: CoherenceSignal) -> CoherenceState {
     match signal {

@@ -1,4 +1,4 @@
-//! Minimal Agent Client Protocol stdio adapter.
+//! 最小化 Agent Client Protocol stdio 适配器。
 //!
 //! This intentionally starts with the ACP baseline: initialize, new session,
 //! prompt, and cancel. It keeps stdout protocol-clean for editor clients and
@@ -197,7 +197,7 @@ impl AcpServer {
             }],
             max_tokens: 4096,
             system: Some(SystemPrompt::Text(
-                "You are a coding assistant inside an ACP-compatible editor. Give concise, actionable responses.".to_string(),
+                "你是一个在兼容 ACP 的编辑器中的编程助手。提供简洁、可操作的回答。".to_string(),
             )),
             tools: None,
             tool_choice: None,

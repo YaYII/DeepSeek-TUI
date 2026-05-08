@@ -1,4 +1,4 @@
-//! /share command — export the current session as a shareable web URL.
+//! `/share` 命令 — 分享会话。
 //!
 //! Renders the current session transcript as a static HTML page, uploads it
 //! to a GitHub Gist via the `gh` CLI, and displays the resulting URL.

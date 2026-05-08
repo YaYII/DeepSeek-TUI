@@ -1,4 +1,4 @@
-//! Compact session context inspector.
+//! 上下文检查器 — 显示当前会话的令牌使用情况和上下文压力。
 
 use std::collections::HashSet;
 use std::fmt::Write;
@@ -15,7 +15,7 @@ use crate::utils::estimate_message_chars;
 /// Marker used by per-turn working-set metadata. Replicated here so the
 /// context inspector can distinguish stable prompt blocks from volatile
 /// working-set context without importing engine internals.
-const WORKING_SET_MARKER: &str = "## Repo Working Set";
+const WORKING_SET_MARKER: &str = "## 仓库工作集";
 
 const CONTEXT_WARNING_THRESHOLD_PERCENT: f64 = 85.0;
 const CONTEXT_CRITICAL_THRESHOLD_PERCENT: f64 = 95.0;
@@ -425,7 +425,7 @@ mod tests {
             "volatile marker: {text}"
         );
         assert!(
-            text.contains("First line: ## Repo Working Set"),
+            text.contains("First line: ## 仓库工作集"),
             "first line of working set: {text}"
         );
     }
@@ -456,7 +456,7 @@ mod tests {
     fn inspector_text_prompt_shows_single_blob() {
         let mut app = test_app();
         app.system_prompt = Some(SystemPrompt::Text(
-            "You are DeepSeek TUI.\n## Repo Working Set\nsrc/".to_string(),
+            "You are DeepSeek TUI.\n## 仓库工作集\nsrc/".to_string(),
         ));
 
         let text = build_context_inspector_text(&app);

@@ -1,13 +1,12 @@
-//! Documentation-only catalog of every user-facing keybinding.
+//! 每个面向用户的键盘绑定的仅文档目录。
 //!
-//! This module is the *single source of truth* for what shortcuts the help
-//! overlay renders. The actual key handlers live in `tui/ui.rs` (and a few
-//! sibling modules); they read keys directly off the crossterm event stream
-//! and intentionally do **not** consult this catalog. The catalog exists so
-//! that:
+//! 本模块是帮助覆盖层渲染的快捷键的 *唯一真实来源*。
+//! 实际的键处理器位于 `tui/ui.rs`（以及一些同级模块）；
+//! 它们直接从 crossterm 事件流读取键，并故意 **不** 查阅此目录。
+//! 此目录的存在是为了：
 //!
-//! 1. The help overlay (`tui/views/help.rs`) does not have to maintain a
-//!    parallel list that silently rots when a handler is added or moved.
+//! 1. 帮助覆盖层（`tui/views/help.rs`）不必维护一个在添加或移动
+//!    处理器时会静默过时的并行列表。
 //! 2. New contributors have one place to look when answering "which keys are
 //!    bound, and where do they go?"
 //!

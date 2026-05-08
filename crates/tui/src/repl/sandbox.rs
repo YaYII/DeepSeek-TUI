@@ -1,4 +1,4 @@
-//! REPL fence-extraction utilities.
+//! REPL 围栏提取工具。
 //!
 //! The agent's main loop scans assistant text for ` ```repl ` fenced blocks
 //! and feeds them to a [`crate::repl::runtime::PythonRuntime`]. Capturing

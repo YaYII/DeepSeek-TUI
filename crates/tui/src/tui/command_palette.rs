@@ -1,4 +1,4 @@
-//! Command palette modal for quick command/skill insertion.
+//! 命令面板 — 可搜索的命令列表（Ctrl+P）。
 
 use std::path::Path;
 

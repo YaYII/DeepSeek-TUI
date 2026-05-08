@@ -1,4 +1,4 @@
-//! Dedicated persistence actor for session save / checkpoint I/O.
+//! 持久化角色 — 将会话状态异步写入磁盘的后台角色。
 //!
 //! ## Motivation
 //!

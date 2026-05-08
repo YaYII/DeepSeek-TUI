@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-//! Sandbox policy definitions for command execution restrictions.
+//! 命令执行限制的沙箱策略定义。
 //!
 //! This module defines the policies that control what resources a sandboxed
 //! process can access. Policies range from full unrestricted access to

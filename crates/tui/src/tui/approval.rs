@@ -1,31 +1,27 @@
-//! Tool approval system for `DeepSeek` CLI.
+//! `DeepSeek` CLI 的工具审批系统。
 //!
-//! Hosts the [`ApprovalRequest`] / [`ApprovalView`] pair the engine asks
-//! the TUI to present whenever a tool needs human approval, plus the
-//! sandbox elevation flow ([`ElevationRequest`] / [`ElevationView`]) that
-//! follows a sandbox denial.
+//! 托管 [`ApprovalRequest`] / [`ApprovalView`] 对，引擎要求 TUI
+//! 在工具需要人工审批时呈现，以及沙箱提升流程
+//!（[`ElevationRequest`] / [`ElevationView`]），在沙箱拒绝之后。
 //!
-//! ## v0.6.7: Codex-style takeover with stakes-based variants (#129)
+//! ## v0.6.7：Codex 风格接管，基于风险等级的变体（#129）
 //!
-//! The modal now renders as a full-screen takeover (calm centered card
-//! against the transcript area) and routes each request to one of two
-//! stakes-based variants:
+//! 模态框现在渲染为全屏接管（在转录本区域上显示平静的居中卡片），
+//! 并将每个请求路由到两个基于风险等级的变体之一：
 //!
-//! - **Benign** (`RiskLevel::Benign`) — read-only ops, MCP discovery,
-//!   query-only network. A single `Enter` / `1` / `y` approves once;
-//!   `2` / `a` approves for the session.
-//! - **Destructive** (`RiskLevel::Destructive`) — file writes, shell,
-//!   patches, MCP actions, unclassified tools, and any "fetch arbitrary
-//!   content" surface. The first approve press *stages* a decision and
-//!   the second matching press commits — muscle-memory `Enter` cannot
-//!   accidentally land on an approval. Any non-approve key clears the
-//!   staging and keeps the user in selection mode.
+//! - **良性**（`RiskLevel::Benign`）— 只读操作、MCP 发现、
+//!   仅查询网络。单次 `Enter` / `1` / `y` 批准一次；
+//!   `2` / `a` 批准整个会话。
+//! - **破坏性**（`RiskLevel::Destructive`）— 文件写入、shell、
+//!   patches、MCP 操作、未分类工具，以及任何"获取任意内容"
+//!   表面。第一次批准按下 *暂存* 一个决定，第二次匹配按下提交 —
+//!   肌肉记忆的 `Enter` 不会意外落在批准上。任何非批准键清除
+//!   暂存并保持用户在选择模式。
 //!
-//! The decision events emitted upstream are unchanged
-//! (`ViewEvent::ApprovalDecision`), so `ui.rs` and the engine handle
-//! both variants without modification. Auto-approve / YOLO bypasses
-//! happen *before* the view is constructed (see `tui/ui.rs`); this
-//! module always assumes the user is being asked.
+//! 上游发出的事件决策不变（`ViewEvent::ApprovalDecision`），
+//! 因此 `ui.rs` 和引擎无需修改即可处理两种变体。
+//! 自动批准 / YOLO 绕过在视图构造 *之前* 发生（参见 `tui/ui.rs`）；
+//! 本模块始终假设用户正在被询问。
 
 use crate::localization::Locale;
 use crate::sandbox::SandboxPolicy;

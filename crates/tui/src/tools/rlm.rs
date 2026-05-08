@@ -1,4 +1,4 @@
-//! `rlm_process` tool — heavy-lift recursive language model as a tool call.
+//! RLM 工具 — 沙箱化 Python REPL。
 //!
 //! Where `rlm_query` is a parallel fanout primitive (N prompts → N answers,
 //! stateless), `rlm_process` runs the full recursive-language-model loop

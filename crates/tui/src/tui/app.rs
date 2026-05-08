@@ -1,4 +1,4 @@
-//! Application state for the `DeepSeek` TUI.
+//! `DeepSeek` TUI 的应用程序状态。
 
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::{Path, PathBuf};

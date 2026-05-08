@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-//! Command safety analysis for shell execution
+//! Shell 执行的命令安全分析
 //!
 //! This module provides pre-execution analysis of shell commands to detect
 //! potentially dangerous patterns and prevent accidental damage.

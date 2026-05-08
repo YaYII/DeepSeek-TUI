@@ -1,4 +1,4 @@
-//! API key entry screen for onboarding.
+//! API 密钥输入屏幕（入门引导）。
 
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};

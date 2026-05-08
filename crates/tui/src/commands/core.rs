@@ -1,4 +1,4 @@
-//! Core commands: help, clear, exit, model
+//! 核心命令基础设施 — 命令注册、解析和执行。
 
 use std::fmt::Write;
 

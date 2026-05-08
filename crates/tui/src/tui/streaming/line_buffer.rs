@@ -1,8 +1,8 @@
-//! Newline-boundary gate for streaming text.
+//! 行缓冲区 — 管理流式文本行以进行增量渲染。
 //!
-//! `LineBuffer` is an upstream-of-the-chunker safety layer that holds back any
-//! text after the LAST `\n` until the next newline arrives. This prevents
-//! partial multi-character markdown — most importantly partial code fences
+//! `LineBuffer` 是分块器上游的安全层，它会保留最后一个 `\n` 之后的
+//! 所有文本，直到下一个换行符到达。这可以防止部分多字符 markdown —
+//! 最重要的是防止部分代码围栏
 //! (` ``` `) whose meaning flips depending on what follows on the same line —
 //! from ever becoming visible state in the renderer.
 //!

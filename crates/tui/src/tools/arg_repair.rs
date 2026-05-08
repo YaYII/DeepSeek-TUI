@@ -1,4 +1,4 @@
-//! Deterministic JSON argument repair for malformed tool-call inputs.
+//! 参数修复 — 修复格式错误的 JSON 工具参数。
 //!
 //! DeepSeek streams `tool_calls.function.arguments` as deltas. Two failure
 //! shapes are common: (a) SSE chunk boundary cuts inside a JSON string and

@@ -1,4 +1,4 @@
-//! Append-only layered context management with Flash seam manager (issue #159).
+//! 带 Flash 接缝管理器的追加式分层上下文管理（issue #159）。
 //!
 //! ## Why
 //!
@@ -227,7 +227,7 @@ impl SeamManager {
             1 => "~2,500 tokens",
             2 => "~1,800 tokens",
             3 => "~1,200 tokens",
-            _ => "unknown",
+            _ => "未知",
         };
 
         let timestamp = Utc::now();
@@ -268,17 +268,17 @@ impl SeamManager {
         end_idx: usize,
     ) -> Result<String> {
         let mut input = String::from(
-            "## Prior Context Summaries\n\n\
-             The following <archived_context> blocks were produced earlier. \
-             Merge their key information into a single denser summary.\n\n",
+            "## 之前的上下文摘要\n\n\
+             以下 <archived_context> 块是之前生成的。\
+             将关键信息合并为单个更紧凑的摘要。\n\n",
         );
 
         for (i, seam) in existing_seams.iter().enumerate() {
-            let _ = write!(input, "### Seam {}\n{seam}\n\n", i + 1);
+            let _ = write!(input, "### 接缝 {}\n{seam}\n\n", i + 1);
         }
 
         if !new_messages.is_empty() {
-            input.push_str("## Recent Messages\n\n");
+            input.push_str("## 最近消息\n\n");
             for msg in new_messages {
                 let role = &msg.role;
                 for block in &msg.content {
@@ -301,20 +301,20 @@ impl SeamManager {
                 role: "user".to_string(),
                 content: vec![ContentBlock::Text {
                     text: format!(
-                        "Synthesize the following context into a single dense summary. \
-                         Preserve: decisions made, file paths, error messages, \
-                         constraints, hypotheses, open questions, and task state. \
-                         Drop: greeting, filler, repeated information. \
-                         Keep it under {word_limit} words.\n\n{input}"
+                        "将以下上下文综合为单个紧凑摘要。\
+                         保留：做出的决策、文件路径、错误消息、\
+                         约束条件、假设、开放问题及任务状态。\
+                         删除：问候语、填充内容、重复信息。\
+                         保持在 {word_limit} 词以内。\n\n{input}"
                     ),
                     cache_control: None,
                 }],
             }],
             max_tokens,
             system: Some(SystemPrompt::Text(
-                "You are a context compaction specialist. Produce dense, factual summaries that \
-                 preserve every decision, path, error, constraint, and open question. Drop \
-                 conversational filler and repetition."
+                "你是上下文压缩专家。生成紧凑、事实性的摘要，\
+                 保留每个决策、路径、错误、约束条件和开放问题。删除\
+                 对话填充内容和重复信息。"
                     .to_string(),
             )),
             tools: None,
@@ -378,26 +378,25 @@ impl SeamManager {
         structured_state: Option<&str>,
     ) -> Result<String> {
         let mut input = String::from(
-            "## Briefing Request\n\n\
-             Produce a <carry_forward> block summarizing the session state. \
-             Include: decisions made + why, constraints discovered, \
-             hypotheses being tested, approaches that failed, open questions. \
-             Do NOT include tool output bytes, file contents, or step-by-step recaps.\n\n",
+            "## 简报请求\n\n\
+             生成一个 <carry_forward> 块总结会话状态。\
+             包括：做出的决策及原因、发现的约束条件、\
+             正在测试的假设、失败的方法、开放问题。\
+             不要包含工具输出字节、文件内容或逐步回顾。\n\n",
         );
 
         if let Some(state) = structured_state {
-            let _ = write!(input, "## Structured State\n\n{state}\n\n");
+            let _ = write!(input, "## 结构化状态\n\n{state}\n\n");
         }
 
         if !existing_seams.is_empty() {
-            input.push_str("## Prior Context Summaries\n\n");
+            input.push_str("## 之前的上下文摘要\n\n");
             for (i, seam) in existing_seams.iter().enumerate() {
-                let _ = write!(input, "### Seam {}\n{seam}\n\n", i + 1);
+                let _ = write!(input, "### 接缝 {}\n{seam}\n\n", i + 1);
             }
         } else {
             input.push_str(
-                "No prior context summaries available. Produce a brief carry-forward \
-                 from the structured state alone.\n",
+                "没有之前的上下文摘要。仅从结构化状态生成一个简短的 carry-forward。\n",
             );
         }
 
@@ -456,9 +455,9 @@ impl SeamManager {
 
         for msg in messages {
             let role = if msg.role == "user" {
-                "User"
+                "用户"
             } else {
-                "Assistant"
+                "助手"
             };
             for block in &msg.content {
                 match block {
@@ -467,11 +466,11 @@ impl SeamManager {
                         let _ = write!(conversation, "{role}: {snippet}\n\n");
                     }
                     ContentBlock::ToolUse { name, .. } => {
-                        let _ = write!(conversation, "{role}: [Used tool: {name}]\n\n");
+                        let _ = write!(conversation, "{role}：[使用了工具：{name}]\n\n");
                     }
                     ContentBlock::ToolResult { content, .. } => {
                         let snippet = truncate_chars(content, 200);
-                        let _ = write!(conversation, "Tool result: {snippet}\n\n");
+                        let _ = write!(conversation, "工具结果：{snippet}\n\n");
                     }
                     ContentBlock::Thinking { .. } => {
                         // Skip thinking in seam summaries.
@@ -496,21 +495,21 @@ impl SeamManager {
                 role: "user".to_string(),
                 content: vec![ContentBlock::Text {
                     text: format!(
-                        "Summarize the following conversation segment (messages {start_idx}-{end_idx}). \
-                         Preserve: key decisions and their rationale, exact file paths, \
-                         command invocations, error messages, tool-result facts, constraints \
-                         discovered, hypotheses being tested, and open questions. \
-                         Drop: greetings, filler, repeated information, and thinking blocks. \
-                         Keep it under {word_limit} words.\n\n---\n\n{conversation}"
+                        "总结以下对话片段（消息 {start_idx}-{end_idx}）。\
+                         保留：关键决策及其理由、准确的文件路径、\
+                         命令调用、错误消息、工具结果事实、发现的约束条件、\
+                         正在测试的假设和开放问题。\
+                         删除：问候语、填充内容、重复信息和思考块。\
+                         保持在 {word_limit} 词以内。\n\n---\n\n{conversation}"
                     ),
                     cache_control: None,
                 }],
             }],
             max_tokens,
             system: Some(SystemPrompt::Text(
-                "You are a context summarization specialist. Produce dense, factual summaries \
-                 that preserve every decision, path, error, constraint, and open question. \
-                 Never omit a file path, error message, or decision rationale."
+                "你是上下文总结专家。生成紧凑、事实性的摘要，\
+                 保留每个决策、路径、错误、约束条件和开放问题。\
+                 绝不遗漏文件路径、错误消息或决策理由。"
                     .to_string(),
             )),
             tools: None,

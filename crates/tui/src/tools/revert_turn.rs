@@ -1,4 +1,4 @@
-//! `revert_turn` — agent-callable tool that rewinds the workspace to a
+//! 回退轮次 — 撤销最近的轮次。
 //! prior pre-turn snapshot.
 //!
 //! The model invokes this when the user says something like "undo the

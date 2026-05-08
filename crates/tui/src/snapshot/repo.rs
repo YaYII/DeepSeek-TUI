@@ -1,4 +1,4 @@
-//! Side-git repository wrapper for workspace snapshots.
+//! 工作区快照的侧 git 仓库包装器。
 //!
 //! `SnapshotRepo` shells out to the system `git` binary (we deliberately
 //! avoid `git2` to dodge its LGPL surface). The two paths that matter:

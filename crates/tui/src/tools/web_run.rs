@@ -1,4 +1,4 @@
-//! Web browsing tool with multi-command support (search/open/click/find/screenshot).
+//! Web 运行 — 支持多命令的 Web 浏览工具（搜索/打开/点击/查找/截图）。
 //!
 //! This mirrors the Codex harness `web.run` interface so models can use a single
 //! tool call to perform multiple web actions and cite sources with ref_ids.

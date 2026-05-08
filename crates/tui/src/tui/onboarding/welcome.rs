@@ -1,4 +1,4 @@
-//! Welcome screen content for onboarding.
+//! 欢迎/启动步骤。
 
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};

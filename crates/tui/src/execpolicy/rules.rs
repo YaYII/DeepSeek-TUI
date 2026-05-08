@@ -1,4 +1,4 @@
-//! Execpolicy rules loaded from TOML configuration.
+//! 从 TOML 配置加载的 execpolicy 规则。
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};

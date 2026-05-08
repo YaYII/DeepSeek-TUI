@@ -1,4 +1,4 @@
-//! Session resume picker view for the TUI.
+//! 会话选择器 — 交互式会话选择和恢复对话框。
 
 use std::cell::Cell;
 use std::collections::HashMap;

@@ -1,4 +1,4 @@
-//! Large-output routing for tool results (issue #548).
+//! 大输出路由 — 将大工具输出路由到分页器。
 //!
 //! Any tool result whose estimated token count exceeds the configured threshold
 //! is intercepted here before it reaches the parent context. A lightweight

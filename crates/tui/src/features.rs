@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-//! Feature flags and metadata for DeepSeek TUI.
+//! DeepSeek TUI 的功能标志和元数据。
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::{self, Write as _};

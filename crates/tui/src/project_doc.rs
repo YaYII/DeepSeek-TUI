@@ -1,7 +1,7 @@
-//! Project document discovery and loading
+//! 项目文档发现和加载
 //!
-//! Supports auto-discovery of project instructions like Claude Code.
-//! Priority: AGENTS.md > .claude/instructions.md > CLAUDE.md > .deepseek/instructions.md
+//! 支持类似 Claude Code 的项目指令自动发现。
+//! 优先级：AGENTS.md > .claude/instructions.md > CLAUDE.md > .deepseek/instructions.md
 
 use std::path::{Path, PathBuf};
 

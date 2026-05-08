@@ -1,4 +1,4 @@
-//! /goal command — set a session objective with token budget and progress tracking.
+//! `/goal` 命令 — 设置或查看会话目标。
 
 use crate::tui::app::App;
 

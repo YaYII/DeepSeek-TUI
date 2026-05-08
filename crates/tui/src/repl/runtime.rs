@@ -1,4 +1,4 @@
-//! Long-lived Python REPL runtime.
+//! 长生命周期 Python REPL 运行时。
 //!
 //! One `python3 -u` subprocess lives for the duration of an RLM turn (or an
 //! inline `repl` block sequence in the agent loop). Code blocks are sent

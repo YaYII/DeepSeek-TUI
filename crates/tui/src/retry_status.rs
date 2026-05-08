@@ -1,4 +1,4 @@
-//! Process-wide retry-state surface (#499).
+//! 进程级重试状态界面（#499）。
 //!
 //! The HTTP retry path in `client::send_with_retry` already times its
 //! waits and knows the error category. This module gives the TUI a way

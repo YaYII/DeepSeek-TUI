@@ -1,10 +1,10 @@
-## Approval Policy: Suggest
+## 审批策略：Suggest
 
-Read-only operations run silently. Write operations (file edits, patches, shell execution, sub-agent spawns, CSV batches) require user approval before executing.
+只读操作静默执行。写操作（文件编辑、补丁、shell 执行、子代理生成、CSV 批处理）在执行前需要用户审批。
 
-When you need approval:
-1. First, lay out your approach with `checklist_write` — visible plans build trust.
-2. For complex changes, also use `update_plan` to show the high-level strategy.
-3. The user will see your proposed action and can approve or deny it.
+当你需要审批时：
+1. 首先用 `checklist_write` 列出你的方案——可见的计划建立信任。
+2. 对于复杂变更，同时使用 `update_plan` 展示高层策略。
+3. 用户将看到你提议的操作并可以批准或拒绝。
 
-Decomposition is your best tool for earning approvals. A clear plan with verifiable steps gets approved faster than an opaque request.
+分解任务是你获得批准的最佳工具。一个清晰且步骤可验证的计划比一个模糊的请求更容易获得批准。

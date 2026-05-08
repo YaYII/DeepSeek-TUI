@@ -1,4 +1,4 @@
-//! Tool wrapper for executing multiple tool calls in parallel.
+//! 并行工具执行 — 并行运行多个工具。
 //!
 //! NOTE: this meta-tool is intentionally no longer registered with the
 //! agent (see `ToolRegistryBuilder::with_parallel_tool`). DeepSeek-V4

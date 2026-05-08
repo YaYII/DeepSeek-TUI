@@ -1,4 +1,4 @@
-//! Offline evaluation harness for exercising representative tool loops.
+//! 离线评估工具，用于演练代表性工具循环。
 //!
 //! This module is intentionally self-contained so it can be wired into a CLI
 //! command later without calling the network or any LLM endpoints.

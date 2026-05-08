@@ -1,4 +1,4 @@
-//! Text chat workflows for `DeepSeek` and DeepSeek-compatible APIs.
+//! `DeepSeek` 和 DeepSeek 兼容 API 的文本聊天工作流。
 
 use std::collections::HashMap;
 use std::io::{self, Write};
@@ -206,7 +206,7 @@ async fn process_deepseek_turn(
                     ContentBlockStart::Thinking { .. } => {
                         is_thinking = true;
                         block_types.insert(index, "thinking".to_string());
-                        println!("{}", ds_sky("Thinking 💭").dimmed());
+                        println!("{}", ds_sky("思考中 💭").dimmed());
                     }
                     ContentBlockStart::Text { .. } => {
                         if is_thinking {
@@ -220,7 +220,7 @@ async fn process_deepseek_turn(
                         tool_blocks.insert(index, (id, name.clone(), String::new()));
                         println!(
                             "{} {}",
-                            ds_blue("Tool Call:").bold(),
+                            ds_blue("工具调用：").bold(),
                             ds_blue(&name).bold()
                         );
                     }
@@ -248,11 +248,11 @@ async fn process_deepseek_turn(
                         && let Some((_id, name, json_str)) = tool_blocks.get(&index)
                     {
                         if let Ok(parsed) = serde_json::from_str::<Value>(json_str) {
-                            println!("{} {}", ds_blue("Tool Input:"), pretty_json(&parsed));
+                            println!("{} {}", ds_blue("工具输入："), pretty_json(&parsed));
                         } else if !json_str.is_empty() {
-                            println!("{} {}", ds_blue("Tool Input:"), json_str);
+                            println!("{} {}", ds_blue("工具输入："), json_str);
                         }
-                        println!("{}", ds_blue(&format!("Tool End: {name}")).dimmed());
+                        println!("{}", ds_blue(&format!("工具结束：{name}")).dimmed());
                     }
                 }
                 StreamEvent::MessageDelta {
@@ -433,7 +433,7 @@ fn update_stats_from_official_response(response: &Value, stats: &mut SessionStat
 
 fn matches_exit(input: &str) -> bool {
     let normalized = input.trim().to_lowercase();
-    matches!(normalized.as_str(), "exit" | "quit" | "q" | "/exit")
+    matches!(normalized.as_str(), "exit" | "quit" | "q" | "/exit" | "退出")
 }
 
 fn handle_command_deepseek(
@@ -452,7 +452,7 @@ fn handle_command_deepseek(
             print_help();
         }
         "/history" => {
-            println!("Messages: {}", messages.len());
+            println!("消息数：{}", messages.len());
         }
         "/stats" => {
             print_stats(stats);
@@ -469,7 +469,7 @@ fn handle_command_deepseek(
             }
         }
         _ => {
-            println!("Unknown command. Type /help for available commands.");
+            println!("未知命令。输入 /help 查看可用命令。");
         }
     }
     true
@@ -492,7 +492,7 @@ fn handle_command_official(
             print_help();
         }
         "/history" => {
-            println!("Messages: {}", messages.len());
+            println!("消息数：{}", messages.len());
         }
         "/stats" => {
             print_stats(stats);
@@ -512,7 +512,7 @@ fn handle_command_official(
             }
         }
         _ => {
-            println!("Unknown command. Type /help for available commands.");
+            println!("未知命令。输入 /help 查看可用命令。");
         }
     }
     true
@@ -520,38 +520,38 @@ fn handle_command_official(
 
 fn print_banner(mode: &str) {
     println!("{}", ds_blue("DeepSeek TUI").bold());
-    println!("Mode: {mode}");
-    println!("Type /help for commands. Use /exit to quit.\n");
+    println!("模式：{mode}");
+    println!("输入 /help 查看命令。使用 /exit 退出。\n");
 }
 
 fn print_help() {
-    println!("{}", ds_sky("Commands:").bold());
-    println!("  /help     Show this help");
-    println!("  /clear    Clear history (keeps system prompt)");
-    println!("  /history  Show message count");
-    println!("  /stats    Show token stats");
-    println!("  /exit     Exit session");
+    println!("{}", ds_sky("命令：").bold());
+    println!("  /help     显示此帮助");
+    println!("  /clear    清除历史记录（保留系统提示词）");
+    println!("  /history  显示消息数量");
+    println!("  /stats    显示 token 统计");
+    println!("  /exit     退出会话");
 }
 
 fn print_session_info(options: &TextChatOptions, messages: usize, tools: usize) {
     let width = 56usize;
-    let header = "Session Info";
+    let header = "会话信息";
     println!("┌{}┐", "─".repeat(width));
     println!("│{:^width$}│", ds_blue(header).bold(), width = width);
     println!("├{}┤", "─".repeat(width));
     println!(
         "│ {:<width$}│",
-        format!("Model: {}", options.model),
+        format!("模型：{}", options.model),
         width = width - 1
     );
     println!(
         "│ {:<width$}│",
-        format!("Messages: {}", messages),
+        format!("消息数：{}", messages),
         width = width - 1
     );
     println!(
         "│ {:<width$}│",
-        format!("Tools: {}", tools),
+        format!("工具数：{}", tools),
         width = width - 1
     );
     println!("└{}┘", "─".repeat(width));
@@ -565,12 +565,12 @@ fn print_stats(stats: &SessionStats) {
     let minutes = (seconds % 3600) / 60;
     let secs = seconds % 60;
 
-    println!("{}", ds_sky("Session Stats").bold());
-    println!("  Duration: {hours:02}:{minutes:02}:{secs:02}");
-    println!("  Input tokens: {}", stats.input_tokens);
-    println!("  Output tokens: {}", stats.output_tokens);
+    println!("{}", ds_sky("会话统计").bold());
+    println!("  持续时间：{hours:02}:{minutes:02}:{secs:02}");
+    println!("  输入 tokens：{}", stats.input_tokens);
+    println!("  输出 tokens：{}", stats.output_tokens);
     if stats.total_tokens > 0 {
-        println!("  Total tokens: {}", stats.total_tokens);
+        println!("  总 tokens：{}", stats.total_tokens);
     }
 }
 
@@ -683,7 +683,7 @@ fn create_editor() -> Result<Editor<CommandCompleter, DefaultHistory>> {
 }
 
 fn read_prompt(editor: &mut Editor<CommandCompleter, DefaultHistory>) -> Result<Option<String>> {
-    match editor.readline("You> ") {
+    match editor.readline("你> ") {
         Ok(line) => {
             let trimmed = line.trim().to_string();
             if !trimmed.is_empty() {

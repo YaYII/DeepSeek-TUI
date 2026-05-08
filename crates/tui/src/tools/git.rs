@@ -1,4 +1,4 @@
-//! Git power tools: `git_status` and `git_diff`.
+//! Git 工具 — `git` 命令执行。
 //!
 //! These tools are read-only wrappers around common git inspection commands,
 //! scoped to the workspace and optionally to a sub-path within it.

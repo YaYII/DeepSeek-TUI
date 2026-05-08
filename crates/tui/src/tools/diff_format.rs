@@ -1,4 +1,4 @@
-//! Build unified-diff strings for tool results.
+//! 差异格式 — 统一 diff 格式化和解析。
 //!
 //! `edit_file` and `write_file` capture the file contents before and after
 //! the mutation and emit a unified diff at the head of their `ToolResult`

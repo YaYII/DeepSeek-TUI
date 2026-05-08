@@ -1,8 +1,8 @@
-//! Hooks system for `DeepSeek` CLI
+//! `DeepSeek` CLI 的钩子系统
 //!
-//! Provides lifecycle hooks that execute user-defined shell commands at:
-//! - Session start/end
-//! - Tool call before/after
+//! 提供生命周期钩子，在以下时机执行用户定义的 shell 命令：
+//! - 会话开始/结束
+//! - 工具调用前/后
 
 //! - Mode changes
 //! - Message submission

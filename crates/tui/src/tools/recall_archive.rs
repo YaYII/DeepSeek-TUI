@@ -1,4 +1,4 @@
-//! `recall_archive` tool — search prior cycle archives (issue #127).
+//! 回忆存档 — 搜索和检索过去的会话。
 //!
 //! Companion to the checkpoint-restart cycle architecture (#124). When the
 //! agent's `<carry_forward>` briefing missed something, this tool scans the

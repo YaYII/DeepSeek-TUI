@@ -1,4 +1,4 @@
-//! Boot-time snapshot pruning.
+//! 启动时快照修剪。
 //!
 //! Called from `session_manager` once per session start. Failure is
 //! never fatal — old snapshots taking disk space is annoying but not

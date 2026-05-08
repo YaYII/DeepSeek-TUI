@@ -1,8 +1,8 @@
-//! `/statusline` multi-select picker.
+//! 状态选择器 — 选择会话状态的交互式对话框。
 //!
-//! Mirrors codex-rs's `bottom_pane::status_line_setup` ergonomically: a
-//! checklist of footer items the user can toggle on/off with Space (or
-//! Enter), reordered by ↑/↓, applied immediately so the live footer
+//! 在操作上镜像 codex-rs 的 `bottom_pane::status_line_setup`：
+//! 一个页脚项目清单，用户可以用 Space（或 Enter）切换开关，
+//! 用 ↑/↓ 重新排序，立即应用以便实时页脚
 //! reflects every change. Enter saves to `~/.deepseek/config.toml` under
 //! `tui.status_items`; Esc reverts to the snapshot taken on open.
 //!

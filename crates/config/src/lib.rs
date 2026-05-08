@@ -150,15 +150,15 @@ impl ProvidersToml {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ConfigToml {
-    /// TUI-compatible DeepSeek API key. Kept at the root so both `deepseek`
-    /// and `deepseek-tui` can share a single config file.
+    /// 与 TUI 兼容的 DeepSeek API 密钥。保留在根级别以便 `deepseek`
+    /// 和 `deepseek-tui` 可以共享同一个配置文件。
     pub api_key: Option<String>,
-    /// TUI-compatible DeepSeek base URL.
+    /// 与 TUI 兼容的 DeepSeek 基础 URL。
     pub base_url: Option<String>,
-    /// Optional extra HTTP headers forwarded to model API requests.
+    /// 可选的额外 HTTP 请求头，会转发给模型 API 请求。
     #[serde(default)]
     pub http_headers: BTreeMap<String, String>,
-    /// TUI-compatible default DeepSeek model.
+    /// 与 TUI 兼容的默认 DeepSeek 模型。
     pub default_text_model: Option<String>,
     #[serde(default)]
     pub provider: ProviderKind,
@@ -173,43 +173,42 @@ pub struct ConfigToml {
     pub sandbox_mode: Option<String>,
     #[serde(default)]
     pub providers: ProvidersToml,
-    /// Per-domain network policy (#135). When absent, network tools fall back
-    /// to a permissive default that mirrors pre-v0.7.0 behavior.
+    /// 按域名网络策略（#135）。不存在时，网络工具回退到
+    /// 与 v0.7.0 之前一致的宽松默认行为。
     #[serde(default)]
     pub network: Option<NetworkPolicyToml>,
-    /// Community skill installer settings (#140). Mirrors
-    /// [`SkillsToml`] from the TUI side; the dispatcher consults
-    /// `registry_url` when running `deepseek skill install`.
+    /// 社区技能安装器设置（#140）。对应 TUI 侧的
+    /// [`SkillsToml`]；调度器在执行 `deepseek skill install` 时
+    /// 会读取 `registry_url`。
     #[serde(default)]
     pub skills: Option<SkillsToml>,
-    /// Workspace side-git snapshots (#137). The live TUI defaults this to
-    /// enabled with 7-day retention when absent.
+    /// 工作区侧边 git 快照（#137）。TUI 在此字段缺失时默认
+    /// 启用并保留 7 天。
     #[serde(default)]
     pub snapshots: Option<SnapshotsToml>,
-    /// Post-edit LSP diagnostics injection (#136). When absent, the engine
-    /// applies the defaults documented in [`LspConfigToml`].
+    /// 编辑后 LSP 诊断注入（#136）。不存在时，引擎
+    /// 应用 [`LspConfigToml`] 中记录的默认值。
     #[serde(default)]
     pub lsp: Option<LspConfigToml>,
     #[serde(flatten)]
     pub extras: BTreeMap<String, toml::Value>,
 }
 
-/// On-disk schema for the `[skills]` table (#140). See `config.example.toml`
-/// for documentation.
+/// `[skills]` 表的磁盘模式（#140）。文档参见 `config.example.toml`。
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SkillsToml {
-    /// Curated registry index URL. When unset, the TUI falls back to the
-    /// bundled default (community-curated GitHub raw).
+    /// 精选注册表索引 URL。未设置时，TUI 回退到
+    /// 内置默认值（社区维护的 GitHub raw）。
     #[serde(default)]
     pub registry_url: Option<String>,
-    /// Per-skill maximum *uncompressed* size in bytes. When unset, the TUI
-    /// uses 5 MiB.
+    /// 每个技能的最大*未压缩*大小（字节）。未设置时，TUI
+    /// 使用 5 MiB。
     #[serde(default)]
     pub max_install_size_bytes: Option<u64>,
 }
 
-/// On-disk schema for the `[snapshots]` table (#137). See
-/// `config.example.toml` for documentation.
+/// `[snapshots]` 表的磁盘模式（#137）。文档参见
+/// `config.example.toml`。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SnapshotsToml {
     #[serde(default = "default_snapshots_enabled")]
@@ -235,26 +234,25 @@ impl Default for SnapshotsToml {
     }
 }
 
-/// On-disk schema for the `[network]` table (#135). See `config.example.toml`
-/// for documentation.
+/// `[network]` 表的磁盘模式（#135）。文档参见 `config.example.toml`。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NetworkPolicyToml {
-    /// Decision for hosts that are not in `allow` or `deny`. One of
-    /// `"allow" | "deny" | "prompt"`. Defaults to `"prompt"`.
+    /// 对不在 `allow` 或 `deny` 中的主机的决策。
+    /// 可选值：`"allow" | "deny" | "prompt"`。默认为 `"prompt"`。
     #[serde(default = "default_network_decision")]
     pub default: String,
-    /// Hosts that are always allowed. Subdomain rules: a leading dot
-    /// (`.example.com`) matches subdomains but not the apex.
+    /// 始终允许的主机。子域名规则：前导点号
+    ///（`.example.com`）匹配子域名但不匹配顶级域名。
     #[serde(default)]
     pub allow: Vec<String>,
-    /// Hosts that are always denied. Deny entries win over allow entries.
+    /// 始终拒绝的主机。拒绝条目优先于允许条目。
     #[serde(default)]
     pub deny: Vec<String>,
-    /// Hostnames whose DNS may resolve to fake-IP/private proxy ranges in an
-    /// explicitly trusted proxy setup. Literal IP URLs remain blocked.
+    /// 在明确信任的代理设置中，其 DNS 可能解析为虚假 IP/私有代理范围
+    /// 的主机名。字面 IP URL 仍会被阻止。
     #[serde(default)]
     pub proxy: Vec<String>,
-    /// Whether to record one audit-log line per outbound network call.
+    /// 是否每次出站网络调用记录一条审计日志。
     #[serde(default = "default_network_audit")]
     pub audit: bool,
 }
@@ -279,34 +277,34 @@ impl Default for NetworkPolicyToml {
     }
 }
 
-/// On-disk schema for the `[lsp]` table (#136). See `config.example.toml`
-/// for documentation. All fields are optional so the TUI runtime can fall
-/// back to its own defaults when keys are absent.
+/// `[lsp]` 表的磁盘模式（#136）。文档参见 `config.example.toml`。
+/// 所有字段都是可选的，以便 TUI 运行时在键缺失时
+/// 回退到自身的默认值。
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct LspConfigToml {
-    /// Master switch.
+    /// 主开关。
     pub enabled: Option<bool>,
-    /// Maximum time to wait for diagnostics after an edit, in milliseconds.
+    /// 编辑后等待诊断结果的最长时间（毫秒）。
     pub poll_after_edit_ms: Option<u64>,
-    /// Cap on diagnostics surfaced per file.
+    /// 每个文件显示诊断结果的上限。
     pub max_diagnostics_per_file: Option<usize>,
-    /// When `true`, warnings (severity 2) are surfaced in addition to errors.
+    /// 为 `true` 时，除了错误之外还会显示警告（严重级别 2）。
     pub include_warnings: Option<bool>,
-    /// Optional override for the `language -> [cmd, ...args]` table.
+    /// 可选的 `语言 -> [命令, ...参数]` 表覆盖。
     pub servers: Option<BTreeMap<String, Vec<String>>>,
 }
 
 impl ConfigToml {
-    /// Merge project-level overrides from `$WORKSPACE/.deepseek/config.toml`.
-    /// Only populated fields in `project` are applied; everything else
-    /// keeps its global value. Provider-specific sub-tables are merged
-    /// field-by-field so a project can set just `providers.deepseek.model`
-    /// without needing to repeat `api_key` or `base_url`.
+    /// 从 `$WORKSPACE/.deepseek/config.toml` 合并项目级覆盖。
+    /// 仅应用 `project` 中已填充的字段；其他所有字段
+    /// 保留其全局值。提供商特定的子表按字段合并，
+    /// 这样项目只需设置 `providers.deepseek.model`，
+    /// 而无需重复 `api_key` 或 `base_url`。
     pub fn merge_project_overrides(&mut self, project: ConfigToml) {
-        // Check provider override condition before moving fields.
+        // 在移动字段前检查提供商覆盖条件。
         let has_api_key = project.api_key.is_some();
 
-        // Top-level scalar fields: apply when the project has a value.
+        // 顶层标量字段：当项目有值时应用。
         if has_api_key {
             self.api_key = project.api_key;
         }
@@ -337,12 +335,12 @@ impl ConfigToml {
         if project.sandbox_mode.is_some() {
             self.sandbox_mode = project.sandbox_mode;
         }
-        // Provider is only overridden if explicitly set (non-default).
+        // 仅当明确设置（非默认值）时才覆盖提供商。
         if project.provider != ProviderKind::Deepseek || has_api_key {
             self.provider = project.provider;
         }
 
-        // Merge provider sub-tables field-by-field.
+        // 按字段合并提供商子表。
         merge_provider_config(&mut self.providers.deepseek, &project.providers.deepseek);
         merge_provider_config(
             &mut self.providers.nvidia_nim,
@@ -820,11 +818,11 @@ impl ConfigToml {
         out
     }
 
-    /// Resolve runtime options without touching platform credential stores.
+    /// 解析运行时选项，不触及平台凭据存储。
     ///
-    /// This method keeps library callers prompt-free: CLI flag → config file
-    /// → environment. Call `resolve_runtime_options_with_secrets` when a
-    /// user-facing dispatcher should recover OS-keyring credentials.
+    /// 此方法使库调用方免于提示：CLI 标志 → 配置文件
+    /// → 环境变量。当面向用户的调度器需要恢复
+    /// 操作系统密钥环凭据时，请调用 `resolve_runtime_options_with_secrets`。
     #[must_use]
     pub fn resolve_runtime_options(&self, cli: &CliRuntimeOverrides) -> ResolvedRuntimeOptions {
         let no_keyring = Secrets::new(std::sync::Arc::new(
@@ -833,9 +831,9 @@ impl ConfigToml {
         self.resolve_runtime_options_with_secrets(cli, &no_keyring)
     }
 
-    /// Resolve runtime options using an explicit secrets façade.
+    /// 使用显式的凭据外观解析运行时选项。
     ///
-    /// API-key precedence is **CLI flag → config-file → keyring → environment**.
+    /// API 密钥优先级为 **CLI 标志 → 配置文件 → 密钥环 → 环境变量**。
     #[must_use]
     pub fn resolve_runtime_options_with_secrets(
         &self,
@@ -855,11 +853,10 @@ impl ConfigToml {
         let root_deepseek_model = (provider == ProviderKind::Deepseek)
             .then(|| self.default_text_model.clone())
             .flatten();
-        // CLI flag wins outright. Otherwise: config-file → injected secrets/env.
-        // This makes `deepseek auth set` a reliable fix even when the user's
-        // shell still exports an old key. When the file is empty, the injected
-        // secrets façade recovers older OS-keyring credentials before falling
-        // back to ambient env.
+        // CLI 标志完全优先。否则：配置文件 → 注入的凭据/环境变量。
+        // 这使得 `deepseek auth set` 即便在用户的 shell 仍然导出旧密钥时
+        // 也是可靠的修复方式。当文件为空时，注入的凭据外观会在回退到
+        // 环境变量之前恢复较旧的 OS 密钥环凭据。
         let from_file = provider_cfg.api_key.clone().or(root_deepseek_api_key);
         let (api_key, api_key_source) = if let Some(value) = cli.api_key.clone() {
             (Some(value), Some(RuntimeApiKeySource::Cli))
@@ -983,8 +980,8 @@ fn merge_provider_config(target: &mut ProviderConfigToml, source: &ProviderConfi
     }
 }
 
-/// Load a project-level config from `$WORKSPACE/.deepseek/config.toml`.
-/// Returns `None` if the file doesn't exist or can't be parsed.
+/// 从 `$WORKSPACE/.deepseek/config.toml` 加载项目级配置。
+/// 如果文件不存在或无法解析，返回 `None`。
 pub fn load_project_config(workspace: &Path) -> Option<ConfigToml> {
     let path = workspace.join(".deepseek").join(CONFIG_FILE_NAME);
     if !path.exists() {
@@ -1204,17 +1201,16 @@ impl ConfigStore {
     }
 }
 
-/// Process-wide default [`Secrets`] façade. The first caller wins; the
-/// lock is exposed so test or CLI code can install an explicit
-/// backend (e.g. an [`deepseek_secrets::InMemoryKeyringStore`]) before
-/// any resolver runs.
+/// 进程范围的默认 [`Secrets`] 外观。第一个调用者获胜；
+/// 锁被暴露，以便测试或 CLI 代码可以在任何解析器运行之前
+/// 安装显式的后端（例如 [`deepseek_secrets::InMemoryKeyringStore`]）。
 pub fn default_secrets() -> &'static Secrets {
     static SECRETS: OnceLock<Secrets> = OnceLock::new();
     SECRETS.get_or_init(|| {
-        // Tests should never poke real platform credential stores. Cargo sets the
-        // `RUST_TEST_*` family of env vars (and `CARGO_PKG_NAME` is
-        // always populated), but the `cfg(test)` flag is the canonical
-        // signal here. See `install_test_secrets` for explicit installs.
+        // 测试不应触碰真实的平台凭据存储。Cargo 设置了
+        // `RUST_TEST_*` 系列环境变量（且 `CARGO_PKG_NAME` 始终填充），
+        // 但 `cfg(test)` 标志是这里的规范信号。
+        // 参见 `install_test_secrets` 了解显式安装。
         #[cfg(test)]
         {
             Secrets::new(std::sync::Arc::new(
@@ -1381,8 +1377,8 @@ impl EnvRuntimeOverrides {
     }
 
     fn base_url_for(&self, provider: ProviderKind) -> Option<String> {
-        // Defaults belong in the resolver's final fallback so config-file
-        // values (`providers.<name>.base_url`) still win when env is unset.
+        // 默认值应落在解析器的最终回退中，这样即使环境变量未设置，
+        // 配置文件值（`providers.<名称>.base_url`）仍然优先。
         match provider {
             ProviderKind::Deepseek => self.deepseek_base_url.clone(),
             ProviderKind::NvidiaNim => self.nvidia_base_url.clone(),
@@ -1475,7 +1471,7 @@ mod tests {
                 ollama_api_key: env::var_os("OLLAMA_API_KEY"),
                 ollama_base_url: env::var_os("OLLAMA_BASE_URL"),
             };
-            // Safety: test-only environment mutation guarded by a module mutex.
+            // 安全说明：测试专用的环境变量修改受模块级互斥锁保护。
             unsafe {
                 env::remove_var("DEEPSEEK_API_KEY");
                 env::remove_var("DEEPSEEK_BASE_URL");
@@ -1514,7 +1510,7 @@ mod tests {
 
     impl Drop for EnvGuard {
         fn drop(&mut self) {
-            // Safety: test-only environment mutation guarded by a module mutex.
+            // 安全说明：测试专用的环境变量修改受模块级互斥锁保护。
             unsafe {
                 Self::restore_var("DEEPSEEK_API_KEY", self.deepseek_api_key.take());
                 Self::restore_var("DEEPSEEK_BASE_URL", self.deepseek_base_url.take());
@@ -1648,7 +1644,7 @@ mod tests {
         config
             .http_headers
             .insert("X-Model-Provider-Id".to_string(), "from-file".to_string());
-        // Safety: test-only environment mutation guarded by a module mutex.
+        // 安全说明：测试专用的环境变量修改受模块级互斥锁保护。
         unsafe {
             env::set_var("DEEPSEEK_HTTP_HEADERS", "X-Model-Provider-Id=from-env");
         }
@@ -1720,7 +1716,7 @@ mod tests {
     fn nvidia_nim_provider_uses_nvidia_env_credentials() {
         let _lock = env_lock();
         let _env = EnvGuard::without_deepseek_runtime_overrides();
-        // Safety: test-only environment mutation guarded by a module mutex.
+        // 安全说明：测试专用的环境变量修改受模块级互斥锁保护。
         unsafe {
             env::set_var("DEEPSEEK_PROVIDER", "nvidia-nim");
             env::set_var("NVIDIA_API_KEY", "nim-env-key");
@@ -1740,7 +1736,7 @@ mod tests {
     fn nvidia_nim_provider_accepts_short_nim_base_url_alias() {
         let _lock = env_lock();
         let _env = EnvGuard::without_deepseek_runtime_overrides();
-        // Safety: test-only environment mutation guarded by a module mutex.
+        // 安全说明：测试专用的环境变量修改受模块级互斥锁保护。
         unsafe {
             env::set_var("DEEPSEEK_PROVIDER", "nvidia-nim");
             env::set_var("NVIDIA_API_KEY", "nim-env-key");
@@ -1758,7 +1754,7 @@ mod tests {
     fn nvidia_nim_provider_can_fallback_to_deepseek_api_key_env() {
         let _lock = env_lock();
         let _env = EnvGuard::without_deepseek_runtime_overrides();
-        // Safety: test-only environment mutation guarded by a module mutex.
+        // 安全说明：测试专用的环境变量修改受模块级互斥锁保护。
         unsafe {
             env::set_var("DEEPSEEK_PROVIDER", "nvidia-nim");
             env::set_var("DEEPSEEK_API_KEY", "deepseek-compat-key");
@@ -1989,7 +1985,7 @@ mod tests {
     fn ollama_env_overrides_provider_base_url_and_optional_key() {
         let _lock = env_lock();
         let _env = EnvGuard::without_deepseek_runtime_overrides();
-        // Safety: test-only environment mutation guarded by a module mutex.
+        // 安全说明：测试专用的环境变量修改受模块级互斥锁保护。
         unsafe {
             env::set_var("DEEPSEEK_PROVIDER", "ollama-local");
             env::set_var("OLLAMA_BASE_URL", "http://ollama.example/v1");
@@ -2008,7 +2004,7 @@ mod tests {
     fn openrouter_env_api_key_falls_back_when_config_missing() {
         let _lock = env_lock();
         let _env = EnvGuard::without_deepseek_runtime_overrides();
-        // Safety: test-only environment mutation guarded by a module mutex.
+        // 安全说明：测试专用的环境变量修改受模块级互斥锁保护。
         unsafe {
             env::set_var("DEEPSEEK_PROVIDER", "openrouter");
             env::set_var("OPENROUTER_API_KEY", "or-env-key");
@@ -2026,7 +2022,7 @@ mod tests {
     fn novita_env_api_key_falls_back_when_config_missing() {
         let _lock = env_lock();
         let _env = EnvGuard::without_deepseek_runtime_overrides();
-        // Safety: test-only environment mutation guarded by a module mutex.
+        // 安全说明：测试专用的环境变量修改受模块级互斥锁保护。
         unsafe {
             env::set_var("DEEPSEEK_PROVIDER", "novita");
             env::set_var("NOVITA_API_KEY", "novita-env-key");
@@ -2044,7 +2040,7 @@ mod tests {
     fn fireworks_env_api_key_falls_back_when_config_missing() {
         let _lock = env_lock();
         let _env = EnvGuard::without_deepseek_runtime_overrides();
-        // Safety: test-only environment mutation guarded by a module mutex.
+        // 安全说明：测试专用的环境变量修改受模块级互斥锁保护。
         unsafe {
             env::set_var("DEEPSEEK_PROVIDER", "fireworks");
             env::set_var("FIREWORKS_API_KEY", "fw-env-key");

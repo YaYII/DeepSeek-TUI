@@ -11,7 +11,7 @@ use std::sync::LazyLock;
 use std::time::Instant;
 use tempfile::tempdir;
 
-const WORKING_SET_SUMMARY_MARKER: &str = "## Repo Working Set";
+const WORKING_SET_SUMMARY_MARKER: &str = "## 仓库工作集";
 static CAPACITY_MEMORY_ENV_LOCK: LazyLock<tokio::sync::Mutex<()>> =
     LazyLock::new(|| tokio::sync::Mutex::new(()));
 
@@ -702,7 +702,7 @@ fn subagent_results_are_summarized_before_parent_context_insertion() {
 
     let context = compact_tool_result_for_context("deepseek-v4-pro", "agent_result", &output);
 
-    assert!(context.contains("[sub-agent result summarized for parent context]"));
+    assert!(context.contains("[子代理结果已汇总到父上下文]"));
     assert!(context.contains("agent_1234abcd (explore) status=Completed"));
     assert!(context.contains("Inspect the RLM rendering path"));
     assert!(context.contains("steps=12"));
@@ -1610,7 +1610,7 @@ fn contains_fake_tool_wrapper_returns_false_on_clean_text() {
 fn fake_wrapper_notice_is_compact_and_actionable() {
     // Keep this short so it fits cleanly in a single status line.
     assert!(FAKE_WRAPPER_NOTICE.len() < 120);
-    assert!(FAKE_WRAPPER_NOTICE.contains("API tool channel"));
+    assert!(FAKE_WRAPPER_NOTICE.contains("API 工具通道"));
 }
 
 // ---- final_tool_input: bug-class regression for "<command>" placeholder ----

@@ -1,4 +1,4 @@
-//! FIM (Fill-in-the-Middle) edit tool.
+//! FIM 工具 — 填充中间（Fill-in-the-Middle）补全。
 //!
 //! Reads a file, finds `prefix_anchor` and `suffix_anchor`, calls the
 //! DeepSeek `/beta/completions` FIM endpoint, and writes the generated

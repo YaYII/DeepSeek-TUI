@@ -1,3 +1,4 @@
+//! 全屏视图（帮助、状态选择器等）。
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 use ratatui::{buffer::Buffer, layout::Rect};
 use std::cell::{Cell, RefCell};

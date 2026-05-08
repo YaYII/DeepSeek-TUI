@@ -1,4 +1,4 @@
-//! Durable thread/turn/item runtime for the HTTP API and background tasks.
+//! HTTP API 和后台任务的持久化线程/轮次/条目运行时。
 //!
 //! This module keeps DeepSeek-only execution while exposing Codex-like lifecycle
 //! semantics (threads, turns, items, interrupt/steer, and replayable events).

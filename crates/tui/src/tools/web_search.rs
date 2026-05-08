@@ -1,4 +1,4 @@
-//! Web search tool backed by DuckDuckGo HTML results (with Bing fallback).
+//! Web 搜索 — 搜索互联网。
 //!
 //! This is the primary web search surface for agents. For browsing workflows
 //! (page open, click, screenshot) use a direct URL approach instead.

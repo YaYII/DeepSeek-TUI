@@ -1,4 +1,4 @@
-//! Lightweight verbose logging helpers for the CLI.
+//! CLI 的轻量级详细日志辅助函数。
 
 use std::sync::atomic::{AtomicBool, Ordering};
 

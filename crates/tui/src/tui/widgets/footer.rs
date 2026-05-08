@@ -1,8 +1,8 @@
-//! Footer bar widget displaying mode, status, model, and auxiliary chips.
+//! 页脚栏组件，显示模式、状态、模型和辅助标签。
 //!
-//! `FooterWidget` is a pure render of a [`FooterProps`] struct: all content
-//! (labels, colors, span clusters) is computed once per redraw at a higher
-//! level, then `FooterWidget::new(props).render(area, buf)` paints the
+//! `FooterWidget` 是 [`FooterProps`] 结构体的纯渲染：所有内容
+//!（标签、颜色、span 簇）在每次重绘时在更高层计算一次，
+//! 然后 `FooterWidget::new(props).render(area, buf)` 绘制
 //! result. The widget owns no `App` knowledge; this mirrors the layout used
 //! by `HeaderWidget` (and Codex's `bottom_pane::footer::Footer`).
 

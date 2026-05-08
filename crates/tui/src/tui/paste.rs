@@ -1,9 +1,4 @@
-//! Paste-burst handling — turn rapid keystrokes (terminals without bracketed
-//! paste) into a single committed buffer instead of N individual chars.
-//!
-//! Extracted from `tui/ui.rs` (P1.2). The owning state machine lives on
-//! `App.paste_burst` (`tui::paste_burst`); these helpers wire it to the key
-//! event loop and the composer's text buffer.
+//! 粘贴处理 — 检测和处理终端粘贴事件。
 
 use std::time::Instant;
 

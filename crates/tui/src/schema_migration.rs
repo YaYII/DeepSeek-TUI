@@ -1,4 +1,4 @@
-//! Schema migration framework for `~/.deepseek/` persisted records.
+//! `~/.deepseek/` 持久化记录的 Schema 迁移框架。
 //!
 //! Every persistence layer in `crates/tui/src/` (sessions, threads,
 //! tasks, automations, offline queue) gates `schema_version > CURRENT_*`

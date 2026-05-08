@@ -1,8 +1,7 @@
-//! Workspace snapshots — pre/post-turn safety net.
+//! 工作区快照 — 轮次前后的安全网。
 //!
-//! Each turn the engine takes a `pre-turn:<seq>` snapshot of the user's
-//! workspace into a side git repo at
-//! `~/.deepseek/snapshots/<project_hash>/<worktree_hash>/.git`, then a
+//! 每个轮次，引擎在 `~/.deepseek/snapshots/<project_hash>/<worktree_hash>/.git`
+//! 的侧边 git 仓库中拍摄用户工作区的 `pre-turn:<seq>` 快照，然后
 //! matching `post-turn:<seq>` snapshot when the turn finishes. Users
 //! can roll back via `/restore N` (slash command) or, when the model
 //! recognises an "undo my last edit" intent, the `revert_turn` tool.

@@ -1,4 +1,4 @@
-//! Process-wide cost-accrual side-channel (#526).
+//! 进程级成本累积侧通道（#526）。
 //!
 //! Background LLM calls outside the main turn-complete path
 //! (compaction summaries, seam recompaction, cycle briefings) used

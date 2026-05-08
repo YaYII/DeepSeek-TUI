@@ -1,4 +1,4 @@
-//! Persistent background task manager for DeepSeek agent work.
+//! DeepSeek 代理工作的持久化后台任务管理器。
 //!
 //! Tasks are durable across restarts and execute with a bounded worker pool.
 //! Execution stays DeepSeek-only and now links every task to runtime

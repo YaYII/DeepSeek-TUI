@@ -1,4 +1,4 @@
-//! Task commands: add/list/show/cancel
+//! `/task` 命令 — 管理任务。
 
 use crate::tui::app::{App, AppAction};
 

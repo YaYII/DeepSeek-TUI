@@ -1,4 +1,4 @@
-//! System-skill installer: bundles skill-creator and auto-installs it on first launch.
+//! 系统技能安装器：捆绑 skill-creator 并在首次启动时自动安装。
 
 use std::fs;
 use std::path::Path;

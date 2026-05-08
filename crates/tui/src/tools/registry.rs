@@ -1,4 +1,4 @@
-//! Tool registry for managing and executing tools.
+//! 工具注册表 — 工具注册和发现。
 //!
 //! The registry provides:
 //! - Dynamic tool registration
@@ -102,7 +102,7 @@ impl ToolRegistry {
     pub async fn execute(&self, name: &str, input: Value) -> Result<String, ToolError> {
         let tool = self
             .get(name)
-            .ok_or_else(|| ToolError::not_available(format!("tool '{name}' is not registered")))?;
+            .ok_or_else(|| ToolError::not_available(format!("工具 '{name}' 未注册")))?;
 
         let result = tool.execute(input, &self.context).await?;
         Ok(result.content)
@@ -112,7 +112,7 @@ impl ToolRegistry {
     pub async fn execute_full(&self, name: &str, input: Value) -> Result<ToolResult, ToolError> {
         let tool = self
             .get(name)
-            .ok_or_else(|| ToolError::not_available(format!("tool '{name}' is not registered")))?;
+            .ok_or_else(|| ToolError::not_available(format!("工具 '{name}' 未注册")))?;
 
         tool.execute(input, &self.context).await
     }
@@ -129,7 +129,7 @@ impl ToolRegistry {
     ) -> Result<ToolResult, ToolError> {
         let tool = self
             .get(name)
-            .ok_or_else(|| ToolError::not_available(format!("tool '{name}' is not registered")))?;
+            .ok_or_else(|| ToolError::not_available(format!("工具 '{name}' 未注册")))?;
 
         let ctx = context_override.unwrap_or(&self.context);
         let result = tool.execute(input.clone(), ctx).await?;
@@ -161,7 +161,7 @@ impl ToolRegistry {
                     let preview_chars = 1_200usize;
                     let preview: String = result.content.chars().take(preview_chars).collect();
                     let ellipsis = if result.content.chars().count() > preview_chars {
-                        "\n… [output truncated — full text in workshop variable `last_tool_result`]"
+                        "\n… [输出已截断——完整文本请查看工作区变量 `last_tool_result`]"
                     } else {
                         ""
                     };

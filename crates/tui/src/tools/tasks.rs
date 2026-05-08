@@ -1,4 +1,4 @@
-//! Durable task, gate, and PR-attempt tools.
+//! 任务工具 — `update_tasks` 和任务管理。
 
 use std::path::{Path, PathBuf};
 use std::process::Stdio;

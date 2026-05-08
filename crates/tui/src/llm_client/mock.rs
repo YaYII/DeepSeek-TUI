@@ -1,4 +1,4 @@
-//! `MockLlmClient` — a queue-driven `LlmClient` implementation for tests.
+//! `MockLlmClient` — 用于测试的队列驱动 `LlmClient` 实现。
 //!
 //! This client implements the [`LlmClient`](super::LlmClient) trait by replaying a
 //! pre-loaded queue of canned responses (one per turn). It captures every

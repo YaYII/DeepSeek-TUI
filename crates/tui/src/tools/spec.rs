@@ -1,8 +1,8 @@
-//! Tool specification traits for the DeepSeek TUI agent system.
+//! DeepSeek TUI 代理系统的工具规范 trait。
 //!
-//! This module defines the core abstractions for tools:
-//! - `ToolSpec`: The main trait that all tools must implement
-//! - `ToolContext`: Execution context passed to tools
+//! 本模块定义了工具的核心抽象：
+//! - `ToolSpec`：所有工具必须实现的主要 trait
+//! - `ToolContext`：传递给工具的执行上下文
 //! - `ToolResult`: Unified result type for tool execution
 //! - `ToolCapability`: Capabilities and requirements of tools
 

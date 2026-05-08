@@ -1,4 +1,4 @@
-//! MCP server implementation for exposing DeepSeek tools over stdio.
+//! 通过 stdio 暴露 DeepSeek 工具的 MCP 服务器实现。
 
 use std::collections::{HashMap, HashSet};
 use std::io::{self, BufRead, Write};

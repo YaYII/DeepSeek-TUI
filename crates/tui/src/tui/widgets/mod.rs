@@ -1,3 +1,4 @@
+//! 可复用的 UI 组件（页眉、页脚、工具卡片等）。
 mod footer;
 mod header;
 // Some helpers (`shift`, `ctrl_alt`, `is_press`, etc.) are part of the

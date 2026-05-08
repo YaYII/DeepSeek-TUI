@@ -1,4 +1,4 @@
-//! `/memory` slash command — inspect and edit the user memory file.
+//! `/memory` 命令 — 管理用户记忆。
 //!
 //! When the user-memory feature is opted-in (`[memory] enabled = true` in
 //! config or `DEEPSEEK_MEMORY=on` in the environment), `/memory` shows

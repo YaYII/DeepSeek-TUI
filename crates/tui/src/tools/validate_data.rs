@@ -1,4 +1,4 @@
-//! Structured data validation tool: `validate_data`.
+//! 数据验证 — 验证工具输入数据。
 //!
 //! Validates JSON or TOML from inline content or a workspace file path and
 //! returns parser errors with lightweight metadata.

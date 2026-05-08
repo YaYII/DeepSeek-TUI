@@ -1,51 +1,49 @@
-//! Turn context and tracking.
+//! 轮次上下文与追踪。
 //!
-//! A "turn" is one user message and the resulting AI response,
-//! including any tool calls that occur.
+//! 一个"轮次"是一条用户消息及其产生的 AI 响应，
+//! 包括期间发生的任何工具调用。
 //!
-//! ## Snapshot lifecycle hooks
+//! ## 快照生命周期钩子
 //!
-//! [`pre_turn_snapshot`] and [`post_turn_snapshot`] book-end a turn by
-//! taking a workspace-level snapshot into a side git repo (see
-//! `crate::snapshot`). They are intentionally non-blocking and
-//! non-fatal: any IO error is logged at WARN and swallowed so a busted
-//! filesystem or missing `git` binary never derails the agent loop.
-//! `/restore N` and the `revert_turn` tool both consume these
-//! snapshots.
+//! [`pre_turn_snapshot`] 和 [`post_turn_snapshot`] 在轮次前后
+//! 将工作区级快照存入侧 git 仓库（参见 `crate::snapshot`）。
+//! 它们故意设计为非阻塞和非致命的：任何 IO 错误都会以 WARN 级别记录并吞掉，
+//! 因此损坏的文件系统或缺失的 `git` 二进制文件永远不会使代理循环脱轨。
+//! `/restore N` 和 `revert_turn` 工具都消费这些快照。
 
 use crate::models::Usage;
 use crate::snapshot::SnapshotRepo;
 use std::path::Path;
 use std::time::{Duration, Instant};
 
-/// Context for a single turn (user message + AI response).
+/// 单个轮次（用户消息 + AI 响应）的上下文。
 #[derive(Debug)]
 pub struct TurnContext {
-    /// Turn ID
+    /// 轮次 ID
     pub id: String,
 
-    /// When the turn started
+    /// 轮次开始时间
     #[allow(dead_code)]
     pub started_at: Instant,
 
-    /// Current step in the turn (tool call iteration)
+    /// 轮次中的当前步骤（工具调用迭代）
     pub step: u32,
 
-    /// Maximum steps allowed
+    /// 允许的最大步数
     pub max_steps: u32,
 
-    /// Tool calls made in this turn
+    /// 本轮次中进行的工具调用
     pub tool_calls: Vec<TurnToolCall>,
 
-    /// Whether the turn has been cancelled
+    /// 轮次是否已被取消
     #[allow(dead_code)]
     pub cancelled: bool,
 
-    /// Usage for this turn
+    /// 本轮次的使用量
     pub usage: Usage,
 }
 
-/// Record of a tool call within a turn.
+/// 轮次内工具调用的记录。
 #[derive(Debug, Clone)]
 pub struct TurnToolCall {
     pub id: String,
@@ -57,7 +55,7 @@ pub struct TurnToolCall {
 }
 
 impl TurnContext {
-    /// Create a new turn context
+    /// 创建新的轮次上下文
     pub fn new(max_steps: u32) -> Self {
         Self {
             id: uuid::Uuid::new_v4().to_string(),
@@ -74,35 +72,35 @@ impl TurnContext {
         }
     }
 
-    /// Increment the step counter
+    /// 递增步骤计数器
     pub fn next_step(&mut self) -> bool {
         self.step += 1;
         self.step <= self.max_steps
     }
 
-    /// Check if the turn has reached max steps
+    /// 检查轮次是否已达到最大步数
     pub fn at_max_steps(&self) -> bool {
         self.step >= self.max_steps
     }
 
-    /// Record a tool call
+    /// 记录一次工具调用
     pub fn record_tool_call(&mut self, call: TurnToolCall) {
         self.tool_calls.push(call);
     }
 
-    /// Cancel the turn
+    /// 取消轮次
     #[allow(dead_code)]
     pub fn cancel(&mut self) {
         self.cancelled = true;
     }
 
-    /// Get the elapsed time
+    /// 获取已用时间
     #[allow(dead_code)]
     pub fn elapsed(&self) -> Duration {
         self.started_at.elapsed()
     }
 
-    /// Add usage from an API response
+    /// 从 API 响应中添加使用量
     pub fn add_usage(&mut self, usage: &Usage) {
         self.usage.input_tokens += usage.input_tokens;
         self.usage.output_tokens += usage.output_tokens;

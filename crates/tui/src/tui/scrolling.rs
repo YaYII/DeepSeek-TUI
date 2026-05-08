@@ -1,4 +1,4 @@
-//! Scroll state tracking for transcript rendering.
+//! 滚动 — 转录本和侧边栏的滚动状态管理。
 //!
 //! The transcript view uses a flat line-index scroll model: a single `offset`
 //! into the rendered line-meta buffer points at the top visible line, with

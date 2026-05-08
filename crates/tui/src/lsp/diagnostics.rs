@@ -1,8 +1,7 @@
-//! Diagnostic shape returned by the LSP transport, plus the renderer that
-//! produces the `<diagnostics file="…">` block injected into the model
-//! context after a file edit.
+//! LSP 传输返回的诊断形状，以及在文件编辑后注入到
+//! 模型上下文中的 `<diagnostics file="…">` 块的渲染器。
 //!
-//! Format (matches the spec given in issue #136):
+//! 格式（匹配 issue #136 中给出的规范）：
 //!
 //! ```text
 //! <diagnostics file="crates/tui/src/foo.rs">

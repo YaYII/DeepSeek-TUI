@@ -1,19 +1,19 @@
-//! Tool dispatch — plan/execute helpers for the per-turn tool batch.
+//! 工具调度 — 每轮工具批次的计划/执行辅助函数。
 //!
-//! Extracted from `core/engine.rs` (P1.3). The high-level ordering still
-//! lives in `Engine::handle_deepseek_turn`; this module owns:
+//! 从 `core/engine.rs` 提取（P1.3）。高层排序仍然
+//! 在 `Engine::handle_deepseek_turn` 中；本模块拥有：
 //!
-//! * Streaming-buffer parsing into a finalized `serde_json::Value` tool input
-//!   (`final_tool_input`, `parse_tool_input`, fenced/JSON segment helpers).
-//! * The `multi_tool_use.parallel` payload parser.
-//! * Policy predicates the turn loop consults — when a batch can run in
-//!   parallel, when an `update_plan` step should stop the turn, when a Plan
-//!   prompt should force a plan-first hop, and the small set of read-only
-//!   MCP tools that are safe to run in parallel.
-//! * The tool execution plan/outcome types the batch driver passes around.
+//! * 流式缓冲区解析为最终化的 `serde_json::Value` 工具输入
+//!   （`final_tool_input`、`parse_tool_input`、代码块/JSON 段辅助函数）。
+//! * `multi_tool_use.parallel` 负载解析器。
+//! * 轮次循环咨询的策略谓词 — 批次何时可以并行运行，
+//!   何时 `update_plan` 步骤应停止轮次，何时 Plan
+//!   提示应强制先计划跳转，以及可安全并行运行的少量只读
+//!   MCP 工具。
+//! * 批次驱动程序传递的工具执行计划/结果类型。
 //!
-//! All items are `pub(super)`-only: the public engine surface (Op/Event,
-//! `EngineHandle`, `spawn_engine`) stays in `core/engine.rs`.
+//! 所有项仅为 `pub(super)`：公共引擎表面（Op/Event、
+//! `EngineHandle`、`spawn_engine`）保留在 `core/engine.rs` 中。
 
 use serde_json::json;
 
@@ -25,7 +25,7 @@ use super::ToolUseState;
 
 // === Types ============================================================
 
-#[allow(dead_code)] // `index` mirrors batch order for diagnostic ergonomics.
+#[allow(dead_code)] // `index` 镜像批次顺序以便诊断。
 pub(super) struct ToolExecOutcome {
     pub(super) index: usize,
     pub(super) id: String,
@@ -65,14 +65,14 @@ pub(super) struct ParallelToolResult {
     pub(super) results: Vec<ParallelToolResultEntry>,
 }
 
-// Hold the lock guard for the duration of a tool execution.
-// The inner guards are held for RAII purposes (dropped when the guard is dropped).
+// 在工具执行期间持有锁守卫。
+// 内部守卫为 RAII 目的持有（守卫丢弃时释放）。
 pub(super) enum ToolExecGuard<'a> {
     Read(#[allow(dead_code)] tokio::sync::RwLockReadGuard<'a, ()>),
     Write(#[allow(dead_code)] tokio::sync::RwLockWriteGuard<'a, ()>),
 }
 
-// === Caller policy and errors ========================================
+// === 调用者策略和错误 ========================================
 
 pub(super) fn caller_type_for_tool_use(caller: Option<&ToolCaller>) -> &str {
     caller.map_or("direct", |c| c.caller_type.as_str())
@@ -126,20 +126,19 @@ pub(super) fn format_tool_error(err: &ToolError, tool_name: &str) -> String {
     }
 }
 
-// === Streaming-buffer parsing =========================================
+// === 流式缓冲区解析 =========================================
 
-/// Promote a streaming `ToolUseState` to a finalized JSON input.
+/// 将流式 `ToolUseState` 提升为最终化的 JSON 输入。
 ///
-/// Order of preference:
+/// 优先级顺序：
 ///
-///   1. `input_buffer` (the raw streamed delta concatenation) — parsed as
-///      JSON. This is the most authoritative because it's what the model
-///      actually emitted.
-///   2. `input` (the per-delta best-effort parse mirror) — used when the
-///      buffer is empty (pre-streaming tool calls take this path).
-///   3. `input_buffer` non-empty but unparseable → fall back to `input`
-///      (the per-delta parser has already mirrored the most recent valid
-///      partial parse into `tool_state.input`).
+///   1. `input_buffer`（原始流式增量拼接）— 解析为
+///      JSON。这是最权威的，因为它是模型实际发出的内容。
+///   2. `input`（每个增量的尽力解析镜像）— 当
+///      缓冲区为空时使用（预流式工具调用走此路径）。
+///   3. `input_buffer` 非空但无法解析 → 回退到 `input`
+///      （每个增量的解析器已将最近有效的部分解析
+///      镜像到 `tool_state.input` 中）。
 pub(super) fn final_tool_input(state: &ToolUseState) -> serde_json::Value {
     if !state.input_buffer.trim().is_empty()
         && let Some(parsed) = parse_tool_input(&state.input_buffer)
@@ -154,13 +153,13 @@ pub(super) fn parse_tool_input(buffer: &str) -> Option<serde_json::Value> {
     if trimmed.is_empty() {
         return None;
     }
-    // Try the deterministic arg-repair ladder first (handles trailing commas,
-    // unclosed braces, embedded control chars, etc.)
+    // 首先尝试确定性的参数修复阶梯（处理尾随逗号、
+    // 未闭合的花括号、嵌入的控制字符等）
     if let Ok(value) = crate::tools::arg_repair::repair(trimmed) {
         return Some(value);
     }
-    // Fall back to existing strategies for code-fenced, double-encoded, and
-    // segment-extraction patterns that the repair ladder doesn't cover.
+    // 回退到修复阶梯未覆盖的代码块、双重编码和
+    // 段提取模式的现有策略。
     if let Some(stripped) = strip_code_fences(trimmed)
         && let Ok(value) = serde_json::from_str::<serde_json::Value>(&stripped)
     {

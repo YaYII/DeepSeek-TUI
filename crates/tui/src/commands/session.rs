@@ -1,4 +1,4 @@
-//! Session commands: save, load, compact, export
+//! `/session` 命令 — 管理会话。
 
 use std::fmt::Write;
 use std::path::PathBuf;

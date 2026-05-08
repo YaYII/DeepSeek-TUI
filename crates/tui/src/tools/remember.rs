@@ -1,4 +1,4 @@
-//! `remember` tool — model-callable bullet-add into the user memory file.
+//! `remember` 工具 — 持久化用户记忆。
 //!
 //! Lets the model itself notice a durable preference, convention, or fact
 //! worth keeping across sessions and write it to the user's `memory.md`.

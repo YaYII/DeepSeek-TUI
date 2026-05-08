@@ -1,4 +1,4 @@
-//! Diff rendering helpers for TUI previews.
+//! 差异渲染 — 在终端中渲染统一 diff 输出。
 
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};

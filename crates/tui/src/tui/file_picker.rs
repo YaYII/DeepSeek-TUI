@@ -1,4 +1,4 @@
-//! Fuzzy file-picker modal (Ctrl+P).
+//! 文件选择器 — 交互式文件浏览器，用于选择要附加到提示的文件。
 //!
 //! Opens an overlay populated with workspace-relative paths discovered by a
 //! single-pass `WalkBuilder` walk (depth 6, hidden=true, follow_links=false,

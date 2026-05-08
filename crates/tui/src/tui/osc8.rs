@@ -1,4 +1,4 @@
-//! OSC 8 hyperlink emission and stripping.
+//! OSC 8 超链接 — 终端超链接转义序列的解析和渲染。
 //!
 //! Modern terminals (iTerm2, Terminal.app 13+, Ghostty, Kitty, WezTerm,
 //! Alacritty, recent gnome-terminal/konsole) make a substring clickable when

@@ -1,4 +1,4 @@
-//! Tool-card visual vocabulary for the v0.6.6 transcript redesign.
+//! 工具卡片 — 渲染工具调用状态和输出。
 //!
 //! Tool cards are the boxes that appear when the agent runs `read_file`,
 //! `exec_shell`, `apply_patch`, etc. The visual vocabulary is intentionally

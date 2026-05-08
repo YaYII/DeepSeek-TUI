@@ -1,4 +1,4 @@
-//! Sub-agent and background-task routing helpers for the TUI loop.
+//! 子代理路由 — 管理子代理生命周期和通信。
 
 use std::time::Instant;
 

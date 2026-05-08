@@ -1,4 +1,4 @@
-//! Pure-data guardrails for repeated tool-call loops.
+//! 重复工具调用循环的纯数据护栏。
 
 use std::collections::HashMap;
 use std::collections::hash_map::DefaultHasher;

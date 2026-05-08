@@ -1,7 +1,7 @@
-//! Lightweight localization registry for high-visibility TUI strings.
+//! 轻量级本地化注册表，用于高可见性的 TUI 字符串。
 //!
-//! This intentionally covers UI chrome only. It does not change model prompts,
-//! model output language, provider behavior, or media payload semantics.
+//! 这仅针对 UI 界面元素。它不会改变模型提示词、
+//! 模型输出语言、提供商行为或媒体负载语义。
 
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 

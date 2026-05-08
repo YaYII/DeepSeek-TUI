@@ -1,4 +1,4 @@
-//! Persistent memory snapshots for capacity controller interventions.
+//! 容量控制器干预的持久内存快照。
 
 use std::fs::{self, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
@@ -9,7 +9,7 @@ use anyhow::{Context, Result, anyhow};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
-/// Canonical compact state persisted by interventions.
+/// 由干预措施持久化的规范紧凑状态。
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CanonicalState {
     pub goal: String,
@@ -20,7 +20,7 @@ pub struct CanonicalState {
     pub critical_refs: Vec<String>,
 }
 
-/// Replay verification metadata.
+/// 重放验证元数据。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReplayInfo {
     pub tool_id: String,
@@ -29,7 +29,7 @@ pub struct ReplayInfo {
     pub diff_summary: String,
 }
 
-/// JSONL record written for each intervention.
+/// 每次干预写入的 JSONL 记录。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CapacityMemoryRecord {
     pub id: String,

@@ -1,4 +1,4 @@
-//! Paste-burst detection for terminals without reliable bracketed paste.
+//! 粘贴突发 — 处理粘贴事件突发（括号粘贴模式）。
 
 use std::time::{Duration, Instant};
 

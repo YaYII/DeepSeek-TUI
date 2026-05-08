@@ -1,4 +1,4 @@
-//! Full-screen live transcript overlay with sticky-bottom auto-scroll (#94).
+//! 实时转录本 — 流式模型输出的实时渲染。
 //!
 //! Toggled with `Ctrl+T` while the engine is streaming. Behaviour:
 //!

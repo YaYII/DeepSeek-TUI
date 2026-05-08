@@ -1,6 +1,6 @@
 #![allow(clippy::items_after_test_module)]
 
-//! Debug commands: tokens, cost, system, context, undo, retry
+//! `/debug` 命令 — 调试和诊断工具。
 
 use std::time::Instant;
 

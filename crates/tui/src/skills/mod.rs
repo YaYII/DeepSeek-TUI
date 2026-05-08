@@ -1,4 +1,4 @@
-//! Skill discovery and registry for local SKILL.md files.
+//! 本地 SKILL.md 文件的技能发现和注册表。
 
 pub mod install;
 mod system;
@@ -493,14 +493,14 @@ fn render_skills_block(registry: &SkillRegistry) -> Option<String> {
     skills.sort_by(|a, b| a.name.cmp(&b.name));
 
     let mut out = String::new();
-    out.push_str("## Skills\n");
+    out.push_str("## 技能\n");
     out.push_str(
-        "A skill is a set of local instructions stored in a `SKILL.md` file. \
-Below is the list of skills available in this session. Each entry includes a \
-name, description, and file path so you can open the source for full \
-instructions when using a specific skill.\n\n",
+        "技能是一组存储在 `SKILL.md` 文件中的本地指令。\
+以下是本次会话中可用的技能列表。每个条目包含\
+名称、描述和文件路径，以便你在使用特定技能时可以打开源文件查看完整\
+指令。\n\n",
     );
-    out.push_str("### Available skills\n");
+    out.push_str("### 可用技能\n");
 
     let mut omitted = 0usize;
     for skill in skills {
@@ -529,12 +529,12 @@ instructions when using a specific skill.\n\n",
 
     if omitted > 0 {
         out.push_str(&format!(
-            "- ... {omitted} additional skills omitted from this prompt budget.\n"
+            "- ... 还有 {omitted} 个技能因提示词预算限制被省略。\n"
         ));
     }
 
     if !registry.warnings().is_empty() {
-        out.push_str("\n### Skill load warnings\n");
+        out.push_str("\n### 技能加载警告\n");
         for warning in registry.warnings().iter().take(8) {
             out.push_str("- ");
             out.push_str(&truncate_for_prompt(warning, MAX_SKILL_DESCRIPTION_CHARS));
@@ -543,13 +543,13 @@ instructions when using a specific skill.\n\n",
     }
 
     out.push_str(
-        "\n### How to use skills\n\
-- Discovery: The list above is the skills available in this session. Skill bodies live on disk at the listed paths.\n\
-- Trigger rules: If the user names a skill (with `$SkillName`, `/skill <name>`, or plain text) OR the task clearly matches a skill description above, use that skill for that turn. Multiple mentions mean use them all. Do not carry skills across turns unless re-mentioned.\n\
-- Missing/blocked: If a named skill is missing or its `SKILL.md` cannot be read, say so briefly and continue with the best fallback.\n\
-- Progressive disclosure: After deciding to use a skill, read only that skill's `SKILL.md`. When it references relative paths such as `scripts/foo.py`, resolve them relative to the skill directory.\n\
-- Context hygiene: Load only the specific referenced files needed for the task. Avoid bulk-loading unrelated skill resources.\n\
-- Safety: Do not execute scripts from a community skill unless the user explicitly asks or the skill has been trusted for script use.\n",
+        "\n### 如何使用技能\n\
+- 发现：以上列表是本次会话中可用的技能。技能内容存储在所列路径的磁盘上。\n\
+- 触发规则：如果用户指定了技能名称（通过 `$SkillName`、`/skill <name>` 或纯文本），或者任务明确匹配上述某个技能描述，则在该轮次使用该技能。多个提及意味着全部使用。除非再次提及，否则不要跨轮次延续技能。\n\
+- 缺失/受阻：如果指定的技能缺失或其 `SKILL.md` 无法读取，简要说明并继续使用最佳备选方案。\n\
+- 渐进式披露：决定使用某个技能后，仅读取该技能的 `SKILL.md`。当它引用相对路径（如 `scripts/foo.py`）时，相对于技能目录解析它们。\n\
+- 上下文卫生：仅加载任务所需的特定引用文件。避免批量加载不相关的技能资源。\n\
+- 安全：除非用户明确要求或该技能已被信任可用于脚本执行，否则不要执行来自社区技能的脚本。\n",
     );
 
     Some(out)
@@ -638,13 +638,13 @@ mod tests {
             .display()
             .to_string();
 
-        assert!(rendered.contains("## Skills"));
+        assert!(rendered.contains("## 技能"));
         assert!(rendered.contains("- test-skill: A test skill"));
         assert!(
             rendered.contains(&expected_path),
             "expected path {expected_path:?} not in rendered output"
         );
-        assert!(rendered.contains("### How to use skills"));
+        assert!(rendered.contains("### 如何使用技能"));
     }
 
     #[test]
@@ -754,7 +754,7 @@ mod tests {
                 .expect("skill context");
 
         assert!(
-            rendered.contains("additional skills omitted from this prompt budget"),
+            rendered.contains("因提示词预算限制被省略"),
             "expected overflow notice"
         );
         assert!(

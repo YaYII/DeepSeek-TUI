@@ -1,9 +1,8 @@
-//! Main streaming turn loop for the engine.
+//! 引擎的主流式轮次循环。
 //!
-//! Extracted from `core/engine.rs` for issue #74. This module keeps the
-//! existing per-turn orchestration intact: request construction, streaming
-//! event handling, tool planning/execution, LSP post-edit hooks, capacity
-//! checkpoints, and loop termination.
+//! 从 `core/engine.rs` 提取用于 issue #74。本模块保持现有的
+//! 每轮编排不变：请求构建、流式事件处理、工具计划/执行、
+//! LSP 编辑后钩子、容量检查点和循环终止。
 
 use super::*;
 
@@ -31,13 +30,11 @@ impl Engine {
         let mut active_tool_names = initial_active_tools(&tool_catalog);
         let mut loop_guard = LoopGuard::default();
 
-        // Transparent stream-retry counter: when the chunked-transfer
-        // connection dies mid-stream and we got nothing useful out of it
-        // (no tool calls, no completed text), we silently re-issue the
-        // SAME request up to MAX_STREAM_RETRIES times before surfacing
-        // the failure to the user. This is the #103 Phase 3 retry that
-        // keeps long V4 thinking turns from being killed by transient
-        // proxy disconnects.
+        // 透明流重试计数器：当分块传输连接在流中途中断
+        // 且我们没有从中获得任何有用的内容（没有工具调用、没有完成的文本），
+        // 我们在将失败呈现给用户之前静默地重新发出相同的请求，
+        // 最多 MAX_STREAM_RETRIES 次。这是 #103 第 3 阶段重试，
+        // 防止长时间 V4 思考轮次被瞬时代理断开杀死。
         const MAX_STREAM_RETRIES: u32 = 3;
         let mut stream_retry_attempts: u32 = 0;
 
@@ -66,7 +63,7 @@ impl Engine {
                     .await;
             }
 
-            // Ensure system prompt is up to date with latest session states
+            // 确保系统提示与最新的会话状态保持同步
             self.refresh_system_prompt(mode);
 
             if turn.at_max_steps() {
@@ -115,7 +112,7 @@ impl Engine {
                 .await
                 {
                     Ok(result) => {
-                        // Only update if we got valid messages (never corrupt state)
+                        // 仅当我们获得有效消息时才更新（绝不破坏状态）
                         if !result.messages.is_empty() || self.session.messages.is_empty() {
                             let auto_messages_after = result.messages.len();
                             self.session.messages = result.messages;
@@ -153,8 +150,8 @@ impl Engine {
                         }
                     }
                     Err(err) => {
-                        // Log error but continue with original messages (never corrupt)
-                        let message = format!("Auto-compaction failed: {err}");
+                        // 记录错误但继续使用原始消息（绝不破坏）
+                        let message = format!("自动压缩失败: {err}");
                         self.emit_compaction_failed(compaction_id, true, message.clone())
                             .await;
                         let _ = self.tx_event.send(Event::status(message)).await;

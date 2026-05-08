@@ -1,8 +1,8 @@
-//! Searchable help overlay for `?`, `F1`, and `Ctrl+/`.
+//! 帮助覆盖层 — 显示键盘快捷键和命令。
 //!
-//! Renders two stacked sections — *Slash commands* and *Keybindings* — with
-//! a live substring filter applied as the user types in the search box. The
-//! command list is sourced from [`crate::commands::COMMANDS`] and the
+//! 渲染两个堆叠的部分 — *斜杠命令* 和 *键盘绑定* — 并带有
+//! 实时子字符串过滤器，在用户在搜索框中输入时应用。
+//! 命令列表来源于 [`crate::commands::COMMANDS`]，
 //! keybinding list from [`crate::tui::keybindings::KEYBINDINGS`] so neither
 //! can drift from the wired-up handlers.
 //!

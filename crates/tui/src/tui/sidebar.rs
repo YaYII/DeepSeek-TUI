@@ -1,8 +1,4 @@
-//! Sidebar rendering — Plan / Todos / Tasks / Agents panels.
-//!
-//! Extracted from `tui/ui.rs` (P1.2). The sidebar appears to the right of
-//! the chat transcript when the available width allows it. Each section
-//! reads from `App` snapshots; mutation lives in the main app loop.
+//! 侧边栏 — 会话信息、文件树和工具状态的侧面板。
 
 use std::fmt::Write;
 

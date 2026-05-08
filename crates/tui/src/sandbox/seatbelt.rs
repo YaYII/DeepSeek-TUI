@@ -1,4 +1,4 @@
-//! macOS Seatbelt (sandbox-exec) profile generation.
+//! macOS Seatbelt（sandbox-exec）配置文件生成。
 //!
 //! Seatbelt is Apple's mandatory access control framework that uses the
 //! Scheme-based policy language to define what system resources a process

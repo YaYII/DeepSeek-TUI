@@ -1,5 +1,5 @@
-//! RPC bridge that services `llm_query` / `rlm_query` calls coming back
-//! from the long-lived Python REPL during an RLM turn.
+//! RPC 桥接，为 RLM 轮次期间从长生命周期 Python REPL
+//! 返回的 `llm_query` / `rlm_query` 调用提供服务。
 //!
 //! This is the spiritual successor to the HTTP sidecar from earlier
 //! versions — except instead of binding a localhost port and routing

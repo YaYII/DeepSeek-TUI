@@ -1,8 +1,8 @@
-//! Markdown rendering for TUI transcript lines.
+//! Markdown 渲染 — 将 Markdown 转换为 ratatui 文本样式。
 //!
-//! ## Width-independent parse vs width-dependent render (CX#6)
+//! ## 宽度无关的解析 vs 宽度相关的渲染（CX#6）
 //!
-//! The previous renderer was a single function `render_markdown(content, width)`
+//! 之前的渲染器是一个单一函数 `render_markdown(content, width)`
 //! that scanned the source, classified each line (heading / list / code-fence /
 //! paragraph / link), and word-wrapped to `Line<'static>` in one pass. That meant
 //! every terminal resize forced a full re-parse of the source for every visible

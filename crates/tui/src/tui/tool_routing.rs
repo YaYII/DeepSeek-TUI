@@ -1,4 +1,4 @@
-//! Active tool-card routing helpers for the TUI loop.
+//! 工具路由 — 将工具调用从引擎路由到适当的工具处理器。
 
 use std::path::PathBuf;
 use std::time::Instant;

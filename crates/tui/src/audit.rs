@@ -1,4 +1,4 @@
-//! Lightweight audit logging for sensitive operations.
+//! 敏感操作的轻量级审计日志。
 
 use std::fs;
 use std::path::PathBuf;

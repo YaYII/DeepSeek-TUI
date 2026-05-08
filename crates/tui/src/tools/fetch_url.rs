@@ -1,4 +1,4 @@
-//! Direct-fetch HTTP tool. Complements `web_search` for cases where the user
+//! `fetch_url` 工具 — 获取 URL 内容。
 //! already knows the URL — a known repo, a blog post, a spec page — and
 //! search is overkill or actively unhelpful.
 //!

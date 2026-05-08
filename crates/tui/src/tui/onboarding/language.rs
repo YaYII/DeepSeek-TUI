@@ -1,8 +1,8 @@
-//! Language picker for first-run onboarding (#566).
+//! 语言选择步骤。
 //!
-//! Surfaces every locale the TUI ships translations for, plus an `auto`
-//! option that defers to `LC_ALL` / `LANG`. Selection persists via
-//! `Settings::save` immediately so the rest of onboarding (and every
+//! 展示 TUI 支持的所有语言环境，以及一个 `auto` 选项，
+//! 该选项会遵循 `LC_ALL` / `LANG`。选择会立即通过
+//! `Settings::save` 持久化，以便后续的入门引导步骤（以及每次
 //! subsequent session) reads the chosen tag.
 
 use ratatui::style::{Modifier, Style};

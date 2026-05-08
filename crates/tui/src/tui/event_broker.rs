@@ -1,3 +1,4 @@
+//! 事件代理 — 将引擎事件路由到 TUI 组件。
 use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},

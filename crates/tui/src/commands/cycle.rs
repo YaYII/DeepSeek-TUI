@@ -1,5 +1,4 @@
-//! Cycle commands: `/cycles` (list past cycle boundaries) and
-//! `/cycle <n>` (show one cycle's briefing in detail).
+//! `/cycle` 命令 — 管理代理循环行为。
 
 use std::fmt::Write;
 

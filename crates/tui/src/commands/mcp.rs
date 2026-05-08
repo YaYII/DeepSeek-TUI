@@ -1,4 +1,4 @@
-//! In-TUI MCP manager command parser.
+//! `/mcp` 命令 — 管理 MCP 服务器连接。
 
 use crate::tui::app::{App, AppAction, McpUiAction};
 

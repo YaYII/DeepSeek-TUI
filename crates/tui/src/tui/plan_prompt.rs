@@ -1,4 +1,4 @@
-//! Modal prompt for selecting what to do after a plan is generated.
+//! 计划提示 — Plan 模式的专用提示输入处理。
 
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::layout::{Alignment, Rect};
