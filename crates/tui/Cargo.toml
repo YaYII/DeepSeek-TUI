@@ -8,11 +8,12 @@ description = "Terminal UI for DeepSeek"
 default-run = "deepseek-tui"
 
 [features]
-default = ["tui", "json", "toml"]
+default = ["tui", "json", "toml", "vector-memory"]
 tui = ["dep:schemaui", "schemaui/tui", "json", "toml"]
 web = ["dep:schemaui", "schemaui/web", "json", "toml"]
 json = ["schemaui/json"]
 toml = ["schemaui/toml"]
+vector-memory = ["dep:lancedb", "dep:fastembed"]
 
 [[bin]]
 name = "deepseek-tui"
@@ -69,6 +70,10 @@ pdf-extract = "0.7"
 tar = "0.4"
 flate2 = "1.1"
 sha2 = "0.10"
+
+# Vector memory system
+lancedb = { version = "0.27", optional = true }
+fastembed = { version = "5.13", optional = true }
 
 [dev-dependencies]
 wiremock = "0.6"

@@ -235,6 +235,13 @@ impl Engine {
                 &self.session.messages,
             );
 
+            // Build verbatim window and inject semantic context when vector
+            // memory is available.
+            let messages = self.messages_with_turn_metadata();
+            let _verbatim_info = self
+                .build_verbatim_window_for_request(&messages)
+                .await;
+
             let request = MessageRequest {
                 model: self.session.model.clone(),
                 messages: self.messages_with_turn_metadata(),

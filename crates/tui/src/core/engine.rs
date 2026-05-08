@@ -148,6 +148,15 @@ pub struct EngineConfig {
     /// caller resolves this from `Settings` once at engine
     /// construction; the engine never touches disk for it.
     pub locale_tag: String,
+    /// Verbatim window size: last N turns are always sent in full to the API.
+    /// Older messages may be omitted/replaced with semantic context. Default: 16.
+    pub verbatim_window_turns: usize,
+    /// Whether vector memory (semantic search) is enabled.
+    pub vector_memory_enabled: bool,
+    /// Path to the LanceDB vector database directory.
+    pub vector_memory_path: PathBuf,
+    /// Embedding dimension for vector memory.
+    pub vector_memory_dim: usize,
     /// When true, force `tool_choice: "required"` and opt compatible function
     /// schemas into DeepSeek beta strict mode.
     pub strict_tool_mode: bool,
@@ -182,6 +191,10 @@ impl Default for EngineConfig {
             subagent_model_overrides: HashMap::new(),
             memory_enabled: false,
             memory_path: PathBuf::from("./memory.md"),
+            verbatim_window_turns: 16,
+            vector_memory_enabled: false,
+            vector_memory_path: PathBuf::from("/tmp/lancedb"),
+            vector_memory_dim: 384,
             strict_tool_mode: false,
             goal_objective: None,
             locale_tag: "en".to_string(),
@@ -343,6 +356,11 @@ pub struct Engine {
     /// Diagnostics collected during the current step's tool calls. Drained
     /// and forwarded as a synthetic user message before the next API call.
     pending_lsp_blocks: Vec<crate::lsp::DiagnosticBlock>,
+
+    /// Vector database service for semantic memory (#vector-memory).
+    /// Lazily initialized in `spawn_engine`. `None` when the feature is
+    /// disabled or initialization failed.
+    vector_db: Option<crate::vector_db::VectorDbService>,
 }
 
 // === Internal tool helpers ===
@@ -551,6 +569,7 @@ impl Engine {
             pending_lsp_blocks: Vec::new(),
             workshop_vars,
             sandbox_backend,
+            vector_db: None,
         };
         engine.rehydrate_latest_canonical_state();
 
@@ -569,6 +588,9 @@ impl Engine {
     /// Run the engine event loop
     #[allow(clippy::too_many_lines)]
     pub async fn run(mut self) {
+        // Initialize vector database before processing any operations.
+        self.init_vector_db().await;
+
         while let Some(op) = self.rx_op.recv().await {
             match op {
                 Op::SendMessage {
@@ -1886,6 +1908,110 @@ impl Engine {
         let merged = merge_system_prompts(self.session.system_prompt.as_ref(), summary_prompt);
         self.session.last_system_prompt_hash = Some(system_prompt_hash(merged.as_ref()));
         self.session.system_prompt = merged;
+    }
+
+    /// Initialize the vector database service from engine config.
+    pub(crate) async fn init_vector_db(&mut self) {
+        if !self.config.vector_memory_enabled {
+            return;
+        }
+        let path = &self.config.vector_memory_path;
+        let dim = self.config.vector_memory_dim;
+        match crate::vector_db::VectorDbService::connect(path, dim).await {
+            Ok(svc) => {
+                tracing::info!(
+                    "Vector memory initialized at {} (dim={})",
+                    path.display(),
+                    dim
+                );
+                self.vector_db = Some(svc);
+            }
+            Err(e) => {
+                tracing::warn!("Failed to initialize vector database: {e}");
+            }
+        }
+    }
+
+    /// Build a `VerbatimWindow` for the current session state and inject
+    /// semantic context when vector DB is available.
+    ///
+    /// Returns `(verbatim_count, total)` for logging.
+    pub(super) async fn build_verbatim_window_for_request(
+        &mut self,
+        messages: &[Message],
+    ) -> (usize, usize) {
+        let total = messages.len();
+        if total == 0 || self.vector_db.is_none() {
+            return (total, total);
+        }
+
+        // Collect tool call/result indices from message history.
+        let mut tool_call_indices: Vec<(String, usize)> = Vec::new();
+        let mut tool_result_indices: Vec<(String, usize)> = Vec::new();
+        for (i, msg) in messages.iter().enumerate() {
+            for block in &msg.content {
+                match block {
+                    ContentBlock::ToolUse { id, .. } => {
+                        tool_call_indices.push((id.clone(), i));
+                    }
+                    ContentBlock::ToolResult { tool_use_id, .. } => {
+                        tool_result_indices.push((tool_use_id.clone(), i));
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        let window_size = self.config.verbatim_window_turns.max(1);
+        let vw = crate::vector_db::VerbatimWindow::build(
+            total,
+            window_size * 2,
+            &[],
+            &tool_call_indices,
+            &tool_result_indices,
+        );
+        let verbatim_count = vw.len();
+        let history_count = total.saturating_sub(verbatim_count);
+
+        if history_count > 0 {
+            let query = messages
+                .iter()
+                .rev()
+                .take(3)
+                .filter_map(|m| {
+                    if m.role != "user" {
+                        return None;
+                    }
+                    m.content.iter().find_map(|block| {
+                        if let ContentBlock::Text { text, .. } = block {
+                            (!text.starts_with("<turn_meta>")).then(|| text.clone())
+                        } else {
+                            None
+                        }
+                    })
+                })
+                .collect::<Vec<_>>()
+                .join(" ");
+
+            if !query.is_empty() {
+                if let Some(ref vdb) = self.vector_db {
+                    match vdb.search_memories(&query, 3, None).await {
+                        Ok(results) if !results.is_empty() => {
+                            tracing::debug!(
+                                memory_count = results.len(),
+                                "found relevant memories from vector store"
+                            );
+                        }
+                        Ok(_) => {}
+                        Err(e) => {
+                            tracing::warn!("vector memory search failed: {e}");
+                        }
+                    }
+                }
+            }
+        }
+
+        (verbatim_count, total)
     }
 }
 

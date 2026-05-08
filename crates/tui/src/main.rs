@@ -67,6 +67,7 @@ mod test_support;
 mod tools;
 mod tui;
 mod utils;
+mod vector_db;
 mod working_set;
 mod workspace_trust;
 
@@ -4209,6 +4210,13 @@ async fn run_exec_agent(
         subagent_model_overrides: config.subagent_model_overrides(),
         memory_enabled: config.memory_enabled(),
         memory_path: config.memory_path(),
+        verbatim_window_turns: config
+            .context
+            .verbatim_window_turns
+            .unwrap_or(crate::vector_db::DEFAULT_VERBATIM_WINDOW_TURNS),
+        vector_memory_enabled: config.vector_memory_enabled(),
+        vector_memory_path: config.vector_memory_path(),
+        vector_memory_dim: config.vector_memory_dim(),
         strict_tool_mode: config.strict_tool_mode.unwrap_or(false),
         goal_objective: None,
         locale_tag: crate::localization::resolve_locale(

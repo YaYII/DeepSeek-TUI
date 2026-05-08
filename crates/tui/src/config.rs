@@ -483,6 +483,27 @@ pub struct MemoryConfig {
     pub enabled: Option<bool>,
 }
 
+/// Vector memory configuration for semantic search (#vector-memory).
+///
+/// When enabled, the engine stores conversation summaries and user memories
+/// in a LanceDB vector database for semantic retrieval. This powers Tier 2–4
+/// memory: historical summaries, persistent memories, and code knowledge.
+///
+/// Default is opt-out (enabled when the `vector-memory` feature is on, with
+/// sensible defaults for path and dimension).
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct VectorMemoryConfig {
+    /// Master enable. Default: `true` when the `vector-memory` feature is
+    /// compiled in, `false` otherwise.
+    #[serde(default)]
+    pub enabled: Option<bool>,
+    /// Directory for the LanceDB database. Default:
+    /// `~/.deepseek/vector_memory/`.
+    pub path: Option<String>,
+    /// Embedding dimension. Default: `384` (all-MiniLM-L6-v2).
+    pub dim: Option<usize>,
+}
+
 impl SnapshotsConfig {
     #[must_use]
     pub fn max_age(&self) -> std::time::Duration {
@@ -834,6 +855,12 @@ pub struct Config {
     /// `DEEPSEEK_MEMORY=on` is set.
     #[serde(default)]
     pub memory: Option<MemoryConfig>,
+
+    /// Vector memory / semantic search (#vector-memory). Stores conversation
+    /// summaries and user memories in LanceDB for retrieval-augmented context.
+    /// Default is enabled when the `vector-memory` feature is compiled in.
+    #[serde(default)]
+    pub vector_memory: Option<VectorMemoryConfig>,
 
     /// Post-edit LSP diagnostics injection (#136). When absent, the engine
     /// applies the defaults documented in [`LspConfigToml`].
@@ -1499,6 +1526,53 @@ impl Config {
             .unwrap_or(false)
     }
 
+    /// Whether the vector memory feature is enabled.
+    ///
+    /// Default is `true` when the `vector-memory` feature flag is compiled
+    /// in; `false` otherwise. Setting `[vector_memory] enabled = false` in
+    /// config.toml explicitly disables it.
+    #[must_use]
+    pub fn vector_memory_enabled(&self) -> bool {
+        #[cfg(feature = "vector-memory")]
+        {
+            self.vector_memory
+                .as_ref()
+                .and_then(|v| v.enabled)
+                .unwrap_or(true)
+        }
+        #[cfg(not(feature = "vector-memory"))]
+        {
+            false
+        }
+    }
+
+    /// Resolve the vector memory database path.
+    #[must_use]
+    pub fn vector_memory_path(&self) -> PathBuf {
+        #[cfg(feature = "vector-memory")]
+        {
+            self.vector_memory
+                .as_ref()
+                .and_then(|v| v.path.as_deref())
+                .map(expand_path)
+                .or_else(default_vector_memory_path)
+                .unwrap_or_else(|| PathBuf::from("/tmp/lancedb"))
+        }
+        #[cfg(not(feature = "vector-memory"))]
+        {
+            PathBuf::from("/tmp/lancedb")
+        }
+    }
+
+    /// Resolve the embedding dimension for vector memory.
+    #[must_use]
+    pub fn vector_memory_dim(&self) -> usize {
+        self.vector_memory
+            .as_ref()
+            .and_then(|v| v.dim)
+            .unwrap_or(384)
+    }
+
     /// Return whether shell execution is allowed.
     #[must_use]
     pub fn allow_shell(&self) -> bool {
@@ -1876,6 +1950,10 @@ fn default_memory_path() -> Option<PathBuf> {
     effective_home_dir().map(|home| home.join(".deepseek").join("memory.md"))
 }
 
+fn default_vector_memory_path() -> Option<PathBuf> {
+    effective_home_dir().map(|home| home.join(".deepseek").join("vector_memory"))
+}
+
 // === Environment Overrides ===
 
 fn apply_env_overrides(config: &mut Config) {
@@ -2065,6 +2143,22 @@ fn apply_env_overrides(config: &mut Config) {
         config
             .memory
             .get_or_insert_with(MemoryConfig::default)
+            .enabled = Some(on);
+    }
+    if let Ok(value) = std::env::var("DEEPSEEK_VECTOR_MEMORY_PATH") {
+        config
+            .vector_memory
+            .get_or_insert_with(VectorMemoryConfig::default)
+            .path = Some(value);
+    }
+    if let Ok(value) = std::env::var("DEEPSEEK_VECTOR_MEMORY") {
+        let on = matches!(
+            value.trim().to_ascii_lowercase().as_str(),
+            "1" | "on" | "true" | "yes" | "y" | "enabled"
+        );
+        config
+            .vector_memory
+            .get_or_insert_with(VectorMemoryConfig::default)
             .enabled = Some(on);
     }
     if let Ok(value) = std::env::var("DEEPSEEK_ALLOW_SHELL") {
@@ -2441,6 +2535,7 @@ fn merge_config(base: Config, override_cfg: Config) -> Config {
         skills: override_cfg.skills.or(base.skills),
         snapshots: override_cfg.snapshots.or(base.snapshots),
         memory: override_cfg.memory.or(base.memory),
+        vector_memory: override_cfg.vector_memory.or(base.vector_memory),
         lsp: override_cfg.lsp.or(base.lsp),
         context: ContextConfig {
             enabled: override_cfg.context.enabled.or(base.context.enabled),
