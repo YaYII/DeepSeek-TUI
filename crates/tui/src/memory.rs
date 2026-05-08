@@ -1,25 +1,23 @@
 //! 用户级记忆文件。
 //!
-//! v0.8.8 ships an MVP that lets the user keep a persistent personal
-//! note file the model sees on every turn:
+//! v0.8.8 提供了一个 MVP，让用户可以保留一个持久的个人笔记文件，
+//! 模型在每个轮次都能看到它：
 //!
-//! - **Load** `~/.deepseek/memory.md` (path is configurable via
-//!   `memory_path` in `config.toml` and `DEEPSEEK_MEMORY_PATH` env),
-//!   wrap it in a `<user_memory>` block, and prepend it to the system
-//!   prompt alongside the existing `<project_instructions>` block.
-//! - **`# foo`** typed in the composer appends `foo` to the memory
-//!   file as a timestamped bullet — fast capture without leaving the TUI.
-//! - **`/memory`** shows the resolved file path and current contents, and
-//!   **`/memory edit`** prints a copy-pasteable `$VISUAL` / `$EDITOR`
-//!   command for opening the file yourself.
-//! - **`remember` tool** lets the model itself append a bullet when it
-//!   notices a durable preference or convention worth keeping across
-//!   sessions.
+//! - **加载** `~/.deepseek/memory.md`（路径可通过 `config.toml` 中的
+//!   `memory_path` 和 `DEEPSEEK_MEMORY_PATH` 环境变量配置），
+//!   将其包裹在 `<user_memory>` 块中，并前置到系统提示词
+//!   中现有的 `<project_instructions>` 块旁边。
+//! - **`# foo`** 在输入框中键入会将 `foo` 作为带时间戳的条目追加
+//!   到记忆文件中 — 无需离开 TUI 即可快速捕获。
+//! - **`/memory`** 显示解析后的文件路径和当前内容，
+//!   **`/memory edit`** 打印可复制粘贴的 `$VISUAL` / `$EDITOR`
+//!   命令供您自行打开文件。
+//! - **`remember` 工具** 让模型本身在注意到值得跨会话保留的
+//!   持久偏好或约定时追加一条记录。
 //!
-//! Default behavior is **opt-in**: load + use the memory file only when
-//! `[memory] enabled = true` in `config.toml` or `DEEPSEEK_MEMORY=on`.
-//! That keeps existing users on zero-overhead behavior and makes the
-//! feature explicit.
+//! 默认行为是**选择加入**：仅当 `config.toml` 中 `[memory] enabled = true`
+//! 或设置了 `DEEPSEEK_MEMORY=on` 时才加载和使用记忆文件。
+//! 这样保持现有用户的零开销行为，并使功能显式化。
 
 use std::fs;
 use std::io::{self, Write};
@@ -27,14 +25,13 @@ use std::path::Path;
 
 use chrono::Utc;
 
-/// Maximum size of the user memory file. Larger files are loaded but the
-/// `<user_memory>` block carries a `<truncated bytes=N source="...">`
-/// marker so the user knows the model only saw a slice. Mirrors
-/// `project_context::MAX_CONTEXT_SIZE`.
+/// 用户记忆文件的最大大小。更大的文件会被加载，但
+/// `<user_memory>` 块会携带 `<truncated bytes=N source="...">`
+/// 标记，使用户知道模型只看到了一部分。镜像
+/// `project_context::MAX_CONTEXT_SIZE`。
 const MAX_MEMORY_SIZE: usize = 100 * 1024;
 
-/// Read the user memory file at `path`, returning `None` when the file
-/// doesn't exist or is empty after trimming.
+/// 读取 `path` 处的用户记忆文件，当文件不存在或修剪后为空时返回 `None`。
 #[must_use]
 pub fn load(path: &Path) -> Option<String> {
     let content = fs::read_to_string(path).ok()?;
@@ -44,10 +41,9 @@ pub fn load(path: &Path) -> Option<String> {
     Some(content)
 }
 
-/// Wrap memory content in a `<user_memory>` block ready to prepend to the
-/// system prompt. The `source` value is rendered verbatim into a
-/// `source="…"` attribute — pass the path so the model can see where the
-/// memory came from. Returns `None` for empty content.
+/// 将记忆内容包装在 `<user_memory>` 块中，准备前置到系统提示词。
+/// `source` 值会逐字渲染到 `source="…"` 属性中 — 传递路径以便
+/// 模型能看到记忆的来源。内容为空时返回 `None`。
 #[must_use]
 pub fn as_system_block(content: &str, source: &Path) -> Option<String> {
     let trimmed = content.trim();
@@ -96,14 +92,13 @@ fn previous_char_boundary(value: &str, mut index: usize) -> usize {
     index
 }
 
-/// Compose the `<user_memory>` block for the system prompt, honouring the
-/// opt-in toggle. Returns `None` when the feature is disabled or the file
-/// is missing / empty so the caller doesn't have to check both conditions.
+/// 为系统提示词组合 `<user_memory>` 块，遵循选择加入开关。
+/// 当功能被禁用或文件缺失/为空时返回 `None`，这样调用者
+/// 无需检查两个条件。
 ///
-/// Callers that hold a `&Config` should pass `config.memory_enabled()` and
-/// `config.memory_path()` directly. The split keeps this module
-/// `Config`-free so it can be reused from sub-agent / engine boundaries
-/// where the high-level `Config` isn't available.
+/// 持有 `&Config` 的调用者应直接传递 `config.memory_enabled()` 和
+/// `config.memory_path()`。这种拆分使本模块保持无 `Config` 依赖，
+/// 以便可以从子代理/引擎边界（其中高级 `Config` 不可用）重用。
 #[must_use]
 pub fn compose_block(enabled: bool, path: &Path) -> Option<String> {
     if !enabled {

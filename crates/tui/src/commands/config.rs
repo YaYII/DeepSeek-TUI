@@ -15,12 +15,12 @@ use crate::tui::app::{App, AppAction, AppMode, OnboardingState, ReasoningEffort,
 use crate::tui::approval::ApprovalMode;
 use anyhow::Result;
 
-/// Open the interactive config editor.
+/// 打开交互式配置编辑器。
 ///
-/// Bare `/config` opens the legacy Native modal (the `OpenConfigView` action),
-/// preserving the v0.8.4 behaviour. `/config tui` opens the new
-/// schemaui-driven TUI editor; `/config web` launches the web editor (only
-/// available in builds compiled with the `web` feature).
+/// 单独使用 `/config` 打开传统的 Native 模态框（`OpenConfigView` 操作），
+/// 保持 v0.8.4 的行为。`/config tui` 打开新的
+/// schemaui 驱动的 TUI 编辑器；`/config web` 启动 Web 编辑器（仅
+/// 在编译时启用了 `web` 功能的构建中可用）。
 pub fn show_config(_app: &mut App, arg: Option<&str>) -> CommandResult {
     let mode = match parse_mode(arg) {
         Ok(mode) => mode,
@@ -28,7 +28,7 @@ pub fn show_config(_app: &mut App, arg: Option<&str>) -> CommandResult {
     };
     if mode == ConfigUiMode::Web && !cfg!(feature = "web") {
         return CommandResult::error(
-            "This build does not include the web config UI. Rebuild with the `web` feature.",
+            "此构建未包含 Web 配置界面。请使用 `web` 功能重新构建。",
         );
     }
     let action = match mode {
@@ -38,13 +38,13 @@ pub fn show_config(_app: &mut App, arg: Option<&str>) -> CommandResult {
     CommandResult::action(action)
 }
 
-/// Dispatch `/config` with optional args.
+/// 调度 `/config` 命令及可选参数。
 ///
-/// - `/config` (no args) — opens the schemaui-driven TUI editor.
-/// - `/config tui` / `/config web` / `/config native` — open a specific
-///   editor mode (web requires the `web` build feature).
-/// - `/config <key>` — shows the current value of a setting.
-/// - `/config <key> <value>` — sets a runtime value (session only, add --save to persist).
+/// - `/config`（无参数）— 打开 schemaui 驱动的 TUI 编辑器。
+/// - `/config tui` / `/config web` / `/config native` — 打开特定的
+///   编辑器模式（web 需要 `web` 构建功能）。
+/// - `/config <key>` — 显示设置项的当前值。
+/// - `/config <key> <value>` — 设置运行时值（仅会话有效，添加 --save 以持久化）。
 pub fn config_command(app: &mut App, arg: Option<&str>) -> CommandResult {
     let raw = arg.map(str::trim).unwrap_or("");
     if raw.is_empty() {
@@ -52,7 +52,7 @@ pub fn config_command(app: &mut App, arg: Option<&str>) -> CommandResult {
     }
     let parts: Vec<&str> = raw.splitn(2, ' ').collect();
     if parts.len() == 1 {
-        // Single arg: editor-mode shortcut OR show-value request.
+        // 单个参数：编辑器模式快捷方式或显示值请求。
         let token = parts[0];
         if matches!(
             token.to_ascii_lowercase().as_str(),
@@ -60,10 +60,10 @@ pub fn config_command(app: &mut App, arg: Option<&str>) -> CommandResult {
         ) {
             return show_config(app, Some(token));
         }
-        // `/config <key>` — show current value
+        // `/config <key>` — 显示当前值
         show_single_setting(app, token)
     } else {
-        // `/config <key> <value> [--save|-s]` — set value, optionally persist
+        // `/config <key> <value> [--save|-s]` — 设置值，可选择持久化
         let raw_value = parts[1];
         let persist = raw_value.ends_with(" --save") || raw_value.ends_with(" -s");
         let value = if persist {
@@ -78,7 +78,7 @@ pub fn config_command(app: &mut App, arg: Option<&str>) -> CommandResult {
     }
 }
 
-/// Show the current value of a single setting.
+/// 显示单个设置的当前值。
 fn show_single_setting(app: &App, key: &str) -> CommandResult {
     let key = key.to_lowercase();
     fn locale_display(l: crate::localization::Locale) -> &'static str {

@@ -9,14 +9,14 @@ use crate::tui::app::App;
 pub fn lines(app: &App) -> Vec<Line<'static>> {
     let mut lines = Vec::new();
     lines.push(Line::from(Span::styled(
-        "Trust Workspace",
+        "信任工作区",
         Style::default()
             .fg(palette::DEEPSEEK_SKY)
             .add_modifier(Modifier::BOLD),
     )));
     lines.push(Line::from(""));
     lines.push(Line::from(Span::styled(
-        "Do you trust the contents of this directory?",
+        "你信任此目录中的内容吗？",
         Style::default().fg(palette::TEXT_PRIMARY),
     )));
     lines.push(Line::from(Span::styled(
@@ -25,11 +25,11 @@ pub fn lines(app: &App) -> Vec<Line<'static>> {
     )));
     lines.push(Line::from(""));
     lines.push(Line::from(Span::styled(
-        "Working with untrusted contents comes with higher risk of prompt injection.",
+        "使用不受信任的内容会带来更高的提示注入风险。",
         Style::default().fg(palette::TEXT_MUTED),
     )));
     lines.push(Line::from(Span::styled(
-        "Trusting this directory records it in global config and enables trusted workspace mode.",
+        "信任此目录会将其记录在全局配置中，并启用受信任工作区模式。",
         Style::default().fg(palette::TEXT_MUTED),
     )));
     if let Some(message) = app.status_message.as_deref() {
@@ -41,7 +41,7 @@ pub fn lines(app: &App) -> Vec<Line<'static>> {
     }
     lines.push(Line::from(""));
     lines.push(Line::from(vec![
-        Span::styled("Press ", Style::default().fg(palette::TEXT_MUTED)),
+        Span::styled("按 ", Style::default().fg(palette::TEXT_MUTED)),
         Span::styled(
             "1/Y",
             Style::default()
@@ -49,7 +49,7 @@ pub fn lines(app: &App) -> Vec<Line<'static>> {
                 .add_modifier(Modifier::BOLD),
         ),
         Span::styled(
-            " to trust and continue, ",
+            " 信任并继续，",
             Style::default().fg(palette::TEXT_MUTED),
         ),
         Span::styled(
@@ -58,7 +58,7 @@ pub fn lines(app: &App) -> Vec<Line<'static>> {
                 .fg(palette::TEXT_PRIMARY)
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" to quit", Style::default().fg(palette::TEXT_MUTED)),
+        Span::styled(" 退出", Style::default().fg(palette::TEXT_MUTED)),
     ]));
     lines
 }

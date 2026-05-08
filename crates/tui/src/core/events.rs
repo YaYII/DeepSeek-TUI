@@ -1,7 +1,7 @@
-//! Events emitted by the core engine to the UI.
+//! 核心引擎向 UI 发出的事件。
 //!
-//! These events flow from the engine to the TUI via a channel,
-//! enabling non-blocking, real-time updates.
+//! 这些事件通过通道从引擎流向 TUI，
+//! 实现非阻塞的实时更新。
 
 use std::{path::PathBuf, sync::Arc};
 
@@ -14,7 +14,7 @@ use crate::tools::spec::{ToolError, ToolResult};
 use crate::tools::subagent::SubAgentResult;
 use crate::tools::user_input::UserInputRequest;
 
-/// Final status for a turn.
+/// 轮次的最终状态。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TurnOutcomeStatus {
     Completed,
@@ -22,117 +22,117 @@ pub enum TurnOutcomeStatus {
     Failed,
 }
 
-/// Events emitted by the engine to update the UI.
+/// 引擎发出以更新 UI 的事件。
 #[derive(Debug, Clone)]
 pub enum Event {
-    // === Streaming Events ===
-    /// A new message block has started
+    // === Streaming 事件 ===
+    /// 新的消息块已开始
     MessageStarted {
         #[allow(dead_code)]
         index: usize,
     },
 
-    /// Incremental text content delta
+    /// 增量文本内容增量
     MessageDelta {
         #[allow(dead_code)]
         index: usize,
         content: String,
     },
 
-    /// Message block completed
+    /// 消息块已完成
     MessageComplete {
         #[allow(dead_code)]
         index: usize,
     },
 
-    /// Thinking block started
+    /// 思考块已开始
     ThinkingStarted {
         #[allow(dead_code)]
         index: usize,
     },
 
-    /// Incremental thinking content delta
+    /// 增量思考内容增量
     ThinkingDelta {
         #[allow(dead_code)]
         index: usize,
         content: String,
     },
 
-    /// Thinking block completed
+    /// 思考块已完成
     ThinkingComplete {
         #[allow(dead_code)]
         index: usize,
     },
 
-    // === Tool Events ===
-    /// Tool call initiated
+    // === 工具事件 ===
+    /// 工具调用已发起
     ToolCallStarted {
         id: String,
         name: String,
         input: Value,
     },
 
-    /// Tool execution progress (for long-running tools)
+    /// 工具执行进度（用于长期运行的工具）
     #[allow(dead_code)]
     ToolCallProgress { id: String, output: String },
 
-    /// Tool call completed
+    /// 工具调用已完成
     ToolCallComplete {
         id: String,
         name: String,
         result: Result<ToolResult, ToolError>,
     },
 
-    // === Turn Lifecycle ===
-    /// A new turn has started (user sent a message)
+    // === 轮次生命周期 ===
+    /// 新轮次已开始（用户发送了消息）
     TurnStarted { turn_id: String },
 
-    /// The turn is complete (no more tool calls)
+    /// 轮次已完成（没有更多工具调用）
     TurnComplete {
         usage: Usage,
         status: TurnOutcomeStatus,
         error: Option<String>,
     },
 
-    /// Context compaction started.
+    /// 上下文压缩已开始。
     CompactionStarted {
         id: String,
         auto: bool,
         message: String,
     },
 
-    /// Context compaction completed.
+    /// 上下文压缩已完成。
     CompactionCompleted {
         id: String,
         auto: bool,
         message: String,
-        /// Number of messages before compaction.
+        /// 压缩前的消息数量。
         #[allow(dead_code)]
         messages_before: Option<usize>,
-        /// Number of messages after compaction.
+        /// 压缩后的消息数量。
         #[allow(dead_code)]
         messages_after: Option<usize>,
     },
 
-    /// Context compaction failed.
+    /// 上下文压缩失败。
     CompactionFailed {
         id: String,
         auto: bool,
         message: String,
     },
 
-    /// Checkpoint-restart cycle boundary advanced (issue #124). The previous
-    /// cycle has already been archived to disk; the engine has swapped its
-    /// in-memory message buffer for the seed messages of cycle `to`.
-    /// Carries the full briefing record so the UI can populate
-    /// `app.cycle_briefings` for `/cycle <n>`.
+    /// 检查点重启循环边界推进（issue #124）。上一个
+    /// 周期已经归档到磁盘；引擎已将其内存中的
+    /// 消息缓冲区交换为周期 `to` 的种子消息。
+    /// 携带完整的简报记录，以便 UI 可以填充
+    /// `app.cycle_briefings` 用于 `/cycle <n>`。
     CycleAdvanced {
         from: u32,
         to: u32,
         briefing: crate::cycle_manager::CycleBriefing,
     },
 
-    /// Capacity decision telemetry.
+    /// 容量决策遥测。
     #[allow(dead_code)]
     CapacityDecision {
         session_id: String,
@@ -149,7 +149,7 @@ pub enum Event {
         reason: String,
     },
 
-    /// Capacity intervention telemetry.
+    /// 容量干预遥测。
     #[allow(dead_code)]
     CapacityIntervention {
         session_id: String,
@@ -162,7 +162,7 @@ pub enum Event {
         replan_performed: bool,
     },
 
-    /// Capacity memory persistence failure telemetry.
+    /// 容量内存持久化失败遥测。
     #[allow(dead_code)]
     CapacityMemoryPersistFailed {
         session_id: String,
@@ -171,7 +171,7 @@ pub enum Event {
         error: String,
     },
 
-    /// Plain-language session coherence state.
+    /// 自然语言会话一致性状态。
     CoherenceState {
         state: CoherenceState,
         label: String,
@@ -179,70 +179,68 @@ pub enum Event {
         reason: String,
     },
 
-    // === Sub-Agent Events ===
-    /// A sub-agent has been spawned
+    // === 子代理事件 ===
+    /// 子代理已生成
     AgentSpawned { id: String, prompt: String },
 
-    /// Sub-agent progress update
+    /// 子代理进度更新
     AgentProgress { id: String, status: String },
 
-    /// Sub-agent completed
+    /// 子代理已完成
     AgentComplete { id: String, result: String },
 
-    /// Sub-agent listing
+    /// 子代理列表
     AgentList { agents: Vec<SubAgentResult> },
 
-    /// Structured sub-agent mailbox envelope (issue #128). Carries the
-    /// monotonic seq + the typed `MailboxMessage` so the UI can route each
-    /// envelope to the correct in-transcript card.
+    /// 结构化子代理邮箱信封（issue #128）。携带单调递增的
+    /// seq 和类型化的 `MailboxMessage`，以便 UI 可以将每个
+    /// 信封路由到正确的对话内卡片。
     SubAgentMailbox {
         seq: u64,
         message: crate::tools::subagent::MailboxMessage,
     },
 
-    // === System Events ===
-    /// An error occurred
+    // === 系统事件 ===
+    /// 发生了一个错误
     Error {
         envelope: ErrorEnvelope,
         #[allow(dead_code)]
         recoverable: bool,
     },
 
-    /// Status message for UI display
+    /// 用于 UI 显示的状态消息
     Status { message: String },
 
-    /// Pause terminal input events (for interactive subprocesses).
+    /// 暂停终端输入事件（用于交互式子进程）。
     PauseEvents {
-        /// Optional one-shot notification fired after the UI has actually
-        /// released the terminal to the child process.
+        /// 可选的单次通知，在 UI 实际将终端释放给子进程后触发。
         ack: Option<Arc<tokio::sync::Notify>>,
     },
 
-    /// Resume terminal input events after subprocess completion
+    /// 子进程完成后恢复终端输入事件
     ResumeEvents,
 
-    /// Request user approval for a tool call
+    /// 请求用户批准工具调用
     ApprovalRequired {
         id: String,
         tool_name: String,
         description: String,
-        /// Fingerprint key for per‑call approval caching (§5.A).
+        /// 每次调用审批缓存的指纹键（§5.A）。
         approval_key: String,
     },
 
-    /// Request user input for a tool call
+    /// 请求工具调用的用户输入
     UserInputRequired {
         id: String,
         request: UserInputRequest,
     },
 
-    /// Authoritative API conversation state from the engine session.
+    /// 来自引擎会话的权威 API 对话状态。
     ///
-    /// The UI receives granular display events, but those are not always a
-    /// lossless representation of the API transcript. DeepSeek can emit
-    /// reasoning directly followed by tool calls without a visible assistant
-    /// text block, and that assistant message still has to be persisted for
-    /// later `reasoning_content` replay.
+    /// UI 接收细粒度的显示事件，但这些并不总是 API 对话
+    /// 的无损表示。DeepSeek 可以直接发出推理内容后跟工具调用，
+    /// 而没有可见的助手文本块，并且该助手消息仍然需要持久化
+    /// 以便后续 `reasoning_content` 重放。
     SessionUpdated {
         messages: Vec<Message>,
         system_prompt: Option<SystemPrompt>,
@@ -250,7 +248,7 @@ pub enum Event {
         workspace: PathBuf,
     },
 
-    /// Request user decision after sandbox denial
+    /// 沙箱拒绝后请求用户决策
     #[allow(dead_code)]
     ElevationRequired {
         tool_id: String,
@@ -263,8 +261,8 @@ pub enum Event {
 }
 
 impl Event {
-    /// Create an error event from a categorized envelope. The envelope's own
-    /// `recoverable` flag controls whether the UI flips into offline mode.
+    /// 从分类信封创建错误事件。信封自身的
+    /// `recoverable` 标志控制 UI 是否切换到离线模式。
     pub fn error(envelope: ErrorEnvelope) -> Self {
         let recoverable = envelope.recoverable;
         Event::Error {
@@ -273,7 +271,7 @@ impl Event {
         }
     }
 
-    /// Create a new status event
+    /// 创建新的状态事件
     pub fn status(message: impl Into<String>) -> Self {
         Event::Status {
             message: message.into(),

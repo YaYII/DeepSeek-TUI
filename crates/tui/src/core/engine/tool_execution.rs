@@ -1,37 +1,37 @@
-//! Low-level tool execution helpers for the engine turn loop.
+//! 引擎轮次循环的底层工具执行辅助函数。
 //!
-//! This module keeps the mechanics of MCP dispatch, execution locking, and
-//! parallel-tool fanout out of `engine.rs`; the turn loop still owns planning,
-//! approval, and how tool results are written back into session state.
+//! 本模块将 MCP 调度、执行锁定和并行工具分发的
+//! 机制从 `engine.rs` 中分离出来；轮次循环仍然拥有计划、
+//! 审批以及工具结果如何写回会话状态的所有权。
 
 use std::{fs::OpenOptions, io::Write, sync::Arc, time::Duration};
 
 use super::*;
 
-/// RAII guard that pauses the TUI's terminal-state ownership for the duration
-/// of an interactive tool, then restores it on drop.
+/// RAII 守卫，在交互式工具执行期间暂停 TUI 的终端状态所有权，
+/// 然后在 drop 时恢复。
 ///
-/// Background: interactive tools (anything that needs the raw TTY — external
-/// editor, `exec_shell` with stdin, etc.) need the TUI to leave alt-screen,
-/// disable raw mode, and release mouse capture so the child sees a normal
-/// terminal. The TUI listens for `Event::PauseEvents` / `Event::ResumeEvents`
-/// and runs `pause_terminal` / `resume_terminal` in response.
+/// 背景：交互式工具（任何需要原始 TTY 的工具 — 外部编辑器、
+/// 带 stdin 的 `exec_shell` 等）需要 TUI 离开备用屏幕、
+/// 禁用原始模式并释放鼠标捕获，以便子进程看到正常的
+/// 终端。TUI 监听 `Event::PauseEvents` / `Event::ResumeEvents`
+/// 并相应地运行 `pause_terminal` / `resume_terminal`。
 ///
-/// Earlier code sent `PauseEvents` before tool execution and `ResumeEvents`
-/// after. That worked on the happy path, but if the tool's future was dropped
-/// — Ctrl+C cancellation, sub-agent abort, parent task cancelled while the
-/// tool was awaiting — the second `await` never reached and `ResumeEvents`
-/// was never sent. It also let interactive children start before the UI had
-/// actually left alt-screen/raw mode. Both failures strand the TUI in a
-/// regular shell scrollback: the parent shell scrollbar takes over, mouse
-/// wheel scrolls the host terminal instead of the transcript, and the TUI
-/// renders at the bottom of cooked-mode output.
+/// 早期代码在工具执行前发送 `PauseEvents`，在工具执行后
+/// 发送 `ResumeEvents`。这在正常路径上有效，但如果工具的
+/// future 被丢弃 — Ctrl+C 取消、子代理中止、在工具等待时
+/// 父任务被取消 — 则第二个 `await` 永远不会到达，
+/// `ResumeEvents` 也永远不会被发送。它还允许交互式子进程
+/// 在 UI 实际离开备用屏幕/原始模式之前启动。这两种失败都
+/// 会使 TUI 陷入普通的 shell 回滚：父 shell 滚动条接管，
+/// 鼠标滚轮滚动主机终端而不是对话记录，TUI 在 cooked 模式
+/// 输出的底部渲染。
 ///
-/// `Drop` runs synchronously and can't await, so we first use `try_send` on a
-/// **clone of the event channel** to push `ResumeEvents` non-blockingly. If the
-/// channel is full we enqueue the resume on the active Tokio runtime instead of
-/// dropping it; otherwise a burst of engine events can strand the UI in the
-/// paused terminal state.
+/// `Drop` 同步运行且无法 await，因此我们首先在**事件通道的
+/// 克隆**上使用 `try_send` 以非阻塞方式推送 `ResumeEvents`。
+/// 如果通道已满，我们将恢复操作排队到活动的 Tokio 运行时上，
+/// 而不是丢弃它；否则引擎事件的突发可能使 UI 陷入暂停的
+/// 终端状态。
 pub(super) struct InteractiveTerminalGuard {
     tx: Option<mpsc::Sender<Event>>,
 }

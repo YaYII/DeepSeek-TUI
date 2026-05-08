@@ -1,9 +1,8 @@
-//! Anchor command: keep critical facts across compaction.
+//! 锚点命令：在压缩过程中保留关键事实。
 //!
-//! Unlike `/note` (active lookup), anchors are passive. They are automatically
-//! re-injected into context after every compaction cycle. Use anchors to
-//! preserve invariants like "This API's status field is unreliable" or
-//! ".ssh/ must never be touched".
+//! 与 `/note`（主动查找）不同，锚点是被动的。它们在每次压缩周期后自动
+//! 重新注入到上下文中。使用锚点来保护不变性，例如"此 API 的 status 字段不可靠"或
+//! ".ssh/ 目录绝不能触碰"。
 
 use crate::tui::app::App;
 use std::fs;
@@ -13,10 +12,10 @@ use super::CommandResult;
 
 const USAGE: &str = "/anchor <text> | /anchor list | /anchor remove <n>";
 
-/// Handle the `/anchor` command with subcommands:
-/// - `/anchor <text>` — add a new anchor
-/// - `/anchor list` — list all anchors
-/// - `/anchor remove <n>` — remove anchor by 1-based index
+/// 处理 `/anchor` 命令的子命令：
+/// - `/anchor <text>` — 添加新锚点
+/// - `/anchor list` — 列出所有锚点
+/// - `/anchor remove <n>` — 按基于 1 的索引删除锚点
 pub fn anchor(app: &mut App, content: Option<&str>) -> CommandResult {
     let input = match content {
         Some(c) => c.trim(),
@@ -29,7 +28,7 @@ pub fn anchor(app: &mut App, content: Option<&str>) -> CommandResult {
         return CommandResult::error(format!("Usage: {USAGE}"));
     }
 
-    // Parse subcommands.
+    // 解析子命令。
     if input.eq_ignore_ascii_case("list") {
         return list_anchors(app);
     }
@@ -42,7 +41,7 @@ pub fn anchor(app: &mut App, content: Option<&str>) -> CommandResult {
         return remove_anchor(app, rest.trim());
     }
 
-    // Default: add a new anchor.
+    // 默认：添加新锚点。
     add_anchor(app, input)
 }
 
@@ -50,7 +49,7 @@ fn anchors_path(app: &App) -> std::path::PathBuf {
     app.workspace.join(".deepseek").join("anchors.md")
 }
 
-/// Read and split anchors from the file. Each anchor is separated by "\n---\n".
+/// 从文件中读取并拆分锚点。每个锚点由 "\n---\n" 分隔。
 fn read_anchors(app: &App) -> Vec<String> {
     let path = anchors_path(app);
     let content = match fs::read_to_string(&path) {
@@ -65,45 +64,45 @@ fn read_anchors(app: &App) -> Vec<String> {
         .collect()
 }
 
-/// Write anchors back to the file, joined by "\n---\n".
+/// 将锚点写回文件，由 "\n---\n" 连接。
 fn write_anchors(app: &App, anchors: &[String]) -> Result<(), String> {
     let path = anchors_path(app);
 
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)
-            .map_err(|e| format!("Failed to create anchors directory: {e}"))?;
+            .map_err(|e| format!("无法创建锚点目录: {e}"))?;
     }
 
     let content = anchors.join("\n---\n");
-    fs::write(&path, content).map_err(|e| format!("Failed to write anchors file: {e}"))
+    fs::write(&path, content).map_err(|e| format!("无法写入锚点文件: {e}"))
 }
 
 fn add_anchor(app: &mut App, text: &str) -> CommandResult {
     let path = anchors_path(app);
 
-    // Ensure parent directory exists.
+    // 确保父目录存在。
     if let Some(parent) = path.parent()
         && let Err(e) = fs::create_dir_all(parent)
     {
-        return CommandResult::error(format!("Failed to create anchors directory: {e}"));
+        return CommandResult::error(format!("无法创建锚点目录: {e}"));
     }
 
-    // Append to anchors file.
+    // 追加到锚点文件。
     let mut file = match fs::OpenOptions::new().create(true).append(true).open(&path) {
         Ok(f) => f,
         Err(e) => {
-            return CommandResult::error(format!("Failed to open anchors file: {e}"));
+            return CommandResult::error(format!("无法打开锚点文件: {e}"));
         }
     };
 
-    // Write separator and anchor content.
+    // 写入分隔符和锚点内容。
     if let Err(e) = writeln!(file, "\n---\n{}", text) {
-        return CommandResult::error(format!("Failed to write anchor: {e}"));
+        return CommandResult::error(format!("无法写入锚点: {e}"));
     }
 
     CommandResult::message(format!(
-        "Anchor pinned. It will be auto-injected into context after each compaction.\n\
-         Stored in: {}",
+        "锚点已固定。每次压缩后会自动注入到上下文中。\n\
+         存储位置: {}",
         path.display()
     ))
 }
@@ -113,15 +112,15 @@ fn list_anchors(app: &App) -> CommandResult {
 
     if anchors.is_empty() {
         return CommandResult::message(
-            "No anchors set. Use /anchor <text> to pin a fact that survives compaction.",
+            "未设置锚点。使用 /anchor <text> 来固定一个在压缩后仍保留的事实。",
         );
     }
 
-    let mut output = format!("Pinned anchors ({} total):\n", anchors.len());
+    let mut output = format!("已固定锚点 (共 {} 个):\n", anchors.len());
     for (i, anchor) in anchors.iter().enumerate() {
         output.push_str(&format!("\n  {}. {}", i + 1, anchor));
     }
-    output.push_str("\n\nUse /anchor remove <n> to remove an anchor.");
+    output.push_str("\n\n使用 /anchor remove <n> 删除锚点。");
 
     CommandResult::message(output)
 }
@@ -131,7 +130,7 @@ fn remove_anchor(app: &mut App, index_str: &str) -> CommandResult {
         Ok(n) if n >= 1 => n,
         _ => {
             return CommandResult::error(
-                "Invalid index. Use /anchor list to see anchor numbers, then /anchor remove <n>.",
+                "无效索引。使用 /anchor list 查看锚点编号，然后 /anchor remove <n>。",
             );
         }
     };
@@ -140,7 +139,7 @@ fn remove_anchor(app: &mut App, index_str: &str) -> CommandResult {
 
     if index > anchors.len() {
         return CommandResult::error(format!(
-            "Anchor #{index} does not exist. You have {} anchor(s). Use /anchor list to see them.",
+            "锚点 #{index} 不存在。您有 {} 个锚点。使用 /anchor list 查看。",
             anchors.len()
         ));
     }
@@ -150,7 +149,7 @@ fn remove_anchor(app: &mut App, index_str: &str) -> CommandResult {
         return CommandResult::error(e);
     }
 
-    CommandResult::message(format!("Removed anchor #{index}: {removed}"))
+    CommandResult::message(format!("已删除锚点 #{index}: {removed}"))
 }
 
 #[cfg(test)]

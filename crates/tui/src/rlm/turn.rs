@@ -17,28 +17,27 @@ use super::bridge::{RlmBridge, RlmLlmClient};
 use super::prompt::rlm_system_prompt;
 
 // ---------------------------------------------------------------------------
-// Constants
+// 常量
 // ---------------------------------------------------------------------------
 
-/// Maximum number of RLM iterations before the loop gives up.
+/// RLM 循环放弃前的最大迭代次数。
 const MAX_RLM_ITERATIONS: u32 = 25;
-/// Max consecutive rounds where the model returns no `repl` fence before we
-/// hard-fail. The paper requires `code → REPL → Final`; anything else is
-/// not the RLM contract.
+/// 模型连续不返回 `repl` 围栏的最大轮数，超过则硬失败。
+/// 论文要求 `code → REPL → Final`；其他任何情况都不符合 RLM 契约。
 const MAX_CONSECUTIVE_NO_CODE: u32 = 3;
-/// Max output tokens for the root LLM — it just needs to generate code.
+/// 根 LLM 的最大输出 token 数 — 只需生成代码。
 const ROOT_MAX_TOKENS: u32 = 4096;
-/// Max chars of stdout shown as metadata to the root LLM in next iteration.
+/// 在下一次迭代中作为元数据显示给根 LLM 的标准输出的最大字符数。
 const STDOUT_METADATA_PREVIEW_LEN: usize = 800;
-/// Max chars of `context` shown as a preview in the metadata.
+/// 元数据中 `context` 预览的最大字符数。
 const PROMPT_PREVIEW_LEN: usize = 500;
-/// Temperature for root LLM calls.
+/// 根 LLM 调用的温度。
 const ROOT_TEMPERATURE: f32 = 0.3;
-/// Bound on conversation history we keep across iterations.
+/// 跨迭代保留的对话历史消息上限。
 const MAX_HISTORY_MESSAGES: usize = 20;
 
 // ---------------------------------------------------------------------------
-// Public API
+// 公共 API
 // ---------------------------------------------------------------------------
 
 /// How an RLM turn ended.
@@ -162,7 +161,7 @@ fn turn_timeout() -> Option<Duration> {
 }
 
 // ---------------------------------------------------------------------------
-// Implementation
+// 实现
 // ---------------------------------------------------------------------------
 
 async fn run_rlm_turn_impl(
@@ -179,9 +178,8 @@ async fn run_rlm_turn_impl(
     let mut trace: Vec<RlmRoundTrace> = Vec::new();
     let mut total_rpcs: u32 = 0;
 
-    // 1. Stage `context` to a temp file. The REPL reads it on bootstrap so
-    //    the big string never enters the process command line and doesn't
-    //    show up in `ps`.
+    // 1. 将 `context` 暂存到临时文件。REPL 在启动时读取它，这样
+    //    大字符串不会进入进程命令行，也不会出现在 `ps` 中。
     let ctx_path = match write_context_file(&prompt) {
         Ok(p) => p,
         Err(e) => {
@@ -198,7 +196,7 @@ async fn run_rlm_turn_impl(
         }
     };
 
-    // 2. Spawn the long-lived REPL.
+    // 2. 启动长期运行的 REPL。
     let mut repl = match PythonRuntime::spawn_with_context(&ctx_path).await {
         Ok(rt) => rt,
         Err(e) => {
@@ -216,18 +214,18 @@ async fn run_rlm_turn_impl(
         }
     };
 
-    // 3. Build the bridge that services llm_query / rlm_query RPCs.
+    // 3. 构建服务 llm_query / rlm_query RPC 的桥接。
     let bridge = RlmBridge::new(Arc::clone(&client), child_model.clone(), max_depth);
     let usage_handle = bridge.usage_handle();
 
     let _ = tx_event
         .send(Event::status(format!(
-            "RLM: spawned Python REPL (root={model}, child={child_model}, max_depth={max_depth}, ctx={} chars)",
+            "RLM：已启动 Python REPL（根模型={model}，子模型={child_model}，最大深度={max_depth}，上下文={} 字符）",
             prompt.chars().count()
         )))
         .await;
 
-    // 4. Build initial metadata-only history.
+    // 4. 构建仅含元数据的初始历史。
     let system = rlm_system_prompt();
     let mut messages: Vec<Message> = vec![build_metadata_message(
         &prompt,
@@ -265,7 +263,7 @@ async fn run_rlm_turn_impl(
                 )))
                 .await;
 
-            // 4a. Root LLM generates code from metadata-only context.
+            // 4a. 根 LLM 从仅含元数据的上下文生成代码。
             let request = build_root_request(&model, &messages, &system);
 
             let response = match client.create_message_boxed(request).await {
@@ -275,7 +273,7 @@ async fn run_rlm_turn_impl(
                         answer: String::new(),
                         iterations: iteration + 1,
                         duration: start.elapsed(),
-                        error: Some(format!("Root LLM call failed: {e}")),
+                        error: Some(format!("根 LLM 调用失败：{e}")),
                         usage: total_usage,
                         termination: RlmTermination::Error,
                         trace: trace.clone(),
@@ -289,15 +287,13 @@ async fn run_rlm_turn_impl(
             let response_text = extract_text_blocks(&response.content);
             last_response_text = response_text.clone();
 
-            // 4b. Top-level FINAL(...) lets the model close out without
-            //     touching the REPL — but only if it has done some work
-            //     (non-zero rpc_count) on a prior round. Otherwise it's a
-            //     shortcut and we reject it.
+            // 4b. 顶级 FINAL(...) 允许模型在不触及 REPL 的情况下
+            //     结束 — 但前提是它在之前的轮次中做了一些工作
+            //    （非零 rpc_count）。否则就是捷径，我们拒绝。
             if let Some(final_val) = parse_text_final(&response_text) {
                 if total_rpcs == 0 {
-                    // Discard the top-level FINAL — the model is bypassing
-                    // the loop. Force it to use the REPL by appending a
-                    // strict reminder.
+                    // 丢弃顶级 FINAL — 模型在绕过
+                    // 循环。通过追加严格提醒强制使用 REPL。
                     consecutive_no_code = consecutive_no_code.saturating_add(1);
                     if consecutive_no_code >= MAX_CONSECUTIVE_NO_CODE {
                         break 'turn RlmTurnResult {
@@ -321,11 +317,11 @@ async fn run_rlm_turn_impl(
                     messages.push(Message {
                         role: "user".to_string(),
                         content: vec![ContentBlock::Text {
-                            text: "You called FINAL(...) without ever running a ```repl block. \
-                                   That defeats the recursive language model — you're guessing \
-                                   from the preview alone. Emit a ```repl block now that uses \
-                                   `llm_query`, `llm_query_batched`, or `rlm_query` against \
-                                   `context` to actually compute the answer."
+                            text: "你调用了 FINAL(...) 但从未运行 ```repl 块。\
+                                   这违背了递归语言模型的宗旨 — 你只是在从预览中猜测。\
+                                   现在请发出一个 ```repl 块，使用 `llm_query`、\
+                                   `llm_query_batched` 或 `rlm_query` 对 `context` \
+                                   进行实际计算。"
                                 .to_string(),
                             cache_control: None,
                         }],
@@ -334,7 +330,7 @@ async fn run_rlm_turn_impl(
                 }
                 let _ = tx_event
                     .send(Event::status(
-                        "RLM: FINAL detected in response text".to_string(),
+                        "RLM：在响应文本中检测到 FINAL".to_string(),
                     ))
                     .await;
                 break 'turn RlmTurnResult {
@@ -349,7 +345,7 @@ async fn run_rlm_turn_impl(
                 };
             }
 
-            // 4c. Extract a ```repl block.
+            // 4c. 提取 ```repl 块。
             let code = extract_repl_code(&response_text);
             let code_to_run = match code {
                 Some(c) => {
@@ -364,7 +360,7 @@ async fn run_rlm_turn_impl(
                             iterations: iteration + 1,
                             duration: start.elapsed(),
                             error: Some(format!(
-                                "RLM: model failed to emit ```repl after {MAX_CONSECUTIVE_NO_CODE} consecutive rounds"
+                                "RLM：模型连续 {MAX_CONSECUTIVE_NO_CODE} 轮未能输出 ```repl"
                             )),
                             usage: total_usage,
                             termination: RlmTermination::NoCode,
@@ -382,9 +378,9 @@ async fn run_rlm_turn_impl(
                     messages.push(Message {
                         role: "user".to_string(),
                         content: vec![ContentBlock::Text {
-                            text: "Reminder: emit Python inside a ```repl … ``` fence. \
-                                   Use `llm_query` / `llm_query_batched` / `rlm_query` to \
-                                   process `context` and call `FINAL(value)` when done."
+                            text: "提醒：在 ```repl … ``` 围栏内输出 Python。\
+                                   使用 `llm_query` / `llm_query_batched` / `rlm_query` \
+                                   处理 `context`，完成后调用 `FINAL(value)`。"
                                 .to_string(),
                             cache_control: None,
                         }],
@@ -403,8 +399,8 @@ async fn run_rlm_turn_impl(
                 })
                 .await;
 
-            // 4d. Execute the code in the REPL with the bridge servicing
-            //     llm_query / rlm_query callbacks.
+            // 4d. 在 REPL 中执行代码，桥接服务
+            //     llm_query / rlm_query 回调。
             let round = match repl.run(&code_to_run, Some(&bridge)).await {
                 Ok(r) => r,
                 Err(e) => {
@@ -423,7 +419,7 @@ async fn run_rlm_turn_impl(
 
             total_rpcs = total_rpcs.saturating_add(round.rpc_count);
 
-            // Trace this round.
+            // 追踪本轮。
             let stdout_preview = truncate_text(round.stdout.trim(), STDOUT_METADATA_PREVIEW_LEN);
             trace.push(RlmRoundTrace {
                 round: iteration + 1,
@@ -444,11 +440,11 @@ async fn run_rlm_turn_impl(
                 )))
                 .await;
 
-            // 4e. FINAL detection.
+            // 4e. FINAL 检测。
             if let Some(final_val) = round.final_value.clone() {
                 let _ = tx_event
                     .send(Event::status(
-                        "RLM: FINAL detected in REPL, ending loop".to_string(),
+                        "RLM：在 REPL 中检测到 FINAL，结束循环".to_string(),
                     ))
                     .await;
                 break 'turn RlmTurnResult {
@@ -463,7 +459,7 @@ async fn run_rlm_turn_impl(
                 };
             }
 
-            // 4f. Build metadata for next iteration.
+            // 4f. 为下一次迭代构建元数据。
             messages.push(Message {
                 role: "assistant".to_string(),
                 content: vec![ContentBlock::Text {
@@ -502,7 +498,7 @@ async fn run_rlm_turn_impl(
         }
     };
 
-    // Fold bridge usage (children + nested sub_rlm) into totals.
+    // 将桥接使用量（子调用 + 嵌套 sub_rlm）折叠到总计中。
     let bridge_usage = usage_handle.lock().await;
     let mut final_usage = result.usage.clone();
     super::add_usage_with_prompt_cache(&mut final_usage, &bridge_usage);
@@ -517,7 +513,7 @@ async fn run_rlm_turn_impl(
 }
 
 // ---------------------------------------------------------------------------
-// Helpers
+// 辅助函数
 // ---------------------------------------------------------------------------
 
 fn write_context_file(prompt: &str) -> std::io::Result<PathBuf> {
@@ -565,69 +561,69 @@ fn build_metadata_message(
     let prompt_preview = truncate_text(prompt, PROMPT_PREVIEW_LEN);
 
     let mut parts = Vec::new();
-    parts.push(format!("## REPL state (round {iteration})"));
+    parts.push(format!("## REPL 状态（第 {iteration} 轮）"));
     parts.push(String::new());
     if let Some(rp) = root_prompt
         && !rp.trim().is_empty()
     {
-        parts.push("**Original task** (re-shown every round)".to_string());
+        parts.push("**原始任务**（每轮重新展示）".to_string());
         parts.push(format!("> {}", truncate_text(rp.trim(), 600)));
         parts.push(String::new());
     }
-    parts.push("**`context`** — the long input lives in the REPL only".to_string());
-    parts.push(format!("- Length: {prompt_len} chars"));
-    parts.push(format!("- Preview: \"{prompt_preview}\""));
+    parts.push("**`context`** — 长输入仅存在于 REPL 中".to_string());
+    parts.push(format!("- 长度：{prompt_len} 字符"));
+    parts.push(format!("- 预览：\"{prompt_preview}\""));
     parts.push(String::new());
 
-    parts.push("**REPL helpers** (use inside ```repl blocks)".to_string());
-    parts.push("- `context` / `ctx`                       — the full input string".to_string());
-    parts.push("- `len(context)` / `context[a:b]` / `context.splitlines()` — slice it".to_string());
+    parts.push("**REPL 辅助函数**（在 ```repl 块内使用）".to_string());
+    parts.push("- `context` / `ctx`                       — 完整输入字符串".to_string());
+    parts.push("- `len(context)` / `context[a:b]` / `context.splitlines()` — 切片".to_string());
     parts.push(
-        "- `chunk_context(max_chars=20000, overlap=0)` — full-coverage chunks with index/start/end/text"
+        "- `chunk_context(max_chars=20000, overlap=0)` — 全覆盖分块，带 index/start/end/text"
             .to_string(),
     );
     parts.push(
-        "- `chunk_coverage(chunks)`              — coverage report for chunk_context output"
+        "- `chunk_coverage(chunks)`              — chunk_context 输出的覆盖率报告"
             .to_string(),
     );
     parts.push(
-        "- `llm_query(prompt, model=None)`        — one-shot child LLM; `model` is ignored and child calls stay pinned to Flash"
+        "- `llm_query(prompt, model=None)`        — 单次子 LLM；`model` 被忽略，子调用固定使用 Flash"
             .to_string(),
     );
     parts.push(
-        "- `llm_query_batched([p1, p2, ...])`     — concurrent fan-out; `model` is ignored"
+        "- `llm_query_batched([p1, p2, ...])`     — 并发扇出；`model` 被忽略"
             .to_string(),
     );
     parts.push(
-        "- `rlm_query(prompt, model=None)`        — recursive sub-RLM; `model` is ignored"
+        "- `rlm_query(prompt, model=None)`        — 递归子 RLM；`model` 被忽略"
             .to_string(),
     );
     parts.push(
-        "- `rlm_query_batched([p1, p2, ...])`     — concurrent recursive sub-RLMs; `model` is ignored"
+        "- `rlm_query_batched([p1, p2, ...])`     — 并发递归子 RLM；`model` 被忽略"
             .to_string(),
     );
-    parts.push("- `SHOW_VARS()`                          — list user variables".to_string());
-    parts.push("- `repl_set(name, value)` / `repl_get(name)` — explicit store".to_string());
+    parts.push("- `SHOW_VARS()`                          — 列出用户变量".to_string());
+    parts.push("- `repl_set(name, value)` / `repl_get(name)` — 显式存储".to_string());
     parts.push(
-        "- `FINAL(value)`                         — end the loop with this answer".to_string(),
+        "- `FINAL(value)`                         — 以此答案结束循环".to_string(),
     );
     parts.push(
-        "- `FINAL_VAR(name)`                      — end the loop with a variable's value"
+        "- `FINAL_VAR(name)`                      — 以变量值结束循环"
             .to_string(),
     );
     parts.push(String::new());
 
     if iteration > 0 {
-        parts.push("**Previous round**".to_string());
+        parts.push("**上一轮**".to_string());
         if let Some(code) = previous_code {
-            parts.push(format!("- Code: {}", summarize_code(code)));
+            parts.push(format!("- 代码：{}", summarize_code(code)));
         }
         if let Some(stdout) = previous_stdout {
             let stdout_clean = stdout.trim();
             if !stdout_clean.is_empty() {
-                parts.push(format!("- Stdout preview: \"{stdout_clean}\""));
+                parts.push(format!("- 标准输出预览：\"{stdout_clean}\""));
             } else {
-                parts.push("- Stdout: (empty)".to_string());
+                parts.push("- 标准输出：（空）".to_string());
             }
         }
     }
@@ -715,7 +711,7 @@ fn parse_text_final(text: &str) -> Option<String> {
     for line in outside_fence.lines() {
         let trimmed = line.trim_start();
         if trimmed.starts_with("FINAL_VAR(") {
-            // FINAL_VAR can't be resolved from text alone — defer to REPL.
+            // FINAL_VAR 无法仅从文本解析 — 交给 REPL 处理。
             continue;
         }
         if let Some(rest) = trimmed.strip_prefix("FINAL(") {
@@ -770,7 +766,7 @@ fn truncate_text(text: &str, max_chars: usize) -> String {
 }
 
 // ---------------------------------------------------------------------------
-// Tests
+// 测试
 // ---------------------------------------------------------------------------
 
 #[cfg(test)]
@@ -845,7 +841,7 @@ mod tests {
         let text = extract_text_blocks(&msg.content);
         assert!(text.contains("context"));
         assert!(text.contains("Hello, world!"));
-        assert!(text.contains("round 0"));
+        assert!(text.contains("第 0 轮"));
         assert!(text.contains("llm_query"));
         assert!(text.contains("rlm_query"));
         assert!(text.contains("FINAL"));
@@ -858,8 +854,8 @@ mod tests {
         let msg = build_metadata_message(&prompt, None, 0, None, None);
         let text = extract_text_blocks(&msg.content);
 
-        assert!(text.contains(&format!("- Length: {} chars", prompt.chars().count())));
-        assert!(text.contains("- Preview: \""));
+        assert!(text.contains(&format!("- 长度：{} 字符", prompt.chars().count())));
+        assert!(text.contains("- 预览：\""));
         assert!(text.contains("..."));
         assert!(
             !text.contains(secret_tail),
@@ -893,7 +889,7 @@ mod tests {
     fn build_metadata_with_iteration_shows_previous_code() {
         let msg = build_metadata_message("Test prompt", None, 3, Some("print('hi')"), Some("hi"));
         let text = extract_text_blocks(&msg.content);
-        assert!(text.contains("round 3"));
+        assert!(text.contains("第 3 轮"));
         assert!(text.contains("print('hi')"));
         assert!(text.contains("hi"));
     }
@@ -908,7 +904,7 @@ mod tests {
             Some("ok"),
         );
         let text = extract_text_blocks(&msg.content);
-        assert!(text.contains("Original task"));
+        assert!(text.contains("原始任务"));
         assert!(text.contains("Summarize the security model"));
     }
 

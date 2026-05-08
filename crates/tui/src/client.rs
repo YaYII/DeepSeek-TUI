@@ -83,9 +83,8 @@ pub(super) fn from_api_tool_name(name: &str) -> String {
     decode_bare_hex_escapes(&out)
 }
 
-/// Decode bare `x[0-9A-Fa-f]{6}` sequences (optionally followed by `-`)
-/// that survive the standard delimiter-based pass.  This handles cases
-/// where the model strips or replaces the leading `-` of `-x00002E-`.
+/// 解码在标准分隔符传递后仍然存在的裸 `x[0-9A-Fa-f]{6}` 序列（可选后跟 `-`）。
+/// 这处理了模型剥离或替换 `-x00002E-` 中前导 `-` 的情况。
 pub(super) fn decode_bare_hex_escapes(input: &str) -> String {
     use regex::Regex;
     use std::sync::OnceLock;
@@ -98,12 +97,12 @@ pub(super) fn decode_bare_hex_escapes(input: &str) -> String {
         if let Ok(code) = u32::from_str_radix(hex, 16)
             && let Some(decoded) = std::char::from_u32(code)
         {
-            // Only decode characters that to_api_tool_name would have encoded
+            // 仅解码 to_api_tool_name 会编码的字符
             if !decoded.is_ascii_alphanumeric() && decoded != '_' && decoded != '-' {
                 return decoded.to_string();
             }
         }
-        // Not a character we'd encode — leave as-is
+        // 不是我们会编码的字符 — 保持原样
         caps[0].to_string()
     });
     result.into_owned()
@@ -111,7 +110,7 @@ pub(super) fn decode_bare_hex_escapes(input: &str) -> String {
 
 // === Types ===
 
-/// Model descriptor returned by the provider's `/v1/models` endpoint.
+/// 由提供者的 `/v1/models` 端点返回的模型描述符。
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct AvailableModel {
     pub id: String,
@@ -119,7 +118,7 @@ pub struct AvailableModel {
     pub created: Option<u64>,
 }
 
-/// Client for DeepSeek's OpenAI-compatible APIs.
+/// DeepSeek 的 OpenAI 兼容 API 客户端。
 #[must_use]
 pub struct DeepSeekClient {
     pub(super) http_client: reqwest::Client,
@@ -303,10 +302,10 @@ impl Clone for DeepSeekClient {
 
 // === Helpers ===
 
-/// Maximum bytes to read from an error response body (64 KB).
+/// 从错误响应体中读取的最大字节数（64 KB）。
 pub(super) const ERROR_BODY_MAX_BYTES: usize = 64 * 1024;
 
-/// Read an error response body with a size limit to prevent unbounded allocation.
+/// 读取错误响应体，带大小限制以防止无限分配。
 pub(super) async fn bounded_error_text(response: reqwest::Response, max_bytes: usize) -> String {
     use futures_util::StreamExt;
     let mut stream = response.bytes_stream();
@@ -408,10 +407,10 @@ pub(super) fn api_url(base_url: &str, path: &str) -> String {
 
 // === DeepSeekClient ===
 
-/// Returns true when DEEPSEEK_FORCE_HTTP1 is set to a truthy value
-/// (`1`, `true`, `yes`, `on`, case-insensitive). Used by `build_http_client`
-/// to opt out of HTTP/2 entirely when DeepSeek's edge mishandles long-lived H2
-/// streams (#103). Anything else (unset, `0`, `false`, ...) leaves HTTP/2 on.
+/// 当 DEEPSEEK_FORCE_HTTP1 设置为真值时返回 true
+///（`1`、`true`、`yes`、`on`，不区分大小写）。当 DeepSeek 的边缘节点
+/// 处理长连接 H2 流出现问题 (#103) 时，`build_http_client` 使用此函数
+/// 完全退出 HTTP/2。其他值（未设置、`0`、`false` 等）保持 HTTP/2 开启。
 fn force_http1_from_env() -> bool {
     std::env::var("DEEPSEEK_FORCE_HTTP1")
         .ok()
@@ -419,11 +418,10 @@ fn force_http1_from_env() -> bool {
         .is_some_and(|v| matches!(v.as_str(), "1" | "true" | "yes" | "on"))
 }
 
-/// Read `SSL_CERT_FILE` and add its contents as extra root
-/// certificates on the reqwest builder (#418). Tries the PEM-bundle
-/// parser first (covers single-cert files too), then falls back to
-/// DER. All failures log a warning and return the builder unchanged
-/// so a malformed env var degrades gracefully.
+/// 读取 `SSL_CERT_FILE` 并将其内容作为额外的根证书添加到
+/// reqwest 构建器上 (#418)。先尝试 PEM 包解析器（也涵盖单证书文件），
+/// 然后回退到 DER。所有失败都会记录警告并原样返回构建器，
+/// 使格式错误的环境变量优雅降级。
 fn add_extra_root_certs(
     mut builder: reqwest::ClientBuilder,
     cert_path: &str,
@@ -464,7 +462,7 @@ fn add_extra_root_certs(
 }
 
 impl DeepSeekClient {
-    /// Create a DeepSeek client from CLI configuration.
+    /// 从 CLI 配置创建 DeepSeek 客户端。
     pub fn new(config: &Config) -> Result<Self> {
         let api_key = config.deepseek_api_key()?;
         let base_url = config.deepseek_base_url();
@@ -562,7 +560,7 @@ fn build_default_headers(
 }
 
 impl DeepSeekClient {
-    /// List available models from the provider.
+    /// 从提供者列出可用模型。
     pub async fn list_models(&self) -> Result<Vec<AvailableModel>> {
         let url = api_url(&self.base_url, "models");
         let response = self.send_with_retry(|| self.http_client.get(&url)).await?;
@@ -695,10 +693,9 @@ impl DeepSeekClient {
     }
 }
 
-/// Translate the structured `LlmError` into both a categorical label
-/// (for structured logs / metrics) and a short human reason string
-/// (for the retry banner). Returning both from one match avoids the
-/// double-classification we had before.
+/// 将结构化的 `LlmError` 转换为分类标签（用于结构化日志/指标）
+/// 和简短的人类可读原因字符串（用于重试横幅）。从一个 match 中
+/// 同时返回两者避免了之前重复分类的问题。
 fn retry_reason_label_and_human(err: &LlmError) -> (&'static str, String) {
     match err {
         LlmError::RateLimited { retry_after, .. } => {
@@ -943,7 +940,7 @@ pub(super) fn parse_usage(usage: Option<&Value>) -> Usage {
 }
 
 impl DeepSeekClient {
-    /// Call the DeepSeek `/beta/completions` FIM endpoint.
+    /// 调用 DeepSeek 的 `/beta/completions` FIM 端点。
     pub async fn fim_completion(
         &self,
         model: &str,

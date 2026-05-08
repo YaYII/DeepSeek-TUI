@@ -126,28 +126,28 @@ fn add_optional_usage(total: Option<u32>, delta: Option<u32>) -> Option<u32> {
     }
 }
 
-/// Take a `pre-turn:<seq>` workspace snapshot.
+/// 获取 `pre-turn:<seq>` 工作区快照。
 ///
-/// Returns the snapshot SHA on success, `None` on any error. Errors are
-/// logged at WARN; the turn loop must not block on this.
+/// 成功时返回快照 SHA，任何错误返回 `None`。错误
+/// 以 WARN 级别记录；轮次循环不能阻塞于此。
 pub fn pre_turn_snapshot(workspace: &Path, turn_seq: u64) -> Option<String> {
     snapshot_with_label(workspace, &format!("pre-turn:{turn_seq}"))
 }
 
-/// Take a `tool:<call_id>` workspace snapshot, taken before executing a
-/// file-modifying tool call (write_file, edit_file, apply_patch).
+/// 获取 `tool:<call_id>` 工作区快照，在执行文件修改工具调用
+///（write_file、edit_file、apply_patch）之前获取。
 ///
-/// This enables surgical undo: `/undo` can restore to the most recent
-/// `tool:<call_id>` snapshot to revert just the last file write.
+/// 这支持精确撤销：`/undo` 可以恢复到最近的
+/// `tool:<call_id>` 快照，以仅撤销最后一次文件写入。
 ///
-/// Returns the snapshot SHA on success, `None` on any error. Errors are
-/// logged at WARN and are non-fatal.
+/// 成功时返回快照 SHA，任何错误返回 `None`。错误
+/// 以 WARN 级别记录，非致命。
 pub fn pre_tool_snapshot(workspace: &Path, call_id: &str) -> Option<String> {
     snapshot_with_label(workspace, &format!("tool:{call_id}"))
 }
 
-/// Take a `post-turn:<seq>` workspace snapshot. Same failure model as
-/// [`pre_turn_snapshot`].
+/// 获取 `post-turn:<seq>` 工作区快照。故障模型与
+/// [`pre_turn_snapshot`] 相同。
 pub fn post_turn_snapshot(workspace: &Path, turn_seq: u64) -> Option<String> {
     snapshot_with_label(workspace, &format!("post-turn:{turn_seq}"))
 }
@@ -169,7 +169,7 @@ fn snapshot_with_label(workspace: &Path, label: &str) -> Option<String> {
 }
 
 impl TurnToolCall {
-    /// Create a new tool call record
+    /// 创建新的工具调用记录
     pub fn new(id: String, name: String, input: serde_json::Value) -> Self {
         Self {
             id,
@@ -181,13 +181,13 @@ impl TurnToolCall {
         }
     }
 
-    /// Set the result
+    /// 设置结果
     pub fn set_result(&mut self, result: String, duration: Duration) {
         self.result = Some(result);
         self.duration = Some(duration);
     }
 
-    /// Set an error
+    /// 设置错误
     pub fn set_error(&mut self, error: String, duration: Duration) {
         self.error = Some(error);
         self.duration = Some(duration);

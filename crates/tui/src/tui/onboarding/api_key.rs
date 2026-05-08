@@ -9,27 +9,27 @@ use crate::tui::app::App;
 pub fn lines(app: &App) -> Vec<Line<'static>> {
     let mut lines = vec![
         Line::from(Span::styled(
-            "Connect your DeepSeek API key",
+            "连接你的 DeepSeek API 密钥",
             Style::default()
                 .fg(palette::DEEPSEEK_SKY)
                 .add_modifier(Modifier::BOLD),
         )),
         Line::from(""),
         Line::from(Span::styled(
-            "Step 1.  Open https://platform.deepseek.com/api_keys and create a key.",
+            "步骤 1：打开 https://platform.deepseek.com/api_keys 并创建一个密钥。",
             Style::default().fg(palette::TEXT_PRIMARY),
         )),
         Line::from(Span::styled(
-            "Step 2.  Paste it below and press Enter.",
+            "步骤 2：将密钥粘贴到下方并按 Enter。",
             Style::default().fg(palette::TEXT_PRIMARY),
         )),
         Line::from(""),
         Line::from(Span::styled(
-            "Saved to ~/.deepseek/config.toml so it works from any folder.",
+            "保存到 ~/.deepseek/config.toml，可在任意目录下使用。",
             Style::default().fg(palette::TEXT_MUTED),
         )),
         Line::from(Span::styled(
-            "Paste the full key exactly as issued (no spaces or newlines).",
+            "请完整粘贴所颁发的密钥（不含空格或换行）。",
             Style::default().fg(palette::TEXT_MUTED),
         )),
         Line::from(""),
@@ -37,7 +37,7 @@ pub fn lines(app: &App) -> Vec<Line<'static>> {
 
     let masked = mask_key(&app.api_key_input);
     let display = if masked.is_empty() {
-        "(paste key here)"
+        "（在此处粘贴密钥）"
     } else {
         masked.as_str()
     };
@@ -62,7 +62,7 @@ pub fn lines(app: &App) -> Vec<Line<'static>> {
 
     lines.push(Line::from(""));
     lines.push(Line::from(Span::styled(
-        "Press Enter to save, Esc to go back.",
+        "按 Enter 保存，按 Esc 返回。",
         Style::default().fg(palette::TEXT_MUTED),
     )));
 

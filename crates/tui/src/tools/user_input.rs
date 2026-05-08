@@ -29,7 +29,7 @@ pub struct UserInputRequest {
 impl UserInputRequest {
     pub fn from_value(value: &Value) -> Result<Self, ToolError> {
         let request: UserInputRequest = serde_json::from_value(value.clone()).map_err(|e| {
-            ToolError::invalid_input(format!("Invalid request_user_input payload: {e}"))
+            ToolError::invalid_input(format!("无效的 request_user_input 负载: {e}"))
         })?;
         request.validate()?;
         Ok(request)
@@ -38,44 +38,44 @@ impl UserInputRequest {
     pub fn validate(&self) -> Result<(), ToolError> {
         if self.questions.is_empty() {
             return Err(ToolError::invalid_input(
-                "request_user_input.questions must be non-empty",
+                "request_user_input.questions 不能为空",
             ));
         }
         if self.questions.len() > 3 {
             return Err(ToolError::invalid_input(
-                "request_user_input.questions must contain 1 to 3 items",
+                "request_user_input.questions 必须包含 1 到 3 个项目",
             ));
         }
         for q in &self.questions {
             if q.header.trim().is_empty() {
                 return Err(ToolError::invalid_input(
-                    "request_user_input.questions.header cannot be empty",
+                    "request_user_input.questions.header 不能为空",
                 ));
             }
             if q.id.trim().is_empty() {
                 return Err(ToolError::invalid_input(
-                    "request_user_input.questions.id cannot be empty",
+                    "request_user_input.questions.id 不能为空",
                 ));
             }
             if q.question.trim().is_empty() {
                 return Err(ToolError::invalid_input(
-                    "request_user_input.questions.question cannot be empty",
+                    "request_user_input.questions.question 不能为空",
                 ));
             }
             if q.options.len() < 2 || q.options.len() > 3 {
                 return Err(ToolError::invalid_input(
-                    "request_user_input.questions.options must contain 2 or 3 items",
+                    "request_user_input.questions.options 必须包含 2 或 3 个项目",
                 ));
             }
             for opt in &q.options {
                 if opt.label.trim().is_empty() {
                     return Err(ToolError::invalid_input(
-                        "request_user_input option label cannot be empty",
+                        "request_user_input 选项标签不能为空",
                     ));
                 }
                 if opt.description.trim().is_empty() {
                     return Err(ToolError::invalid_input(
-                        "request_user_input option description cannot be empty",
+                        "request_user_input 选项描述不能为空",
                     ));
                 }
             }
@@ -105,7 +105,7 @@ impl ToolSpec for RequestUserInputTool {
     }
 
     fn description(&self) -> &'static str {
-        "Ask the user 1-3 short questions and return their selections."
+        "向用户提出 1-3 个简短问题并返回他们的选择。"
     }
 
     fn input_schema(&self) -> Value {
@@ -158,7 +158,7 @@ impl ToolSpec for RequestUserInputTool {
         _context: &ToolContext,
     ) -> Result<ToolResult, ToolError> {
         Err(ToolError::execution_failed(
-            "request_user_input must be handled by the engine",
+            "request_user_input 必须由引擎处理",
         ))
     }
 }

@@ -1,10 +1,10 @@
 //! 工具注册表 — 工具注册和发现。
 //!
-//! The registry provides:
-//! - Dynamic tool registration
-//! - Tool lookup by name
-//! - Conversion to API Tool format
-//! - Filtering by capability
+//! 注册表提供：
+//! - 动态工具注册
+//! - 按名称查找工具
+//! - 转换为 API 工具格式
+//! - 按能力过滤
 
 use std::collections::HashMap;
 use std::sync::{Arc, OnceLock};
@@ -21,19 +21,18 @@ use super::spec::{
 
 // === Types ===
 
-/// Registry that holds all available tools.
+/// 保存所有可用工具的注册表。
 pub struct ToolRegistry {
     tools: HashMap<String, Arc<dyn ToolSpec>>,
     context: ToolContext,
-    /// Memoised serialised tool catalog. Rebuilt lazily on first
-    /// `to_api_tools` call after a mutation; pinned across reads so the
-    /// description and schema bytes stay byte-stable for DeepSeek's KV
-    /// prefix cache. Invalidated on `register` / `remove` / `clear`.
+    /// 缓存的序列化工具目录。在变更后的第一次 `to_api_tools` 调用时惰性重建；
+    /// 在多次读取间保持不变，使得描述和 schema 字节对 DeepSeek 的 KV
+    /// 前缀缓存保持字节稳定。在 `register` / `remove` / `clear` 时失效。
     api_cache: OnceLock<Vec<Tool>>,
 }
 
 impl ToolRegistry {
-    /// Create a new empty registry with the given context.
+    /// 使用给定的上下文创建一个新的空注册表。
     #[must_use]
     pub fn new(context: ToolContext) -> Self {
         Self {
@@ -43,7 +42,7 @@ impl ToolRegistry {
         }
     }
 
-    /// Register a tool in the registry.
+    /// 在注册表中注册一个工具。
     pub fn register(&mut self, tool: Arc<dyn ToolSpec>) {
         let name = tool.name().to_string();
         if self.tools.insert(name.clone(), tool).is_some() {
@@ -52,47 +51,47 @@ impl ToolRegistry {
         self.invalidate_api_cache();
     }
 
-    /// Register multiple tools at once.
+    /// 一次注册多个工具。
     pub fn register_all(&mut self, tools: Vec<Arc<dyn ToolSpec>>) {
         for tool in tools {
             self.register(tool);
         }
     }
 
-    /// Get a tool by name.
+    /// 按名称获取工具。
     #[must_use]
     pub fn get(&self, name: &str) -> Option<Arc<dyn ToolSpec>> {
         self.tools.get(name).cloned()
     }
 
-    /// Check if a tool exists.
+    /// 检查工具是否存在。
     #[must_use]
     pub fn contains(&self, name: &str) -> bool {
         self.tools.contains_key(name)
     }
 
-    /// Get all registered tool names.
+    /// 获取所有已注册的工具名称。
     #[must_use]
     #[allow(dead_code)]
     pub fn names(&self) -> Vec<&str> {
         self.tools.keys().map(std::string::String::as_str).collect()
     }
 
-    /// Get the number of registered tools.
+    /// 获取已注册工具的数量。
     #[must_use]
     #[allow(dead_code)]
     pub fn len(&self) -> usize {
         self.tools.len()
     }
 
-    /// Check if the registry is empty.
+    /// 检查注册表是否为空。
     #[must_use]
     #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.tools.is_empty()
     }
 
-    /// Get all registered tools.
+    /// 获取所有已注册的工具。
     #[must_use]
     pub fn all(&self) -> Vec<Arc<dyn ToolSpec>> {
         self.tools.values().cloned().collect()
@@ -108,7 +107,7 @@ impl ToolRegistry {
         Ok(result.content)
     }
 
-    /// Execute a tool by name, returning the full `ToolResult`.
+    /// 按名称执行工具并返回完整结果。
     pub async fn execute_full(&self, name: &str, input: Value) -> Result<ToolResult, ToolError> {
         let tool = self
             .get(name)
@@ -117,10 +116,10 @@ impl ToolRegistry {
         tool.execute(input, &self.context).await
     }
 
-    /// Execute a tool with an optional context override.
+    /// 使用可选的上下文覆盖执行工具。
     ///
-    /// This is used for retrying tools with elevated sandbox policies.
-    /// After execution, large results are routed through the workshop (#548).
+    /// 用于使用提升的沙箱策略重试工具。
+    /// 执行后，大结果通过 workshop 路由（#548）。
     pub async fn execute_full_with_context(
         &self,
         name: &str,
@@ -134,8 +133,8 @@ impl ToolRegistry {
         let ctx = context_override.unwrap_or(&self.context);
         let result = tool.execute(input.clone(), ctx).await?;
 
-        // Large-output routing (#548): if the result exceeds the threshold and
-        // the caller did not request `raw=true`, synthesise via the workshop.
+    /// Large-output routing (#548): if the result exceeds the threshold and
+    /// the caller did not request `raw=true`, synthesise via the workshop.
         let raw_bypass = input.get("raw").and_then(|v| v.as_bool()).unwrap_or(false);
 
         if let Some(router) = ctx.large_output_router.as_ref() {
@@ -146,7 +145,7 @@ impl ToolRegistry {
                     estimated_tokens,
                     threshold,
                 } => {
-                    // Store the raw output in the workshop variable store.
+                    // 将原始输出存储在 workshop 变量存储中。
                     if let Some(vars_arc) = ctx.workshop_vars.as_ref() {
                         let mut vars = vars_arc.lock().await;
                         vars.store_raw(name, &result.content);

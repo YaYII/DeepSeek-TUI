@@ -19,24 +19,24 @@ pub fn lines() -> Vec<Line<'static>> {
         )),
         Line::from(""),
         Line::from(Span::styled(
-            "A focused terminal workspace for longer model sessions.",
+            "一个面向长时间模型会话的沉浸式终端工作区。",
             Style::default().fg(palette::TEXT_PRIMARY),
         )),
         Line::from(Span::styled(
-            "You'll add an API key, review trust for this directory, and then land in the chat.",
+            "你需要添加 API 密钥，确认是否信任此目录，然后进入聊天界面。",
             Style::default().fg(palette::TEXT_MUTED),
         )),
         Line::from(Span::styled(
-            "The main composer is multi-line, so you can write full prompts instead of squeezing everything into one line.",
+            "主输入框支持多行，你可以编写完整的提示词，而不用把所有内容挤在一行。",
             Style::default().fg(palette::TEXT_MUTED),
         )),
         Line::from(""),
         Line::from(Span::styled(
-            "Press Enter to continue.",
+            "按 Enter 继续。",
             Style::default().fg(palette::TEXT_PRIMARY),
         )),
         Line::from(Span::styled(
-            "Ctrl+C exits at any point.",
+            "Ctrl+C 随时退出。",
             Style::default().fg(palette::TEXT_MUTED),
         )),
     ]

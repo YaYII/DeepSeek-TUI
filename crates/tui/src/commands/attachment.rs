@@ -7,20 +7,20 @@ use crate::tui::app::App;
 
 pub fn attach(app: &mut App, arg: Option<&str>) -> CommandResult {
     let Some(raw_path) = arg.map(str::trim).filter(|value| !value.is_empty()) else {
-        return CommandResult::error("Usage: /attach <image-or-video-path>");
+        return CommandResult::error("用法: /attach <图片或视频路径>");
     };
 
     let path = resolve_attachment_path(raw_path, &app.workspace);
     let Ok(path) = path.canonicalize() else {
-        return CommandResult::error(format!("Attachment not found: {}", path.display()));
+        return CommandResult::error(format!("附件未找到: {}", path.display()));
     };
     if !path.is_file() {
-        return CommandResult::error(format!("Attachment is not a file: {}", path.display()));
+        return CommandResult::error(format!("附件不是一个文件: {}", path.display()));
     }
 
     let Some(kind) = media_kind(&path) else {
         return CommandResult::error(
-            "Unsupported attachment type. /attach is for image/video paths; use @path for text files or directories.",
+            "不支持的附件类型。 /attach 用于图片/视频路径；文本文件或目录请使用 @path。",
         );
     };
 

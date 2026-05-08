@@ -1,9 +1,8 @@
 //! `/hooks` 命令 — 管理会话钩子。
 //!
-//! The full picker / persisted enable-disable surface in #460 is
-//! still M-sized. This MVP gives the user a no-typing view of what's
-//! actually configured in `~/.deepseek/config.toml`'s `[hooks]`
-//! table — the most-asked question once hooks start firing.
+//! #460 中的完整选择器/持久化启用禁用界面仍为 M 规模。
+//! 此 MVP 为用户提供无需输入的视图，显示 `~/.deepseek/config.toml` 的 `[hooks]`
+//! 表中实际配置的内容 — 这是钩子触发后最常被问及的问题。
 
 use crate::hooks::HookEvent;
 use crate::tui::app::App;

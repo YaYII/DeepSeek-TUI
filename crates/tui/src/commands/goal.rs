@@ -4,17 +4,17 @@ use crate::tui::app::App;
 
 use super::CommandResult;
 
-/// Set or show the current goal
+/// 设置或显示当前目标
 pub fn goal(app: &mut App, arg: Option<&str>) -> CommandResult {
     match arg {
         Some("clear") | Some("reset") | Some("done") => {
             app.goal.goal_objective = None;
             app.goal.goal_token_budget = None;
             app.goal.goal_started_at = None;
-            CommandResult::message("Goal cleared.")
+            CommandResult::message("目标已清除。")
         }
         Some(text) if !text.is_empty() => {
-            // Parse optional budget: "/goal Implement login | budget: 50000"
+            // 解析可选的预算: "/goal Implement login | budget: 50000"
             let (objective, budget) = parse_goal_budget(text);
             app.goal.goal_objective = Some(objective.clone());
             app.goal.goal_token_budget = budget;
@@ -28,11 +28,11 @@ pub fn goal(app: &mut App, arg: Option<&str>) -> CommandResult {
             ))
         }
         _ => {
-            // Show current goal
+            // 显示当前目标
             if let Some(ref obj) = app.goal.goal_objective {
-                // #447: render long elapsed times as `2d 3h` rather
-                // than Rust's default Debug `Duration` (which produces
-                // `188415.234s` or similar for multi-day goals).
+                // #447: 将长时间渲染为 `2d 3h` 格式，而
+                // 非 Rust 默认的 Debug `Duration`（对于多天目标，
+                // 会生成 `188415.234s` 或类似内容）。
                 let elapsed = app
                     .goal
                     .goal_started_at

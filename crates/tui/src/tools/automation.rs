@@ -29,7 +29,7 @@ impl ToolSpec for AutomationCreateTool {
     }
 
     fn description(&self) -> &'static str {
-        "Create a durable scheduled automation. Creation requires approval and recurrence is constrained to supported HOURLY/WEEKLY RRULE forms. Runs enqueue normal durable tasks."
+        "创建一个持久化的定时自动化任务。创建需要审批，重复规则限于支持的 HOURLY/WEEKLY RRULE 格式。运行时将普通的持久化任务加入队列。"
     }
 
     fn input_schema(&self) -> Value {
@@ -99,7 +99,7 @@ impl ToolSpec for AutomationListTool {
     }
 
     fn description(&self) -> &'static str {
-        "List durable automations with status, next run, and last run timestamps."
+        "列出持久化自动化任务，包含状态、下次运行和上次运行的时间戳。"
     }
 
     fn input_schema(&self) -> Value {
@@ -138,7 +138,7 @@ impl ToolSpec for AutomationReadTool {
     }
 
     fn description(&self) -> &'static str {
-        "Read one durable automation plus recent run records."
+        "读取一个持久化自动化任务及其最近的运行记录。"
     }
 
     fn input_schema(&self) -> Value {
@@ -179,7 +179,7 @@ impl ToolSpec for AutomationUpdateTool {
     }
 
     fn description(&self) -> &'static str {
-        "Update a durable automation. Requires approval; recurrence remains constrained to supported RRULE forms."
+        "更新一个持久化自动化任务。需要审批；重复规则仍限于支持的 RRULE 格式。"
     }
 
     fn input_schema(&self) -> Value {
@@ -282,19 +282,19 @@ macro_rules! write_automation_tool {
 write_automation_tool!(
     AutomationPauseTool,
     "automation_pause",
-    "Pause a durable automation. Requires approval.",
+    "暂停一个持久化自动化任务。需要审批。",
     pause_automation
 );
 write_automation_tool!(
     AutomationResumeTool,
     "automation_resume",
-    "Resume a paused durable automation. Requires approval.",
+    "恢复一个已暂停的持久化自动化任务。需要审批。",
     resume_automation
 );
 write_automation_tool!(
     AutomationDeleteTool,
     "automation_delete",
-    "Delete a durable automation and its run history. Requires approval.",
+    "删除一个持久化自动化任务及其运行历史。需要审批。",
     delete_automation
 );
 
@@ -305,7 +305,7 @@ impl ToolSpec for AutomationRunTool {
     }
 
     fn description(&self) -> &'static str {
-        "Run an automation now. The run enqueues a normal durable task and returns linked task/thread/turn ids as they become available."
+        "立即运行一个自动化任务。运行会将普通的持久化任务加入队列，并在可用时返回关联的任务/线程/轮次 ID。"
     }
 
     fn input_schema(&self) -> Value {

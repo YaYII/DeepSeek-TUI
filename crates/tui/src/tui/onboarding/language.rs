@@ -3,7 +3,7 @@
 //! 展示 TUI 支持的所有语言环境，以及一个 `auto` 选项，
 //! 该选项会遵循 `LC_ALL` / `LANG`。选择会立即通过
 //! `Settings::save` 持久化，以便后续的入门引导步骤（以及每次
-//! subsequent session) reads the chosen tag.
+//! 后续会话）都会读取所选标签。
 
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
@@ -11,16 +11,16 @@ use ratatui::text::{Line, Span};
 use crate::palette;
 use crate::tui::app::App;
 
-/// Locale options shown in the picker. Order matches the keyboard hotkeys
-/// (1-5). Each entry is `(hotkey, settings_tag, native_name, english_label)`.
-/// `settings_tag` is what `Settings::set("locale", …)` accepts and what
-/// `localization::Locale` resolves on next read.
+/// 语言选择器中展示的地区选项。顺序与键盘快捷键匹配
+///（1-5）。每个条目为 `(hotkey, settings_tag, native_name, english_label)`。
+/// `settings_tag` 是 `Settings::set("locale", …)` 接受的标签，
+/// `localization::Locale` 会在下次读取时解析。
 pub const LANGUAGE_OPTIONS: &[(char, &str, &str, &str)] = &[
-    ('1', "auto", "Auto-detect", "(LC_ALL / LANG)"),
+    ('1', "auto", "自动检测", "(LC_ALL / LANG)"),
     ('2', "en", "English", ""),
-    ('3', "ja", "日本語", "(Japanese)"),
-    ('4', "zh-Hans", "简体中文", "(Simplified Chinese)"),
-    ('5', "pt-BR", "Português (Brasil)", "(Brazilian Portuguese)"),
+    ('3', "ja", "日本語", "（日语）"),
+    ('4', "zh-Hans", "简体中文", "（简体中文）"),
+    ('5', "pt-BR", "Português (Brasil)", "（巴西葡萄牙语）"),
 ];
 
 pub fn lines(app: &App) -> Vec<Line<'static>> {
@@ -29,7 +29,7 @@ pub fn lines(app: &App) -> Vec<Line<'static>> {
 
     let mut out: Vec<Line<'static>> = vec![
         Line::from(Span::styled(
-            "Choose your language",
+            "选择语言",
             Style::default()
                 .fg(palette::DEEPSEEK_SKY)
                 .add_modifier(Modifier::BOLD),

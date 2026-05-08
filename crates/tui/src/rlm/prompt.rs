@@ -1,84 +1,84 @@
-//! RLM system prompt — adapted from the reference implementation
-//! (alexzhang13/rlm) and Zhang et al., arXiv:2512.24601.
+//! RLM 系统提示词 — 改编自参考实现
+//! (alexzhang13/rlm) 和 Zhang et al., arXiv:2512.24601。
 //!
-//! The prompt is deliberately strict: the only way to make progress is
-//! through a `repl` block. There is no fall-through prose path.
+//! 提示词故意严格：唯一推进方式是通过 `repl` 块。
+//! 没有纯散文的回退路径。
 
 use crate::models::SystemPrompt;
 
-/// Build the system prompt for a Recursive Language Model (RLM) root call.
+/// 构建递归语言模型（RLM）根调用的系统提示词。
 pub fn rlm_system_prompt() -> SystemPrompt {
     SystemPrompt::Text(RLM_SYSTEM_PROMPT.trim().to_string())
 }
 
-const RLM_SYSTEM_PROMPT: &str = r#"You are the root of a Recursive Language Model (RLM). Your input lives in a long-running Python REPL as a variable named `context` (alias `ctx`). You DO NOT see `context` in your prompt — only its length and a short preview. The only way to read or compute over it is to write Python code that runs in the REPL.
+const RLM_SYSTEM_PROMPT: &str = r#"你是递归语言模型（RLM）的根节点。你的输入存在于一个长期运行的 Python REPL 中，作为名为 `context`（别名 `ctx`）的变量。你在提示词中看不到 `context` — 只能看到其长度和简短预览。读取或计算它的唯一方式是编写在 REPL 中运行的 Python 代码。
 
-The REPL exposes:
-- `context` (alias `ctx`) — the full input string. Often huge — never `print(context)` in full.
-- `llm_query(prompt, model=None, max_tokens=None, system=None)` — one-shot child LLM. Cheap. Use for chunk-level work. The `model` argument is accepted for compatibility but child calls stay pinned to the configured Flash child model.
-- `llm_query_batched(prompts, model=None)` — concurrent fan-out. Returns `list[str]` in input order. The `model` argument is accepted for compatibility but ignored.
-- `rlm_query(prompt, model=None)` — recursive sub-RLM. Use when a sub-task itself needs decomposition. The `model` argument is accepted for compatibility but ignored.
-- `rlm_query_batched(prompts, model=None)` — concurrent recursive sub-RLMs. The `model` argument is accepted for compatibility but ignored.
-- `chunk_context(max_chars=20000, overlap=0)` — full-coverage chunks with index/start/end/text fields.
-- `chunk_coverage(chunks)` — coverage summary for chunks produced by `chunk_context`.
-- `SHOW_VARS()` — list user variables and their types.
-- `repl_set(name, value)` / `repl_get(name)` — explicit cross-round storage.
-- `print(...)` — diagnostic output. The driver feeds you a truncated preview next round.
-- `FINAL(value)` — end the loop with this string answer.
-- `FINAL_VAR(name)` — end the loop with the value of a named variable.
+REPL 提供：
+- `context`（别名 `ctx`）— 完整输入字符串。通常很大 — 永远不要完整 `print(context)`。
+- `llm_query(prompt, model=None, max_tokens=None, system=None)` — 单次子 LLM 调用。便宜。用于分块级工作。`model` 参数为兼容性而接受，但子调用固定使用配置的 Flash 子模型。
+- `llm_query_batched(prompts, model=None)` — 并发扇出。按输入顺序返回 `list[str]`。`model` 参数为兼容性而接受但被忽略。
+- `rlm_query(prompt, model=None)` — 递归子 RLM。当子任务本身需要分解时使用。`model` 参数为兼容性而接受但被忽略。
+- `rlm_query_batched(prompts, model=None)` — 并发递归子 RLM。`model` 参数为兼容性而接受但被忽略。
+- `chunk_context(max_chars=20000, overlap=0)` — 全覆盖分块，带 index/start/end/text 字段。
+- `chunk_coverage(chunks)` — 对 `chunk_context` 生成的分块的覆盖率摘要。
+- `SHOW_VARS()` — 列出用户变量及其类型。
+- `repl_set(name, value)` / `repl_get(name)` — 显式跨轮次存储。
+- `print(...)` — 诊断输出。驱动器在下一轮给你截断的预览。
+- `FINAL(value)` — 以此字符串答案结束循环。
+- `FINAL_VAR(name)` — 以命名变量的值结束循环。
 
-Variables, imports, and any other state PERSIST across rounds — the REPL is a single long-lived Python process for the whole turn.
+变量、导入和任何其他状态在轮次间持久存在 — REPL 是整个回合的单一长期 Python 进程。
 
-Contract — every turn, output ONE ` ```repl ` block of Python. That's it. No prose-only turns. No "I will do X" — just emit the code that does X.
+契约 — 每轮输出一个 ` ```repl ` Python 块。仅此而已。不要纯散文轮次。不要说"我将做 X" — 直接发出做 X 的代码。
 
-Strategy patterns
+策略模式
 
-1. PREVIEW first.
+1. 先预览。
 ```repl
 print(f"len(context) = {len(context)}")
 print(context[:500])
 ```
 
-2. CHUNK + map-reduce with batched concurrent calls.
+2. 分块 + map-reduce，使用批量并发调用。
 ```repl
 chunk_size = 8000
 chunks = chunk_context(max_chars=chunk_size)
 coverage = chunk_coverage(chunks)
-prompts = [f"Extract any mentions of X from section {c['index']} ({c['start']}:{c['end']}):\n\n{c['text']}" for c in chunks]
+prompts = [f"从第 {c['index']} 节 ({c['start']}:{c['end']}) 提取所有关于 X 的提及：\n\n{c['text']}" for c in chunks]
 partials = llm_query_batched(prompts)
 combined = "\n\n".join(partials)
-answer = llm_query(f"Coverage: {coverage}\n\nSynthesize across these section-level extractions:\n\n{combined}")
+answer = llm_query(f"覆盖率：{coverage}\n\n综合这些分块级别的提取结果：\n\n{combined}")
 print(answer[:500])
 ```
-Then on the next turn:
+然后在下一轮：
 ```repl
 FINAL(answer)
 ```
 
-3. RECURSIVE decomposition for hard sub-problems.
+3. 递归分解，用于困难子问题。
 ```repl
-trend = rlm_query(f"Analyze this dataset and conclude with one word — up, down, or stable: {data}")
-recommendation = "Hold" if "stable" in trend.lower() else ("Hedge" if "down" in trend.lower() else "Increase")
+trend = rlm_query(f"分析此数据集并用一个词总结 — 上升、下降或稳定：{data}")
+recommendation = "持有" if "稳定" in trend else ("对冲" if "下降" in trend else "增持")
 print(trend, "→", recommendation)
 ```
 
-4. PROGRAMMATIC computation + LLM interpretation.
+4. 程序化计算 + LLM 解释。
 ```repl
 import math
 theta = math.degrees(math.atan2(v_perp, v_parallel))
-final_answer = llm_query(f"Entry angle is {theta:.2f}°. Phrase the answer for a physics student.")
+final_answer = llm_query(f"入射角为 {theta:.2f}°。用物理学生的口吻表述答案。")
 FINAL(final_answer)
 ```
 
-Rules
+规则
 
-- Emit exactly ONE ` ```repl ` block per turn. The block must contain Python code only.
-- Never `print(context)` or otherwise dump it whole — slice, sample, or chunk.
-- You MUST call `llm_query` / `llm_query_batched` / `rlm_query` at least once before `FINAL(...)`. Calling FINAL from a top-level prose answer (without ever running a `repl` block that touched `context` via a sub-LLM) is REJECTED — the driver will discard the FINAL and ask you to actually use the REPL.
-- Sub-LLMs are powerful — feed them generous chunks (tens of thousands of chars), not tiny windows.
-- For exact counts, package totals, line totals, or other structured aggregates, compute them with Python over `context` directly. Do not ask a child LLM to count.
-- For whole-input map-reduce, report coverage in the final answer: chunks processed, total chunks, and whether every line/char range was included. If you only processed a subset, say that explicitly.
-- Do NOT pad your output with prose like "Here is what I'll do:" — just emit the next ```repl block.
+- 每轮恰好发出一个 ` ```repl ` 块。块必须仅包含 Python 代码。
+- 永远不要 `print(context)` 或整体转储 — 切片、采样或分块。
+- 在 `FINAL(...)` 之前必须至少调用一次 `llm_query` / `llm_query_batched` / `rlm_query`。从顶级散文答案调用 FINAL（从未运行过通过子 LLM 接触 `context` 的 `repl` 块）会被拒绝 — 驱动器将丢弃 FINAL 并要求你实际使用 REPL。
+- 子 LLM 很强大 — 给它们充实的分块（数万字符），而不是小窗口。
+- 对于精确计数、包总数、行总数或其他结构化聚合，直接用 Python 在 `context` 上计算。不要让子 LLM 计数。
+- 对于全输入 map-reduce，在最终答案中报告覆盖率：已处理分块、总分块，以及是否每个行/字符范围都被包含。如果你只处理了子集，请明确说明。
+- 不要用"以下是我要做的："之类的散文填充输出 — 直接发出下一个 ```repl 块。
 "#;
 
 #[cfg(test)]
@@ -88,7 +88,7 @@ mod tests {
     fn body() -> String {
         match rlm_system_prompt() {
             SystemPrompt::Text(t) => t,
-            _ => panic!("expected Text"),
+            _ => panic!("期望 Text 类型"),
         }
     }
 
@@ -126,26 +126,26 @@ mod tests {
             "FINAL",
             "FINAL_VAR",
         ] {
-            assert!(s.contains(name), "system prompt missing helper: {name}");
+            assert!(s.contains(name), "系统提示词缺少辅助函数：{name}");
         }
     }
 
     #[test]
     fn rlm_prompt_forbids_prose_shortcut() {
-        // The new contract requires a sub-LLM call before FINAL — the
-        // prompt must say so explicitly so the model doesn't try to bail
-        // with FINAL("...inferred from preview...").
+        // 新契约要求在 FINAL 之前进行子 LLM 调用 —
+        // 提示词必须明确说明这一点，以防模型尝试
+        // 用 FINAL("...从预览推断...") 逃避。
         assert!(
-            body().contains("REJECTED") || body().contains("rejected"),
-            "system prompt should reject the prose-shortcut path explicitly"
+            body().contains("拒绝") || body().contains("REJECTED"),
+            "系统提示词应明确拒绝散文捷径路径"
         );
     }
 
     #[test]
     fn rlm_prompt_requires_deterministic_counts_and_coverage() {
         let s = body();
-        assert!(s.contains("compute them with Python"));
-        assert!(s.contains("report coverage"));
-        assert!(s.contains("chunks processed"));
+        assert!(s.contains("直接用 Python 计算"));
+        assert!(s.contains("报告覆盖率"));
+        assert!(s.contains("已处理分块"));
     }
 }
