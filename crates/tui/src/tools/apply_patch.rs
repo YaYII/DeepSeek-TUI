@@ -153,7 +153,7 @@ impl ToolSpec for ApplyPatchTool {
     }
 
     fn description(&self) -> &'static str {
-        "Apply a unified diff patch to a file. Supports multi-hunk patches with fuzzy matching."
+        "将统一差异补丁应用到文件。支持带模糊匹配的多块补丁。"
     }
 
     fn input_schema(&self) -> Value {
@@ -162,31 +162,31 @@ impl ToolSpec for ApplyPatchTool {
             "properties": {
                 "path": {
                     "type": "string",
-                    "description": "Path to the file to patch (relative to workspace)"
+                    "description": "要修补的文件路径（相对于工作区）"
                 },
                 "patch": {
                     "type": "string",
-                    "description": "Unified diff patch content"
+                    "description": "统一差异补丁内容"
                 },
                 "changes": {
                     "type": "array",
-                    "description": "Optional full file replacements (path + content).",
+                    "description": "可选的完整文件替换（路径 + 内容）。",
                     "items": {
                         "type": "object",
                         "properties": {
-                            "path": { "type": "string" },
-                            "content": { "type": "string" }
+                            "path": { "type": "string", "description": "文件路径" },
+                            "content": { "type": "string", "description": "文件内容" }
                         },
                         "required": ["path", "content"]
                     }
                 },
                 "fuzz": {
                     "type": "integer",
-                    "description": "Maximum fuzz factor for fuzzy matching (default: 3)"
+                    "description": "模糊匹配的最大模糊因子（默认：3）"
                 },
                 "create_if_missing": {
                     "type": "boolean",
-                    "description": "Create the file if it doesn't exist (for new file patches)"
+                    "description": "文件不存在时创建（用于新建文件补丁）"
                 }
             },
             "oneOf": [

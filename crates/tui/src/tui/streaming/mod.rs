@@ -395,7 +395,7 @@ impl StreamingState {
             .is_some_and(|b| b.chunker.queued_lines() > 0)
     }
 
-    /// Finalize a block and get remaining lines
+    /// 结束一个块并获取剩余行
     pub fn finalize_block(&mut self, index: usize) -> Vec<Line<'static>> {
         let text = self.finalize_block_text(index);
         if text.is_empty() {

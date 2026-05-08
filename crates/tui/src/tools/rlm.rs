@@ -54,28 +54,18 @@ impl ToolSpec for RlmTool {
     }
 
     fn description(&self) -> &'static str {
-        "Specialty tool for processing long inputs that don't fit in your \
-         own context window. Loads the input into a sandboxed Python REPL \
-         as `PROMPT`; a sub-agent writes Python that chunks the input and \
-         calls in-REPL helpers (`llm_query`, `llm_query_batched`, \
-         `rlm_query`, `rlm_query_batched`) to process it, then returns a \
-         synthesized answer. \n\n\
-         Use this tool when the input is genuinely large or when a Python \
-         map-reduce pass plus child LLM calls is the right shape: whole \
-         files, long transcripts, multi-document corpora, bulk semantic \
-         classification, or decomposition/critique work. For exact counts \
-         or structured aggregates, compute them directly in Python inside \
-         the REPL and report the deterministic result instead of asking a \
-         child LLM to guess. For whole-input map-reduce, use the REPL \
-         helpers `chunk_context()` and `chunk_coverage()` so the result \
-         states what was covered. \n\n\
-         Provide `task` (what to do) plus exactly one of `file_path` \
-         (workspace-relative, preferred — keeps the long input out of \
-         your context entirely) or `content` (inline, capped at 200k \
-         chars). The Python helpers (`llm_query`, `rlm_query`, etc.) live \
-         INSIDE the REPL — they are not separately-callable tools. \n\n\
-         Returns the final synthesized answer plus an RLM report showing \
-         input size, iterations, duration, sub-LLM calls, and trace summary."
+        "用于处理不适合您自己上下文窗口的长输入的专业工具。将输入加载到沙箱化的 Python REPL 中作为 `PROMPT`；\
+         子代理编写 Python 代码对输入进行分块，并调用 REPL 内的辅助函数（`llm_query`、`llm_query_batched`、\
+         `rlm_query`、`rlm_query_batched`）进行处理，然后返回综合答案。\n\n\
+         当输入确实很大，或当 Python 的 map-reduce 加上子 LLM 调用是合适的方案时使用此工具：\
+         完整文件、长对话记录、多文档语料库、批量语义分类或分解/评审工作。对于精确计数\
+         或结构化聚合，直接在 REPL 中的 Python 内计算并报告确定性结果，而不是让子 LLM 猜测。\
+         对于全输入的 map-reduce，使用 REPL 辅助函数 `chunk_context()` 和 `chunk_coverage()`，\
+         以便结果说明覆盖了哪些内容。\n\n\
+         提供 `task`（做什么）加上 `file_path`（工作区相对路径，首选——将长输入完全排除在您的上下文之外）\
+         或 `content`（内联，上限 20 万字符）中的一个。Python 辅助函数（`llm_query`、`rlm_query` 等）\
+         存在于 REPL 内部——它们不是可单独调用的工具。\n\n\
+         返回最终综合答案以及 RLM 报告，显示输入大小、迭代次数、持续时间、子 LLM 调用次数和跟踪摘要。"
     }
 
     fn input_schema(&self) -> Value {
@@ -85,19 +75,19 @@ impl ToolSpec for RlmTool {
             "properties": {
                 "task": {
                     "type": "string",
-                    "description": "What to do with the input (e.g. \"Summarize the security model\", \"Extract all API endpoints\", \"Categorize each row by sentiment\"). The sub-agent uses this as its objective."
+                    "description": "如何处理输入（例如\"总结安全模型\"、\"提取所有 API 端点\"、\"按情感分类每一行\"）。子代理将其作为目标。"
                 },
                 "file_path": {
                     "type": "string",
-                    "description": "Workspace-relative path to a file to load as PROMPT. Preferred — keeps the long input out of your context. Mutually exclusive with `content`."
+                    "description": "要加载为 PROMPT 的文件的工作区相对路径。首选——将长输入排除在您的上下文之外。与 `content` 互斥。"
                 },
                 "content": {
                     "type": "string",
-                    "description": "Inline content to load as PROMPT. Use only when the input isn't a file you can point at. Capped at 200k chars."
+                    "description": "要加载为 PROMPT 的内联内容。仅在输入不是您可以指向的文件时使用。上限为 20 万字符。"
                 },
                 "max_depth": {
                     "type": "integer",
-                    "description": "Recursion budget for `sub_rlm()` calls. 0 disables recursion; default 1 matches paper experiments."
+                    "description": "`sub_rlm()` 调用的递归预算。0 禁用递归；默认 1 与论文实验一致。"
                 }
             }
         })
