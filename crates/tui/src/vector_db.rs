@@ -185,7 +185,6 @@ impl InMemoryBackend {
         self
     }
 
-    #[allow(dead_code)]
     fn with_max_items(mut self, max: usize) -> Self {
         self.max_items = max;
         self
@@ -602,11 +601,7 @@ mod lance {
             }
 
             let batches: Vec<RecordBatch> = q.execute().await?.try_collect().await?;
-            let mut results = memories_from_batches(&batches);
-            // Filter out low-similarity results (score < 0.4).
-            // score = 1 - distance; results below 0.4 are noise.
-            results.retain(|r| r.score >= 0.4);
-            Ok(results)
+            Ok(memories_from_batches(&batches))
         }
 
         /// Delete memories past their TTL with three-tier fallback (#10).
@@ -705,11 +700,7 @@ mod lance {
                 .try_collect()
                 .await?;
 
-            let mut results = summaries_from_batches(&batches);
-            // Filter out low-similarity results (score < 0.4).
-            // score = 1 - distance; results below 0.4 are noise.
-            results.retain(|s| s.score >= 0.4);
-            Ok(results)
+            Ok(summaries_from_batches(&batches))
         }
 
         /// Create the vector index if it doesn't exist (idempotent).
@@ -974,6 +965,8 @@ pub struct VectorDbService {
     /// LanceDB backend (only when feature is enabled)
     #[cfg(feature = "vector-memory")]
     lance: Option<Arc<lance::LanceDbBackend>>,
+    /// Minimum similarity score for retrieved results.
+    min_similarity_score: f64,
 }
 
 impl VectorDbService {
@@ -981,9 +974,18 @@ impl VectorDbService {
     ///
     /// * `path` — directory for LanceDB storage (also used for JSON fallback)
     /// * `dim` — embedding dimension
-    pub async fn connect(path: &Path, dim: usize) -> Result<Self> {
+    /// * `max_items` — in-memory cache cap before eviction
+    /// * `min_similarity_score` — filter threshold for search results
+    pub async fn connect(
+        path: &Path,
+        dim: usize,
+        max_items: usize,
+        min_similarity_score: f64,
+    ) -> Result<Self> {
         let persist_path = path.join("memories.json");
-        let mut backend = InMemoryBackend::new().with_persist_path(persist_path);
+        let mut backend = InMemoryBackend::new()
+            .with_persist_path(persist_path)
+            .with_max_items(max_items);
         backend.load_from_disk().await?;
         let memory = Arc::new(AsyncMutex::new(backend));
 
@@ -993,6 +995,7 @@ impl VectorDbService {
             return Ok(Self {
                 memory,
                 lance: Some(Arc::new(lance_backend)),
+                min_similarity_score,
             });
         }
 
@@ -1004,11 +1007,18 @@ impl VectorDbService {
             let _ = dim;
             #[cfg(feature = "vector-memory")]
             {
-                return Ok(Self { memory, lance: None });
+                return Ok(Self {
+                    memory,
+                    lance: None,
+                    min_similarity_score,
+                });
             }
             #[cfg(not(feature = "vector-memory"))]
             {
-                Ok(Self { memory })
+                Ok(Self {
+                    memory,
+                    min_similarity_score,
+                })
             }
         }
     }
@@ -1044,16 +1054,27 @@ impl VectorDbService {
         k: u32,
         filter: Option<&str>,
     ) -> Result<Vec<MemoryRecord>> {
-        #[cfg(feature = "vector-memory")]
-        if let Some(ref lance) = self.lance {
-            return lance.search_memories(query, k, filter).await;
-        }
+        let mut results = {
+            #[cfg(feature = "vector-memory")]
+            if let Some(ref lance) = self.lance {
+                lance.search_memories(query, k, filter).await?
+            } else {
+                self.memory
+                    .lock()
+                    .await
+                    .search_memories(query, k as usize, filter)
+            }
+            #[cfg(not(feature = "vector-memory"))]
+            {
+                self.memory
+                    .lock()
+                    .await
+                    .search_memories(query, k as usize, filter)
+            }
+        };
 
-        let results = self
-            .memory
-            .lock()
-            .await
-            .search_memories(query, k as usize, filter);
+        // Filter by configured min similarity score
+        results.retain(|r| r.score >= self.min_similarity_score);
         Ok(results)
     }
 
@@ -1070,16 +1091,21 @@ impl VectorDbService {
 
     /// Search history summaries by semantic relevance to `query`.
     pub async fn search_summaries(&self, query: &str, k: u32) -> Result<Vec<HistorySummary>> {
-        #[cfg(feature = "vector-memory")]
-        if let Some(ref lance) = self.lance {
-            return lance.search_summaries(query, k).await;
-        }
+        let mut results = {
+            #[cfg(feature = "vector-memory")]
+            if let Some(ref lance) = self.lance {
+                lance.search_summaries(query, k).await?
+            } else {
+                self.memory.lock().await.search_summaries(query, k as usize)
+            }
+            #[cfg(not(feature = "vector-memory"))]
+            {
+                self.memory.lock().await.search_summaries(query, k as usize)
+            }
+        };
 
-        let results = self
-            .memory
-            .lock()
-            .await
-            .search_summaries(query, k as usize);
+        // Filter by configured min similarity score
+        results.retain(|s| s.score >= self.min_similarity_score);
         Ok(results)
     }
 
@@ -1397,7 +1423,7 @@ mod tests {
     /// `vector-memory` feature is enabled (avoids ONNX model download).
     async fn new_test_svc() -> (VectorDbService, tempfile::TempDir) {
         let dir = tempfile::tempdir().expect("tempdir");
-        let svc = VectorDbService::connect(dir.path().join("vdb").as_path(), 0)
+        let svc = VectorDbService::connect(dir.path().join("vdb").as_path(), 0, 1000, 0.0)
             .await
             .unwrap();
         (svc, dir)

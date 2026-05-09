@@ -157,6 +157,18 @@ pub struct EngineConfig {
     pub vector_memory_path: PathBuf,
     /// Embedding dimension for vector memory.
     pub vector_memory_dim: usize,
+    /// Maximum number of items in the in-memory cache before eviction.
+    /// Default: 1000. Lower for memory-constrained devices.
+    pub max_memory_items: usize,
+    /// Minimum similarity score (0-1) for retrieved memories/summaries
+    /// to be included in the request context. Below this threshold,
+    /// results are filtered out as noise. Default: 0.4.
+    pub min_similarity_score: f64,
+    /// Whether code_index (Tier 4) is enabled. Requires `vector-memory`
+    /// feature. Disabled by default because it needs a full-project
+    /// index pass on startup.
+    #[allow(dead_code)]
+    pub code_index_enabled: bool,
     /// When true, force `tool_choice: "required"` and opt compatible function
     /// schemas into DeepSeek beta strict mode.
     pub strict_tool_mode: bool,
@@ -195,6 +207,9 @@ impl Default for EngineConfig {
             vector_memory_enabled: false,
             vector_memory_path: PathBuf::from("/tmp/lancedb"),
             vector_memory_dim: 384,
+            max_memory_items: 1000,
+            min_similarity_score: 0.4,
+            code_index_enabled: false,
             strict_tool_mode: false,
             goal_objective: None,
             locale_tag: "en".to_string(),
@@ -1995,7 +2010,9 @@ impl Engine {
         }
         let path = &self.config.vector_memory_path;
         let dim = self.config.vector_memory_dim;
-        match crate::vector_db::VectorDbService::connect(path, dim).await {
+        let max_items = self.config.max_memory_items;
+        let min_score = self.config.min_similarity_score;
+        match crate::vector_db::VectorDbService::connect(path, dim, max_items, min_score).await {
             Ok(svc) => {
                 tracing::info!(
                     "Vector memory initialized at {} (dim={})",

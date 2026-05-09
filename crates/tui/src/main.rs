@@ -4217,6 +4217,9 @@ async fn run_exec_agent(
         vector_memory_enabled: config.vector_memory_enabled(),
         vector_memory_path: config.vector_memory_path(),
         vector_memory_dim: config.vector_memory_dim(),
+        max_memory_items: 1000,
+        min_similarity_score: 0.4,
+        code_index_enabled: false,
         strict_tool_mode: config.strict_tool_mode.unwrap_or(false),
         goal_objective: None,
         locale_tag: crate::localization::resolve_locale(
