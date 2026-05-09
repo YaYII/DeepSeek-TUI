@@ -2580,7 +2580,7 @@ async fn run_event_loop(
                         && !slash_menu_open
                         && !jump_to_adjacent_tool_cell(app, SearchDirection::Backward) =>
                 {
-                    app.status_message = Some("No previous tool output".to_string());
+                    app.status_message = Some("没有上一个工具输出".to_string());
                 }
                 KeyCode::Char(']')
                     if key.modifiers.is_empty()
@@ -2588,7 +2588,7 @@ async fn run_event_loop(
                         && !slash_menu_open
                         && !jump_to_adjacent_tool_cell(app, SearchDirection::Forward) =>
                 {
-                    app.status_message = Some("No next tool output".to_string());
+                    app.status_message = Some("没有下一个工具输出".to_string());
                 }
                 // `?` opens the searchable help overlay (#93). Gated on the
                 // composer being empty so typing `?` mid-question is treated
@@ -2894,7 +2894,7 @@ async fn run_event_loop(
                                 Some(2_000),
                             );
                         } else {
-                            app.status_message = Some("No transcript cell to copy".to_string());
+                            app.status_message = Some("没有可复制的对话单元".to_string());
                         }
                     } else {
                         app.yank();
@@ -3983,7 +3983,7 @@ fn recent_auto_router_context(messages: &[Message]) -> String {
     }
     rows.reverse();
     if rows.is_empty() {
-        "No prior context.".to_string()
+        "没有先前的上下文。".to_string()
     } else {
         rows.join("\n")
     }
@@ -4254,7 +4254,7 @@ async fn switch_provider(
         config.default_text_model = previous_default_text_model;
         app.add_message(HistoryCell::System {
             content: format!(
-                "Failed to switch provider to {}: {err}\nProvider unchanged ({}).",
+                "切换提供方到 {} 失败：{err}\n提供方保持不变（{}）。",
                 target.as_str(),
                 previous_provider.as_str()
             ),
@@ -4638,11 +4638,11 @@ async fn apply_command_result(
                         app.add_message(HistoryCell::System {
                             content: format_available_models_message(&app.model, &models),
                         });
-                        app.status_message = Some(format!("Found {} model(s)", models.len()));
+                        app.status_message = Some(format!("找到 {} 个模型", models.len()));
                     }
                     Err(error) => {
                         app.add_message(HistoryCell::System {
-                            content: format!("Failed to fetch models: {error}"),
+                            content: format!("获取模型失败：{error}"),
                         });
                     }
                 }
@@ -4703,10 +4703,10 @@ async fn apply_command_result(
                         let open_err = config_ui::open_browser(&url).err();
                         if let Some(err) = open_err {
                             app.add_message(HistoryCell::System {
-                                content: format!("Failed to open browser automatically: {err}"),
+                                content: format!("自动打开浏览器失败：{err}"),
                             });
                         }
-                        app.status_message = Some(format!("web ui listen on: {url}"));
+                        app.status_message = Some(format!("web ui 正在监听：{url}"));
                         *web_config_session = Some(session);
                     }
                     #[cfg(not(feature = "web"))]
