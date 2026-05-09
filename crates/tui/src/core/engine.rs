@@ -1206,6 +1206,7 @@ impl Engine {
                 if !result.messages.is_empty() || self.session.messages.is_empty() {
                     let messages_after = result.messages.len();
                     self.session.messages = result.messages;
+                    self.store_compaction_summary_to_vector_db(&result.summary_prompt).await;
                     self.merge_compaction_summary(result.summary_prompt);
                     self.emit_session_updated().await;
                     let removed = messages_before.saturating_sub(messages_after);
@@ -1430,6 +1431,7 @@ impl Engine {
         if !compacted_messages.is_empty() || self.session.messages.is_empty() {
             self.session.messages = compacted_messages;
         }
+        self.store_compaction_summary_to_vector_db(&summary_prompt).await;
         self.merge_compaction_summary(summary_prompt);
 
         let trimmed = self.trim_oldest_messages_to_budget(target_budget);
@@ -1908,6 +1910,46 @@ impl Engine {
         let merged = merge_system_prompts(self.session.system_prompt.as_ref(), summary_prompt);
         self.session.last_system_prompt_hash = Some(system_prompt_hash(merged.as_ref()));
         self.session.system_prompt = merged;
+    }
+
+    /// Store a compaction summary into the vector database (Tier 2).
+    ///
+    /// Extracts the summary text from the `SystemPrompt` and writes it
+    /// as a `HistorySummary` record in the LanceDB `history_summaries`
+    /// table. Best-effort: errors are logged but never propagated.
+    pub(super) async fn store_compaction_summary_to_vector_db(
+        &self,
+        summary_prompt: &Option<SystemPrompt>,
+    ) {
+        let Some(ref vdb) = self.vector_db else {
+            return;
+        };
+        let Some(prompt) = summary_prompt else {
+            return;
+        };
+        let summary_text = match prompt {
+            SystemPrompt::Text(text) => text.clone(),
+            SystemPrompt::Blocks(blocks) => blocks
+                .iter()
+                .map(|b| b.text.clone())
+                .collect::<Vec<_>>()
+                .join("\n"),
+        };
+        if summary_text.is_empty() {
+            return;
+        }
+        let summary = crate::vector_db::HistorySummary {
+            id: uuid::Uuid::new_v4().to_string(),
+            turn_range: "auto".to_string(),
+            summary: summary_text,
+            key_files: None,
+            session_id: self.session.id.clone(),
+            created_at: chrono::Utc::now(),
+            score: 0.0,
+        };
+        if let Err(e) = vdb.store_summary(summary).await {
+            tracing::warn!("failed to store compaction summary in vector db: {e}");
+        }
     }
 
     /// Initialize the vector database service from engine config.

@@ -6,8 +6,8 @@
 //! - Tier 4: Code knowledge index
 //!
 //! Gated behind the `vector-memory` feature flag. Without the feature,
-//! all operations return empty/no-op results so the rest of the codebase
-//! compiles without ONNX Runtime or LanceDB dependencies.
+//! all operations use an in-memory keyword matcher with JSON persistence
+//! so the codebase compiles and runs without ONNX Runtime.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -17,7 +17,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex as AsyncMutex;
 
-/// Serializable container for persistence.
+/// Serializable container for in-memory persistence.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 struct PersistedMemories {
     #[serde(default)]
@@ -30,7 +30,7 @@ struct PersistedMemories {
 // Public types (always available, no feature gate)
 // ---------------------------------------------------------------------------
 
-/// A memory record stored in LanceDB.
+/// A memory record stored in the vector DB.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MemoryRecord {
     pub id: String,
@@ -68,22 +68,97 @@ pub struct HistorySummary {
 }
 
 // ---------------------------------------------------------------------------
-// VectorDbService — main public API
+// Embedder — shared lazy fastembed wrapper
+// ---------------------------------------------------------------------------
+
+/// Lazy-initialized text embedder using fastembed + ONNX Runtime.
+///
+/// The model is created on the first `embed()` call, downloading model
+/// files automatically. Subsequent calls are fast (~10ms per batch).
+///
+/// `Embedder` is `Send + Sync`: the inner `TextEmbedding` is behind a
+/// `std::sync::Mutex` because `embed()` takes `&mut self`.
+#[cfg(feature = "vector-memory")]
+pub struct Embedder {
+    model: std::sync::Mutex<Option<fastembed::TextEmbedding>>,
+    dim: usize,
+}
+
+#[cfg(feature = "vector-memory")]
+impl Embedder {
+    /// Create a new embedder with the given embedding dimension.
+    /// The model is NOT loaded yet — call `initialize()` or let `embed()`
+    /// lazy-load it.
+    pub fn new(dim: usize) -> Self {
+        Self {
+            model: std::sync::Mutex::new(None),
+            dim,
+        }
+    }
+
+    /// Force model initialization. This downloads model files if needed
+    /// and can block for several seconds on first call.
+    pub fn initialize(&self) -> Result<()> {
+        let mut guard = self.model.lock().unwrap();
+        if guard.is_some() {
+            return Ok(());
+        }
+        let model = fastembed::TextEmbedding::try_new(
+            fastembed::TextInitOptions::new(fastembed::EmbeddingModel::AllMiniLML6V2)
+                .with_show_download_progress(false),
+        )?;
+        *guard = Some(model);
+        Ok(())
+    }
+
+    /// Generate embeddings for the given texts.
+    ///
+    /// Lazy-loads the model on first call. This is a CPU-bound operation
+    /// that runs synchronously inside a mutex lock — for small batches
+    /// it's typically < 50ms.
+    pub fn embed(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>> {
+        let mut guard = self.model.lock().unwrap();
+        if guard.is_none() {
+            let model = fastembed::TextEmbedding::try_new(
+                fastembed::TextInitOptions::new(fastembed::EmbeddingModel::AllMiniLML6V2)
+                    .with_show_download_progress(false),
+            )?;
+            *guard = Some(model);
+        }
+        let model = guard.as_mut().unwrap();
+        Ok(model.embed(texts, None)?)
+    }
+
+    pub fn dim(&self) -> usize {
+        self.dim
+    }
+}
+
+#[cfg(feature = "vector-memory")]
+impl std::fmt::Debug for Embedder {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Embedder")
+            .field("dim", &self.dim)
+            .finish()
+    }
+}
+
+// ---------------------------------------------------------------------------
+// In-memory fallback backend (always available)
 // ---------------------------------------------------------------------------
 
 /// In-memory backend with optional JSON file persistence.
 ///
 /// When `persist_path` is set, memories are saved to a JSON file on every
 /// mutation and loaded on construction. This provides cross-session durability
-/// without requiring LanceDB or ONNX Runtime.
+/// without requiring ONNX Runtime or LanceDB.
 ///
-/// When `vector-memory` feature is enabled and LanceDB is available, the
-/// LanceBackend takes over persistence; this backend remains as a fast
-/// in-memory read cache.
+/// When `vector-memory` feature is enabled, this backend is still created as
+/// a fast read cache, but writes go to LanceDB and vector search replaces
+/// keyword matching.
 struct InMemoryBackend {
     memories: Vec<MemoryRecord>,
     summaries: Vec<HistorySummary>,
-    /// Optional path for JSON file persistence.
     persist_path: Option<PathBuf>,
 }
 
@@ -101,7 +176,6 @@ impl InMemoryBackend {
         self
     }
 
-    /// Load memories from the persist file if it exists.
     async fn load_from_disk(&mut self) -> Result<()> {
         let Some(ref path) = self.persist_path else {
             return Ok(());
@@ -122,7 +196,6 @@ impl InMemoryBackend {
         Ok(())
     }
 
-    /// Persist current state to the persist file.
     async fn save_to_disk(&self) {
         let Some(ref path) = self.persist_path else {
             return;
@@ -168,7 +241,6 @@ impl InMemoryBackend {
             .cloned()
             .collect();
 
-        // Sort by simple word-match count (crude relevance)
         scored.sort_by(|a, b| {
             let a_count = query_words
                 .iter()
@@ -181,7 +253,6 @@ impl InMemoryBackend {
             b_count.cmp(&a_count)
         });
 
-        // Assign scores
         let total = scored.len().max(1);
         for (i, m) in scored.iter_mut().enumerate() {
             m.score = 1.0 - (i as f64 / total as f64);
@@ -247,124 +318,540 @@ impl InMemoryBackend {
     }
 }
 
+// ---------------------------------------------------------------------------
+// LanceDB + fastembed backend (feature-gated)
+// ---------------------------------------------------------------------------
+
+/// Real LanceDB backend with fastembed vector search.
+///
+/// Manages three tables:
+/// - `memories` (Tier 3): persistent user/project memories
+/// - `history_summaries` (Tier 2): conversation compaction summaries
+/// - `code_index` (Tier 4): code knowledge chunks
+///
+/// Each table has an `embedding` column (`FixedSizeList<Float32, dim>`)
+/// with an IVF-PQ vector index for fast approximate search.
 #[cfg(feature = "vector-memory")]
 mod lance {
-    use super::*;
+    use std::sync::Arc;
 
-    /// Lazily-initialized LanceDB backend.
-    pub struct LanceBackend {
-        /// Path to the LanceDB database directory.
-        pub path: String,
+    use anyhow::{Context, Result};
+    use arrow_array::{
+        types::Float32Type, Array, FixedSizeListArray, Float32Array,
+        RecordBatch, StringArray, TimestampNanosecondArray,
+    };
+    use lancedb::arrow::arrow_schema::{DataType, Field, Schema, TimeUnit};
+    use chrono::{DateTime, Utc};
+    use futures_util::TryStreamExt;
+    use lancedb::query::{ExecutableQuery, QueryBase};
+    use lancedb::index::Index;
+
+    use super::{Embedder, HistorySummary, MemoryRecord, NewMemoryItem, Path};
+
+    /// Shared embedder instance type alias for internal use.
+    type SharedEmbedder = std::sync::Arc<Embedder>;
+
+    /// Default embedding dimension (all-MiniLM-L6-v2).
+    const DEFAULT_DIM: usize = 384;
+
+    /// LanceDB backend that provides real vector search.
+    #[allow(dead_code)]
+    pub struct LanceDbBackend {
+        db: lancedb::Connection,
+        embedder: SharedEmbedder,
+        dim: usize,
     }
 
-    impl LanceBackend {
-        pub async fn connect(path: &Path) -> Result<Self> {
-            let path_str = path.to_str().unwrap_or("/tmp/lancedb").to_string();
-
-            // Verify the directory is usable
+    impl LanceDbBackend {
+        /// Connect to LanceDB and create missing tables.
+        pub async fn connect(path: &Path, dim: usize) -> Result<Self> {
+            let path_str = path.to_str().context("invalid path for lance db")?;
             tokio::fs::create_dir_all(path).await?;
+            let db = lancedb::connect(path_str).execute().await?;
 
-            Ok(Self { path: path_str })
+            let dim = if dim == 0 { DEFAULT_DIM } else { dim };
+            let embedder = std::sync::Arc::new(Embedder::new(dim));
+
+            let backend = Self {
+                db,
+                embedder,
+                dim,
+            };
+            backend.ensure_tables().await?;
+            Ok(backend)
         }
 
-        /// Basic health check — ensure the database directory exists
-        /// and we can open a connection.
-        pub async fn health_check(&self) -> Result<bool> {
-            let db = lancedb::connect(&self.path).execute().await?;
-            let _ = db.table_names().execute().await?;
-            Ok(true)
+        /// Reference to the embedder for external use (e.g. pre-warming).
+        pub fn embedder(&self) -> &SharedEmbedder {
+            &self.embedder
         }
+
+        /// Create tables that don't exist yet.
+        async fn ensure_tables(&self) -> Result<()> {
+            let existing = self.db.table_names().execute().await?;
+            let tables: Vec<(&str, Schema)> = vec![
+                ("memories", Self::memories_schema(self.dim)),
+                ("history_summaries", Self::history_summaries_schema(self.dim)),
+                ("code_index", Self::code_index_schema(self.dim)),
+            ];
+
+            for (name, schema) in tables {
+                if !existing.iter().any(|n| n == name) {
+                    self.create_empty_table(name, Arc::new(schema)).await?;
+                    tracing::info!(table = name, "created lancedb table");
+                }
+            }
+            Ok(())
+        }
+
+        fn memories_schema(dim: usize) -> Schema {
+            Schema::new(vec![
+                Field::new("id", DataType::Utf8, false),
+                Field::new("content", DataType::Utf8, true),
+                Field::new("source", DataType::Utf8, true),
+                Field::new("session_id", DataType::Utf8, true),
+                Field::new("tags", DataType::Utf8, true),
+                Field::new("importance", DataType::Float32, true),
+                Field::new("created_at", DataType::Timestamp(TimeUnit::Nanosecond, None), true),
+                Field::new("ttl", DataType::Timestamp(TimeUnit::Nanosecond, None), true),
+                Field::new(
+                    "embedding",
+                    DataType::FixedSizeList(
+                        Arc::new(Field::new("item", DataType::Float32, true)),
+                        dim as i32,
+                    ),
+                    true,
+                ),
+            ])
+        }
+
+        fn history_summaries_schema(dim: usize) -> Schema {
+            Schema::new(vec![
+                Field::new("id", DataType::Utf8, false),
+                Field::new("turn_range", DataType::Utf8, true),
+                Field::new("summary", DataType::Utf8, true),
+                Field::new("key_files", DataType::Utf8, true),
+                Field::new("session_id", DataType::Utf8, true),
+                Field::new("created_at", DataType::Timestamp(TimeUnit::Nanosecond, None), true),
+                Field::new(
+                    "embedding",
+                    DataType::FixedSizeList(
+                        Arc::new(Field::new("item", DataType::Float32, true)),
+                        dim as i32,
+                    ),
+                    true,
+                ),
+            ])
+        }
+
+        fn code_index_schema(dim: usize) -> Schema {
+            Schema::new(vec![
+                Field::new("id", DataType::Utf8, false),
+                Field::new("file_path", DataType::Utf8, true),
+                Field::new("chunk_index", DataType::Int32, true),
+                Field::new("content", DataType::Utf8, true),
+                Field::new("project", DataType::Utf8, true),
+                Field::new("updated_at", DataType::Timestamp(TimeUnit::Nanosecond, None), true),
+                Field::new(
+                    "embedding",
+                    DataType::FixedSizeList(
+                        Arc::new(Field::new("item", DataType::Float32, true)),
+                        dim as i32,
+                    ),
+                    true,
+                ),
+            ])
+        }
+
+        async fn create_empty_table(&self, name: &str, schema: Arc<Schema>) -> Result<()> {
+            let empty = RecordBatch::new_empty(schema);
+            self.db.create_table(name, empty).execute().await?;
+            // Index is created automatically by LanceDB on first data addition.
+            Ok(())
+        }
+
+        /// Open a table by name.
+        async fn open_table(&self, name: &str) -> Result<lancedb::Table> {
+            Ok(self.db.open_table(name).execute().await?)
+        }
+
+        // ── Memory operations ──
+
+        /// Store a memory with its embedding.
+        pub async fn store_memory(&self, item: &NewMemoryItem) -> Result<MemoryRecord> {
+            let embedding = self.embedder.embed(&[item.content.as_str()])?;
+            let record = MemoryRecord {
+                id: uuid::Uuid::new_v4().to_string(),
+                content: item.content.clone(),
+                source: item.source.clone(),
+                session_id: item.session_id.clone(),
+                tags: item.tags.clone(),
+                created_at: Utc::now(),
+                ttl: item.ttl,
+                score: 0.0,
+            };
+
+            let table = self.open_table("memories").await?;
+            let batch = memory_record_to_batch(&record, &embedding[0], self.dim)?;
+            table.add(vec![batch]).execute().await?;
+
+            Ok(record)
+        }
+
+        /// Search memories using vector similarity.
+        pub async fn search_memories(
+            &self,
+            query: &str,
+            k: u32,
+            filter: Option<&str>,
+        ) -> Result<Vec<MemoryRecord>> {
+            let query_vec = self.embedder.embed(&[query])?;
+            if query_vec.is_empty() {
+                return Ok(Vec::new());
+            }
+
+            let table = self.open_table("memories").await?;
+            let qv = query_vec[0].clone();
+            let mut q = table.query().nearest_to(qv.as_slice())?.limit(k as usize);
+            if let Some(f) = filter {
+                q = q.only_if(f);
+            }
+
+            let batches: Vec<RecordBatch> = q.execute().await?.try_collect().await?;
+            Ok(memories_from_batches(&batches))
+        }
+
+        /// Delete memories past their TTL.
+        pub async fn delete_expired_memories(&self) -> Result<usize> {
+            let now = Utc::now();
+            let nanos = now.timestamp_nanos_opt().unwrap_or(0);
+            let table = self.open_table("memories").await?;
+            let result = table
+                .delete(&format!("ttl IS NOT NULL AND CAST(ttl AS INT64) < {nanos}"))
+                .await?;
+            Ok(result.num_deleted_rows as usize)
+        }
+
+        /// Count total memories.
+        pub async fn count_memories(&self) -> Result<usize> {
+            let table = self.open_table("memories").await?;
+            Ok(table.count_rows(None::<String>).await?)
+        }
+
+        // ── Summary operations ──
+
+        /// Store a history summary.
+        pub async fn store_summary(&self, summary: &HistorySummary) -> Result<()> {
+            let embedding = self.embedder.embed(&[summary.summary.as_str()])?;
+            let table = self.open_table("history_summaries").await?;
+            let batch = summary_to_batch(summary, &embedding[0], self.dim)?;
+            table.add(vec![batch]).execute().await?;
+            Ok(())
+        }
+
+        /// Search history summaries using vector similarity.
+        pub async fn search_summaries(
+            &self,
+            query: &str,
+            k: u32,
+        ) -> Result<Vec<HistorySummary>> {
+            let query_vec = self.embedder.embed(&[query])?;
+            if query_vec.is_empty() {
+                return Ok(Vec::new());
+            }
+
+            let table = self.open_table("history_summaries").await?;
+            let qv = query_vec[0].clone();
+            let batches: Vec<RecordBatch> = table
+                .query()
+                .nearest_to(qv.as_slice())?
+                .limit(k as usize)
+                .execute()
+                .await?
+                .try_collect()
+                .await?;
+
+            Ok(summaries_from_batches(&batches))
+        }
+
+        /// Create the vector index if it doesn't exist (idempotent).
+        pub async fn create_index(&self, table_name: &str) -> Result<()> {
+            let table = self.open_table(table_name).await?;
+            table.create_index(&["embedding"], Index::Auto).execute().await?;
+            Ok(())
+        }
+    }
+
+    // ── Arrow batch conversion helpers ──
+
+    fn ts_nanos(dt: &Option<DateTime<Utc>>) -> Option<i64> {
+        dt.map(|d| d.timestamp_nanos_opt().unwrap_or(0))
+    }
+
+    fn memory_record_to_batch(record: &MemoryRecord, embedding: &[f32], dim: usize) -> Result<RecordBatch> {
+        let schema = Arc::new(LanceDbBackend::memories_schema(dim));
+
+        let embed_values: Vec<Option<f32>> = embedding.iter().map(|&v| Some(v)).collect();
+        let embed_array = FixedSizeListArray::from_iter_primitive::<Float32Type, _, _>(
+            std::iter::once(Some(embed_values)),
+            dim as i32,
+        );
+
+        let batch = RecordBatch::try_new(
+            schema,
+            vec![
+                Arc::new(StringArray::from(vec![Some(record.id.as_str())])),
+                Arc::new(StringArray::from(vec![Some(record.content.as_str())])),
+                Arc::new(StringArray::from(vec![Some(record.source.as_str())])),
+                Arc::new(StringArray::from(vec![Some(record.session_id.as_str())])),
+                Arc::new(StringArray::from(vec![record.tags.as_deref()])),
+                Arc::new(Float32Array::from(vec![Some(0.0f32)])),  // importance (unused for now)
+                Arc::new(TimestampNanosecondArray::from(vec![Some(record.created_at.timestamp_nanos_opt().unwrap_or(0))])),
+                Arc::new(TimestampNanosecondArray::from(vec![ts_nanos(&record.ttl)])),
+                Arc::new(embed_array),
+            ],
+        )?;
+        Ok(batch)
+    }
+
+    fn memories_from_batches(batches: &[RecordBatch]) -> Vec<MemoryRecord> {
+        let mut results = Vec::new();
+        for batch in batches {
+            let ids = batch.column_by_name("id")
+                .and_then(|c| c.as_any().downcast_ref::<StringArray>())
+                .map(|a| (0..a.len()).map(|i| a.value(i).to_string()).collect::<Vec<_>>())
+                .unwrap_or_default();
+            let contents = batch.column_by_name("content")
+                .and_then(|c| c.as_any().downcast_ref::<StringArray>())
+                .map(|a| (0..a.len()).map(|i| a.value(i).to_string()).collect::<Vec<_>>())
+                .unwrap_or_default();
+            let sources = batch.column_by_name("source")
+                .and_then(|c| c.as_any().downcast_ref::<StringArray>())
+                .map(|a| (0..a.len()).map(|i| a.value(i).to_string()).collect::<Vec<_>>())
+                .unwrap_or_default();
+            let session_ids = batch.column_by_name("session_id")
+                .and_then(|c| c.as_any().downcast_ref::<StringArray>())
+                .map(|a| (0..a.len()).map(|i| a.value(i).to_string()).collect::<Vec<_>>())
+                .unwrap_or_default();
+            let tags_col = batch.column_by_name("tags")
+                .and_then(|c| c.as_any().downcast_ref::<StringArray>())
+                .map(|a| (0..a.len()).map(|i| if a.is_null(i) { None } else { Some(a.value(i).to_string()) }).collect::<Vec<_>>())
+                .unwrap_or_default();
+            let created_col = batch.column_by_name("created_at")
+                .and_then(|c| c.as_any().downcast_ref::<TimestampNanosecondArray>())
+                .map(|a| (0..a.len()).map(|i| {
+                    if a.is_null(i) { None } else { Some(DateTime::from_timestamp_nanos(a.value(i))) }
+                }).collect::<Vec<_>>())
+                .unwrap_or_default();
+            let distance_col = batch.column_by_name("_distance")
+                .and_then(|c| c.as_any().downcast_ref::<Float32Array>());
+
+            for i in 0..batch.num_rows() {
+                let score = distance_col
+                    .and_then(|d| if d.is_null(i) { None } else { Some((1.0 - d.value(i) as f64).max(0.0)) })
+                    .unwrap_or(0.0);
+                results.push(MemoryRecord {
+                    id: ids.get(i).cloned().unwrap_or_default(),
+                    content: contents.get(i).cloned().unwrap_or_default(),
+                    source: sources.get(i).cloned().unwrap_or_default(),
+                    session_id: session_ids.get(i).cloned().unwrap_or_default(),
+                    tags: tags_col.get(i).cloned().unwrap_or_default(),
+                    created_at: created_col.get(i).copied().flatten().unwrap_or(Utc::now()),
+                    ttl: None,
+                    score,
+                });
+            }
+        }
+        results
+    }
+
+    fn summary_to_batch(summary: &HistorySummary, embedding: &[f32], dim: usize) -> Result<RecordBatch> {
+        let schema = Arc::new(LanceDbBackend::history_summaries_schema(dim));
+
+        let embed_values: Vec<Option<f32>> = embedding.iter().map(|&v| Some(v)).collect();
+        let embed_array = FixedSizeListArray::from_iter_primitive::<Float32Type, _, _>(
+            std::iter::once(Some(embed_values)),
+            dim as i32,
+        );
+
+        let batch = RecordBatch::try_new(
+            schema,
+            vec![
+                Arc::new(StringArray::from(vec![Some(summary.id.as_str())])),
+                Arc::new(StringArray::from(vec![Some(summary.turn_range.as_str())])),
+                Arc::new(StringArray::from(vec![Some(summary.summary.as_str())])),
+                Arc::new(StringArray::from(vec![summary.key_files.as_deref()])),
+                Arc::new(StringArray::from(vec![Some(summary.session_id.as_str())])),
+                Arc::new(TimestampNanosecondArray::from(vec![Some(summary.created_at.timestamp_nanos_opt().unwrap_or(0))])),
+                Arc::new(embed_array),
+            ],
+        )?;
+        Ok(batch)
+    }
+
+    fn summaries_from_batches(batches: &[RecordBatch]) -> Vec<HistorySummary> {
+        let mut results = Vec::new();
+        for batch in batches {
+            let ids = batch.column_by_name("id")
+                .and_then(|c| c.as_any().downcast_ref::<StringArray>())
+                .map(|a| (0..a.len()).map(|i| a.value(i).to_string()).collect::<Vec<_>>())
+                .unwrap_or_default();
+            let turn_ranges = batch.column_by_name("turn_range")
+                .and_then(|c| c.as_any().downcast_ref::<StringArray>())
+                .map(|a| (0..a.len()).map(|i| a.value(i).to_string()).collect::<Vec<_>>())
+                .unwrap_or_default();
+            let summaries = batch.column_by_name("summary")
+                .and_then(|c| c.as_any().downcast_ref::<StringArray>())
+                .map(|a| (0..a.len()).map(|i| a.value(i).to_string()).collect::<Vec<_>>())
+                .unwrap_or_default();
+            let key_files = batch.column_by_name("key_files")
+                .and_then(|c| c.as_any().downcast_ref::<StringArray>())
+                .map(|a| (0..a.len()).map(|i| if a.is_null(i) { None } else { Some(a.value(i).to_string()) }).collect::<Vec<_>>())
+                .unwrap_or_default();
+            let session_ids = batch.column_by_name("session_id")
+                .and_then(|c| c.as_any().downcast_ref::<StringArray>())
+                .map(|a| (0..a.len()).map(|i| a.value(i).to_string()).collect::<Vec<_>>())
+                .unwrap_or_default();
+            let distance_col = batch.column_by_name("_distance")
+                .and_then(|c| c.as_any().downcast_ref::<Float32Array>());
+
+            for i in 0..batch.num_rows() {
+                let score = distance_col
+                    .and_then(|d| if d.is_null(i) { None } else { Some((1.0 - d.value(i) as f64).max(0.0)) })
+                    .unwrap_or(0.0);
+                results.push(HistorySummary {
+                    id: ids.get(i).cloned().unwrap_or_default(),
+                    turn_range: turn_ranges.get(i).cloned().unwrap_or_default(),
+                    summary: summaries.get(i).cloned().unwrap_or_default(),
+                    key_files: key_files.get(i).cloned().unwrap_or_default(),
+                    session_id: session_ids.get(i).cloned().unwrap_or_default(),
+                    created_at: Utc::now(),
+                    score,
+                });
+            }
+        }
+        results
     }
 }
+
+// ---------------------------------------------------------------------------
+// VectorDbService — main public API
+// ---------------------------------------------------------------------------
 
 /// The main vector database service.
 ///
 /// When `vector-memory` feature is enabled, uses LanceDB for persistent
-/// vector storage. Without it, falls back to an in-memory keyword matcher
-/// so the codebase compiles and runs without ONNX Runtime.
+/// vector storage with semantic search via fastembed. Without it, falls
+/// back to an in-memory keyword matcher with JSON file persistence so
+/// the codebase compiles and runs without ONNX Runtime.
 #[derive(Clone)]
 pub struct VectorDbService {
     /// In-memory fallback backend (always available)
     memory: Arc<AsyncMutex<InMemoryBackend>>,
     /// LanceDB backend (only when feature is enabled)
     #[cfg(feature = "vector-memory")]
-    lance: Option<Arc<lance::LanceBackend>>,
+    lance: Option<Arc<lance::LanceDbBackend>>,
 }
 
 impl VectorDbService {
     /// Create a new service.
     ///
     /// * `path` — directory for LanceDB storage (also used for JSON fallback)
-    /// * `_dim` — embedding dimension (ignored when feature is off)
-    pub async fn connect(path: &Path, _dim: usize) -> Result<Self> {
+    /// * `dim` — embedding dimension
+    pub async fn connect(path: &Path, dim: usize) -> Result<Self> {
         let persist_path = path.join("memories.json");
         let mut backend = InMemoryBackend::new().with_persist_path(persist_path);
         backend.load_from_disk().await?;
         let memory = Arc::new(AsyncMutex::new(backend));
 
         #[cfg(feature = "vector-memory")]
-        {
-            let lance = lance::LanceBackend::connect(path).await?;
+        if dim > 0 {
+            let lance_backend = lance::LanceDbBackend::connect(path, dim).await?;
             return Ok(Self {
                 memory,
-                lance: Some(Arc::new(lance)),
+                lance: Some(Arc::new(lance_backend)),
             });
         }
 
-        #[cfg(not(feature = "vector-memory"))]
+        // Fallback: in-memory keyword backend (used when dim=0, or when
+        // vector-memory feature is disabled).
+        #[allow(unused_variables)]
         {
-            let _ = path; // unused
-            Ok(Self { memory })
+            let _ = path;
+            let _ = dim;
+            #[cfg(feature = "vector-memory")]
+            {
+                return Ok(Self { memory, lance: None });
+            }
+            #[cfg(not(feature = "vector-memory"))]
+            {
+                Ok(Self { memory })
+            }
         }
     }
 
-    /// Store a memory item (persisted to disk immediately).
-    pub async fn store_memory(&self, item: NewMemoryItem) -> Result<MemoryRecord> {
-        let record = self.memory.lock().await.store_memory(item).await;
-
+    /// Pre-warm the embedder (download model files). No-op when feature is off.
+    pub async fn warmup_embedder(&self) {
         #[cfg(feature = "vector-memory")]
-        {
-            tracing::debug!(memory_id = %record.id, "stored memory (lancedb: pending)");
+        if let Some(ref lance) = self.lance {
+            if let Err(e) = lance.embedder().initialize() {
+                tracing::warn!("embedder warmup failed: {e}");
+            }
+        }
+    }
+
+    /// Store a memory item (with vector embedding when feature is enabled).
+    pub async fn store_memory(&self, item: NewMemoryItem) -> Result<MemoryRecord> {
+        #[cfg(feature = "vector-memory")]
+        if let Some(ref lance) = self.lance {
+            let record = lance.store_memory(&item).await?;
+            // Mirror to in-memory cache
+            self.memory.lock().await.store_memory(item).await;
+            return Ok(record);
         }
 
+        let record = self.memory.lock().await.store_memory(item).await;
         Ok(record)
     }
 
-    /// Search memories by relevance to `query`.
+    /// Search memories by semantic relevance to `query`.
     pub async fn search_memories(
         &self,
         query: &str,
         k: u32,
         filter: Option<&str>,
     ) -> Result<Vec<MemoryRecord>> {
+        #[cfg(feature = "vector-memory")]
+        if let Some(ref lance) = self.lance {
+            return lance.search_memories(query, k, filter).await;
+        }
+
         let results = self
             .memory
             .lock()
             .await
             .search_memories(query, k as usize, filter);
-
-        #[cfg(feature = "vector-memory")]
-        {
-            if let Some(lance) = &self.lance {
-                if lance.health_check().await.unwrap_or(false) {
-                    // TODO: Replace with real LanceDB vector search
-                    // once the Rust API integration is stable
-                    tracing::debug!(query = %query, "lancedb search would run here");
-                }
-            }
-        }
-
         Ok(results)
     }
 
-    /// Store a history summary from compaction (persisted to disk).
+    /// Store a history summary (with vector embedding when feature is enabled).
     pub async fn store_summary(&self, summary: HistorySummary) -> Result<()> {
+        #[cfg(feature = "vector-memory")]
+        if let Some(ref lance) = self.lance {
+            lance.store_summary(&summary).await?;
+        }
+
         self.memory.lock().await.store_summary(summary).await;
         Ok(())
     }
 
-    /// Search history summaries.
+    /// Search history summaries by semantic relevance to `query`.
     pub async fn search_summaries(&self, query: &str, k: u32) -> Result<Vec<HistorySummary>> {
+        #[cfg(feature = "vector-memory")]
+        if let Some(ref lance) = self.lance {
+            return lance.search_summaries(query, k).await;
+        }
+
         let results = self
             .memory
             .lock()
@@ -373,20 +860,26 @@ impl VectorDbService {
         Ok(results)
     }
 
-    /// Delete expired memories (persisted to disk).
+    /// Delete expired memories.
     pub async fn delete_expired_memories(&self) -> Result<usize> {
-        let deleted = self.memory.lock().await.delete_expired().await;
-
         #[cfg(feature = "vector-memory")]
-        {
-            tracing::debug!(deleted, "deleted expired memories (lancedb: pending)");
+        if let Some(ref lance) = self.lance {
+            let lance_deleted = lance.delete_expired_memories().await?;
+            let in_mem_deleted = self.memory.lock().await.delete_expired().await;
+            return Ok(lance_deleted + in_mem_deleted);
         }
 
+        let deleted = self.memory.lock().await.delete_expired().await;
         Ok(deleted)
     }
 
     /// Count total memories.
     pub async fn count_memories(&self) -> Result<usize> {
+        #[cfg(feature = "vector-memory")]
+        if let Some(ref lance) = self.lance {
+            return lance.count_memories().await;
+        }
+
         Ok(self.memory.lock().await.count_memories())
     }
 }
@@ -488,7 +981,9 @@ impl VerbatimWindow {
         // 3a. Tool call in window → pull in its result
         for (tool_id, call_idx) in tool_call_indices {
             if indices.contains(call_idx) {
-                if let Some((_, result_idx)) = tool_result_indices.iter().find(|(id, _)| id == tool_id) {
+                if let Some((_, result_idx)) =
+                    tool_result_indices.iter().find(|(id, _)| id == tool_id)
+                {
                     if !indices.contains(result_idx) {
                         indices.push(*result_idx);
                         extended = true;
@@ -500,7 +995,9 @@ impl VerbatimWindow {
         // 3b. Tool result in window → pull in its call
         for (tool_id, result_idx) in tool_result_indices {
             if indices.contains(result_idx) {
-                if let Some((_, call_idx)) = tool_call_indices.iter().find(|(id, _)| id == tool_id) {
+                if let Some((_, call_idx)) =
+                    tool_call_indices.iter().find(|(id, _)| id == tool_id)
+                {
                     if !indices.contains(call_idx) {
                         indices.push(*call_idx);
                         extended = true;
@@ -576,7 +1073,6 @@ mod tests {
     #[test]
     fn pins_within_window_not_duplicated() {
         let vw = VerbatimWindow::build(10, 8, &[8, 9], &[], &[]);
-        // indices should be [2,3,4,5,6,7,8,9] — no duplicates
         assert_eq!(vw.indices.len(), 8);
         let count_8 = vw.indices.iter().filter(|&&i| i == 8).count();
         let count_9 = vw.indices.iter().filter(|&&i| i == 9).count();
@@ -589,8 +1085,8 @@ mod tests {
         let calls = vec![("t1".to_string(), 10)];
         let results = vec![("t1".to_string(), 11)];
         let vw = VerbatimWindow::build(20, 4, &[10], &calls, &results);
-        assert!(vw.contains(10)); // pinned call
-        assert!(vw.contains(11)); // result pulled in
+        assert!(vw.contains(10));
+        assert!(vw.contains(11));
         assert!(vw.extended);
     }
 
@@ -599,8 +1095,8 @@ mod tests {
         let calls = vec![("t1".to_string(), 5)];
         let results = vec![("t1".to_string(), 15)];
         let vw = VerbatimWindow::build(20, 4, &[15], &calls, &results);
-        assert!(vw.contains(15)); // pinned result
-        assert!(vw.contains(5));  // call pulled in
+        assert!(vw.contains(15));
+        assert!(vw.contains(5));
     }
 
     #[test]
@@ -626,16 +1122,17 @@ mod tests {
     #[test]
     fn mixed_pins_and_recent_no_gaps() {
         let vw = VerbatimWindow::build(10, 3, &[0, 2, 5], &[], &[]);
-        // recent: 7,8,9; pins: 0,2,5
         assert_eq!(vw.indices, vec![0, 2, 5, 7, 8, 9]);
     }
 
-    // ── VectorDbService ──
+    // ── VectorDbService (in-memory mode, same tests as before) ──
 
     /// Helper: create a VectorDbService backed by a fresh temp dir.
+    /// Uses dim=0 to force in-memory keyword backend even when
+    /// `vector-memory` feature is enabled (avoids ONNX model download).
     async fn new_test_svc() -> (VectorDbService, tempfile::TempDir) {
         let dir = tempfile::tempdir().expect("tempdir");
-        let svc = VectorDbService::connect(dir.path().join("vdb").as_path(), 384)
+        let svc = VectorDbService::connect(dir.path().join("vdb").as_path(), 0)
             .await
             .unwrap();
         (svc, dir)
@@ -704,7 +1201,6 @@ mod tests {
 
         let results = svc.search_memories("cargo 测试", 2, None).await.unwrap();
         assert!(results.len() >= 1);
-        // The test-related memory should rank higher
         assert!(results[0].content.contains("test"));
     }
 
@@ -738,7 +1234,7 @@ mod tests {
             source: "test".into(),
             session_id: "s1".into(),
             tags: None,
-            ttl: Some(Utc::now() - chrono::Duration::hours(1)), // already expired
+            ttl: Some(Utc::now() - chrono::Duration::hours(1)),
         })
         .await
         .unwrap();

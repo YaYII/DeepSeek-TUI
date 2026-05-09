@@ -119,6 +119,7 @@ impl Engine {
                         if !result.messages.is_empty() || self.session.messages.is_empty() {
                             let auto_messages_after = result.messages.len();
                             self.session.messages = result.messages;
+                            self.store_compaction_summary_to_vector_db(&result.summary_prompt).await;
                             self.merge_compaction_summary(result.summary_prompt);
                             self.emit_session_updated().await;
                             let removed = auto_messages_before.saturating_sub(auto_messages_after);

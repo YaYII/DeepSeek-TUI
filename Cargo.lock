@@ -2565,6 +2565,7 @@ version = "0.8.20"
 dependencies = [
  "anyhow",
  "arboard",
+ "arrow-array",
  "async-stream",
  "async-trait",
  "axum",

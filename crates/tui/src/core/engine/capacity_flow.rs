@@ -419,6 +419,7 @@ impl Engine {
                 Ok(result) => {
                     if !result.messages.is_empty() || self.session.messages.is_empty() {
                         self.session.messages = result.messages;
+                        self.store_compaction_summary_to_vector_db(&result.summary_prompt).await;
                         self.merge_compaction_summary(result.summary_prompt);
                         refreshed = true;
                     }
