@@ -400,6 +400,37 @@ mod lance {
                     self.create_empty_table(name, Arc::new(schema)).await?;
                     tracing::info!(table = name, "created lancedb table");
                 }
+                // Ensure IVF-PQ vector index exists on the embedding column.
+                // On an empty table the index creation may fail; we log and
+                // continue — the index can be created later via optimize.
+                if let Err(e) = self.ensure_vector_index(name).await {
+                    tracing::warn!(
+                        table = name,
+                        error = %e,
+                        "could not create vector index (table may be empty)"
+                    );
+                }
+            }
+            Ok(())
+        }
+
+        /// Create an IVF-PQ vector index on the embedding column if one
+        /// does not already exist.
+        async fn ensure_vector_index(&self, table_name: &str) -> Result<()> {
+            let table = self.open_table(table_name).await?;
+            let indices = table.list_indices().await?;
+            let has_embedding_index = indices
+                .iter()
+                .any(|idx| idx.columns.contains(&"embedding".to_string()));
+            if !has_embedding_index {
+                table
+                    .create_index(&["embedding"], Index::Auto)
+                    .execute()
+                    .await?;
+                tracing::info!(
+                    table = table_name,
+                    "created IVF-PQ vector index on embedding column"
+                );
             }
             Ok(())
         }
@@ -518,7 +549,11 @@ mod lance {
             }
 
             let batches: Vec<RecordBatch> = q.execute().await?.try_collect().await?;
-            Ok(memories_from_batches(&batches))
+            let mut results = memories_from_batches(&batches);
+            // Filter out low-similarity results (score < 0.4).
+            // score = 1 - distance; results below 0.4 are noise.
+            results.retain(|r| r.score >= 0.4);
+            Ok(results)
         }
 
         /// Delete memories past their TTL.
@@ -571,7 +606,11 @@ mod lance {
                 .try_collect()
                 .await?;
 
-            Ok(summaries_from_batches(&batches))
+            let mut results = summaries_from_batches(&batches);
+            // Filter out low-similarity results (score < 0.4).
+            // score = 1 - distance; results below 0.4 are noise.
+            results.retain(|s| s.score >= 0.4);
+            Ok(results)
         }
 
         /// Create the vector index if it doesn't exist (idempotent).

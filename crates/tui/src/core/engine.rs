@@ -1930,13 +1930,27 @@ impl Engine {
         let Some(prompt) = summary_prompt else {
             return;
         };
-        let summary_text = match prompt {
+        let raw = match prompt {
             SystemPrompt::Text(text) => text.clone(),
             SystemPrompt::Blocks(blocks) => blocks
                 .iter()
                 .map(|b| b.text.clone())
                 .collect::<Vec<_>>()
                 .join("\n"),
+        };
+        // Extract only the first summary section: from the first "## "
+        // heading to the next "---" separator, stripping boilerplate
+        // section headers like "## 📋 Conversation Summary (Auto-Generated)",
+        // "## 🔍 Workflow Context", "## 💡 What to Do Next".
+        let summary_text = if let Some(start) = raw.find("## ") {
+            let from_heading = &raw[start..];
+            if let Some(end) = from_heading.find("\n---") {
+                from_heading[..end].trim().to_string()
+            } else {
+                from_heading.trim().to_string()
+            }
+        } else {
+            raw
         };
         if summary_text.is_empty() {
             return;
@@ -1969,6 +1983,7 @@ impl Engine {
                     path.display(),
                     dim
                 );
+                svc.warmup_embedder().await;
                 self.vector_db = Some(svc);
             }
             Err(e) => {

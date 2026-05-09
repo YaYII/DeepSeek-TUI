@@ -90,6 +90,7 @@ impl Engine {
                     Some(&self.session.workspace),
                     Some(&compaction_pins),
                     Some(&compaction_paths),
+                    self.vector_db.is_some(),
                 )
             {
                 let compaction_id = format!("compact_{}", &uuid::Uuid::new_v4().to_string()[..8]);

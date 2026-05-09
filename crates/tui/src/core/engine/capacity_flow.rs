@@ -404,6 +404,7 @@ impl Engine {
                 Some(&self.session.workspace),
                 Some(&compaction_pins),
                 Some(&compaction_paths),
+                self.vector_db.is_some(),
             );
         if should_run_summary_compaction && let Some(client) = client {
             match compact_messages_safe(

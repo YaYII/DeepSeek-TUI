@@ -50,12 +50,11 @@ impl Default for CompactionConfig {
             // `compaction_threshold_for_model_and_effort`. Real per-model
             // values are still derived through that helper.
             enabled: true,
-            // v0.8.20+: lowered from 800K to 200K. With the vector memory
-            // system populating LanceDB on compaction, even moderate
-            // conversations benefit from summarization for future retrieval.
-            // Real call sites override this via
-            // `compaction_threshold_for_model_and_effort`.
-            token_threshold: 200_000,
+            // Fallback default (800K). Real call sites override this via
+            // `compaction_threshold_for_model_and_effort`. When vector memory
+            // is enabled, the effective threshold is lowered by the engine's
+            // per-model compaction config.
+            token_threshold: 800_000,
             model: DEFAULT_TEXT_MODEL.to_string(),
             cache_summary: true,
             auto_floor_tokens: MINIMUM_AUTO_COMPACTION_TOKENS,
@@ -80,7 +79,23 @@ impl Default for CompactionConfig {
 /// Manual `/compact` slash command bypasses this floor with explicit user
 /// agency. The `auto_floor_tokens` field in `CompactionConfig` allows
 /// per-model overrides via `compaction_threshold_for_model_and_effort`.
+/// Hard floor for auto compaction when the vector memory system is active
+/// (Tier 2–4, LanceDB + fastembed). With vector retrieval, compaction serves
+/// a dual purpose — not just freeing token budget, but also populating the
+/// LanceDB `history_summaries` table for semantic retrieval in future turns.
+/// Even at moderate token counts, summarization creates durable context the
+/// model can retrieve later.
+///
+/// When vector memory is disabled, the higher
+/// [`MINIMUM_AUTO_COMPACTION_TOKENS_WITHOUT_VECTOR`] applies instead.
 pub const MINIMUM_AUTO_COMPACTION_TOKENS: usize = 50_000;
+
+/// Hard floor for auto compaction when the vector memory system is NOT active.
+/// Kept at the original v0.8.11 value (500K) to protect V4 prefix cache
+/// economics: below 500K total tokens, rewriting the prefix for compaction
+/// loses KV-cache hits (~90% discount) for marginal budget gains. Without
+/// vector retrieval, there is no secondary benefit to compacting early.
+pub const MINIMUM_AUTO_COMPACTION_TOKENS_WITHOUT_VECTOR: usize = 500_000;
 
 pub const KEEP_RECENT_MESSAGES: usize = 4;
 const RECENT_WORKING_SET_WINDOW: usize = 12;
@@ -618,23 +633,37 @@ pub fn should_compact(
     workspace: Option<&Path>,
     external_pins: Option<&[usize]>,
     external_working_set_paths: Option<&[String]>,
+    vector_db_enabled: bool,
 ) -> bool {
     if !config.enabled {
         return false;
     }
 
-    // Hard floor enforcement. Below the floor (default 50K tokens
-    // — see `MINIMUM_AUTO_COMPACTION_TOKENS`), automatic compaction is
-    // refused because rewriting the prefix kills V4's prefix cache for
-    // little budget recovery when total context is small.
-    // Manual `/compact` and the `compact_now` tool
-    // bypass this floor by going through different code paths.
-    if config.auto_floor_tokens > 0 {
+    // Hard floor enforcement. When the vector memory system is active,
+    // the floor is 50K (see `MINIMUM_AUTO_COMPACTION_TOKENS`); without
+    // it, the floor is 500K (`MINIMUM_AUTO_COMPACTION_TOKENS_WITHOUT_VECTOR`).
+    // Below the floor, automatic compaction is refused because rewriting
+    // the prefix kills V4's prefix cache for little budget recovery.
+    // Manual `/compact` and the `compact_now` tool bypass this floor.
+    //
+    // When `auto_floor_tokens` is 0 the floor is explicitly disabled
+    // (used by tests). Otherwise, for non-vector users we enforce at least
+    // the without-vector floor.
+    let effective_floor = if config.auto_floor_tokens == 0 {
+        0
+    } else if vector_db_enabled {
+        config.auto_floor_tokens
+    } else {
+        config
+            .auto_floor_tokens
+            .max(MINIMUM_AUTO_COMPACTION_TOKENS_WITHOUT_VECTOR)
+    };
+    if effective_floor > 0 {
         let total_session_tokens: usize = messages
             .iter()
             .map(|m| estimate_tokens_for_message(m, false))
             .sum();
-        if total_session_tokens < config.auto_floor_tokens {
+        if total_session_tokens < effective_floor {
             return false;
         }
     }
@@ -890,6 +919,7 @@ pub async fn compact_messages_safe(
             workspace,
             external_pins,
             external_working_set_paths,
+            false, // prune path: assume no vector DB (conservative)
         );
         let now_under_threshold = !should_compact(
             &pruned_messages,
@@ -897,6 +927,7 @@ pub async fn compact_messages_safe(
             workspace,
             external_pins,
             external_working_set_paths,
+            false,
         );
         if was_over_threshold && now_under_threshold {
             return Ok(CompactionResult {
@@ -1807,7 +1838,7 @@ mod tests {
                 }],
             })
             .collect();
-        assert!(!should_compact(&messages, &config, None, None, None));
+        assert!(!should_compact(&messages, &config, None, None, None, false));
     }
 
     /// v0.8.11: message-count is no longer a compaction trigger. Long
@@ -1836,7 +1867,7 @@ mod tests {
             .collect();
         // Token total stays minuscule so the token threshold is not hit;
         // without the prior message-count trigger, no compaction.
-        assert!(!should_compact(&many_messages, &config, None, None, None));
+        assert!(!should_compact(&many_messages, &config, None, None, None, false));
     }
 
     #[test]
@@ -1941,7 +1972,7 @@ mod tests {
             .map(|_| msg("user", "Work on src/compaction.rs right now"))
             .collect();
 
-        assert!(!should_compact(&messages, &config, None, None, None));
+        assert!(!should_compact(&messages, &config, None, None, None, false));
     }
 
     // v0.8.11: removed `should_compact_counts_only_unpinned_messages` and
@@ -2216,7 +2247,7 @@ mod tests {
             .collect();
 
         // Total tokens: ~120, which exceeds 100
-        assert!(should_compact(&messages, &config, None, None, None));
+        assert!(should_compact(&messages, &config, None, None, None, false));
     }
 
     #[test]
@@ -2230,7 +2261,7 @@ mod tests {
         // Create short messages
         let messages: Vec<Message> = (0..5).map(|_| msg("user", "short")).collect();
 
-        assert!(!should_compact(&messages, &config, None, None, None));
+        assert!(!should_compact(&messages, &config, None, None, None, false));
     }
 
     /// v0.8.20: the 50K hard floor blocks auto-compaction when total
@@ -2248,7 +2279,7 @@ mod tests {
 
         // 10 short messages → ~30 tokens total, way under 50K floor.
         let messages: Vec<Message> = (0..10).map(|_| msg("user", &"x".repeat(50))).collect();
-        assert!(!should_compact(&messages, &config, None, None, None));
+        assert!(!should_compact(&messages, &config, None, None, None, false));
     }
 
     /// Once total tokens cross the floor, the threshold logic takes over.
@@ -2264,14 +2295,14 @@ mod tests {
         // 110 messages @ ~500 tokens each → ~55K total tokens.
         // Above the floor (50K), below threshold (2M): no compaction.
         let messages: Vec<Message> = (0..110).map(|_| msg("user", &"x".repeat(2000))).collect();
-        assert!(!should_compact(&messages, &config, None, None, None));
+        assert!(!should_compact(&messages, &config, None, None, None, false));
 
         // Crank threshold below total → compaction fires.
         let config_lower = CompactionConfig {
             token_threshold: 10_000,
             ..config
         };
-        assert!(should_compact(&messages, &config_lower, None, None, None));
+        assert!(should_compact(&messages, &config_lower, None, None, None, false));
     }
 
     /// `CompactionConfig::default()` ships with the floor set to
