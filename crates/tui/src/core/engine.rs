@@ -1531,6 +1531,9 @@ impl Engine {
                 "Shell command blocked: Plan mode runs shell commands in a read-only sandbox — no writes, no network. Use Agent mode (`/agent`) for any command that creates or modifies files, or that needs network access.",
             );
         }
+        // Expose vector DB service to tools so they can read/write
+        // semantic memories (e.g. `remember` tool #vector-memory).
+        ctx.vector_db = self.vector_db.clone();
         ctx
     }
 

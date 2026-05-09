@@ -337,7 +337,7 @@ mod lance {
 
     use anyhow::{Context, Result};
     use arrow_array::{
-        types::Float32Type, Array, FixedSizeListArray, Float32Array,
+        types::Float32Type, Array, FixedSizeListArray, Float32Array, Int32Array,
         RecordBatch, StringArray, TimestampNanosecondArray,
     };
     use lancedb::arrow::arrow_schema::{DataType, Field, Schema, TimeUnit};
@@ -575,10 +575,95 @@ mod lance {
         }
 
         /// Create the vector index if it doesn't exist (idempotent).
+        #[allow(dead_code)]
         pub async fn create_index(&self, table_name: &str) -> Result<()> {
             let table = self.open_table(table_name).await?;
             table.create_index(&["embedding"], Index::Auto).execute().await?;
             Ok(())
+        }
+
+        // ── Code index operations (Tier 4) ──
+
+        /// Store a code chunk with its embedding.
+        #[allow(dead_code)]
+        pub async fn store_code_chunk(
+            &self,
+            id: &str,
+            file_path: &str,
+            chunk_index: i32,
+            content: &str,
+            project: &str,
+        ) -> Result<()> {
+            let embedding = self.embedder.embed(&[content])?;
+            let table = self.open_table("code_index").await?;
+            let schema = Arc::new(Self::code_index_schema(self.dim));
+            let embed_values: Vec<Option<f32>> = embedding[0].iter().map(|&v| Some(v)).collect();
+            let embed_array = FixedSizeListArray::from_iter_primitive::<Float32Type, _, _>(
+                std::iter::once(Some(embed_values)),
+                self.dim as i32,
+            );
+            let batch = RecordBatch::try_new(
+                schema,
+                vec![
+                    Arc::new(StringArray::from(vec![Some(id)])),
+                    Arc::new(StringArray::from(vec![Some(file_path)])),
+                    Arc::new(Int32Array::from(vec![Some(chunk_index)])),
+                    Arc::new(StringArray::from(vec![Some(content)])),
+                    Arc::new(StringArray::from(vec![Some(project)])),
+                    Arc::new(TimestampNanosecondArray::from(vec![Some(Utc::now().timestamp_nanos_opt().unwrap_or(0))])),
+                    Arc::new(embed_array),
+                ],
+            )?;
+            table.add(vec![batch]).execute().await?;
+            Ok(())
+        }
+
+        /// Search code chunks by semantic similarity to `query`.
+        #[allow(dead_code)]
+        pub async fn search_code(
+            &self,
+            query: &str,
+            k: u32,
+        ) -> Result<Vec<(String, String, f64)>> {
+            // Returns (file_path, content, score)
+            let query_vec = self.embedder.embed(&[query])?;
+            if query_vec.is_empty() {
+                return Ok(Vec::new());
+            }
+            let table = self.open_table("code_index").await?;
+            let qv = query_vec[0].clone();
+            let batches: Vec<RecordBatch> = table
+                .query()
+                .nearest_to(qv.as_slice())?
+                .limit(k as usize)
+                .execute()
+                .await?
+                .try_collect()
+                .await?;
+            let mut results = Vec::new();
+            for batch in &batches {
+                let files: Vec<String> = batch.column_by_name("file_path")
+                    .and_then(|c| c.as_any().downcast_ref::<StringArray>())
+                    .map(|a| (0..a.len()).map(|i| a.value(i).to_string()).collect())
+                    .unwrap_or_default();
+                let contents: Vec<String> = batch.column_by_name("content")
+                    .and_then(|c| c.as_any().downcast_ref::<StringArray>())
+                    .map(|a| (0..a.len()).map(|i| a.value(i).to_string()).collect())
+                    .unwrap_or_default();
+                let distances = batch.column_by_name("_distance")
+                    .and_then(|c| c.as_any().downcast_ref::<Float32Array>());
+                for i in 0..batch.num_rows() {
+                    let score = distances
+                        .and_then(|d| if d.is_null(i) { None } else { Some((1.0 - d.value(i) as f64).max(0.0)) })
+                        .unwrap_or(0.0);
+                    results.push((
+                        files.get(i).cloned().unwrap_or_default(),
+                        contents.get(i).cloned().unwrap_or_default(),
+                        score,
+                    ));
+                }
+            }
+            Ok(results)
         }
     }
 
@@ -881,6 +966,40 @@ impl VectorDbService {
         }
 
         Ok(self.memory.lock().await.count_memories())
+    }
+
+    /// Store a code chunk into the code_index table (Tier 4).
+    #[allow(dead_code)]
+    pub async fn store_code_chunk(
+        &self,
+        id: &str,
+        file_path: &str,
+        chunk_index: i32,
+        content: &str,
+        project: &str,
+    ) -> Result<()> {
+        #[cfg(feature = "vector-memory")]
+        if let Some(ref lance) = self.lance {
+            return lance
+                .store_code_chunk(id, file_path, chunk_index, content, project)
+                .await;
+        }
+        // No-op in keyword mode; code indexing requires embeddings.
+        Ok(())
+    }
+
+    /// Search code chunks by semantic similarity (Tier 4).
+    #[allow(dead_code)]
+    pub async fn search_code(
+        &self,
+        query: &str,
+        k: u32,
+    ) -> Result<Vec<(String, String, f64)>> {
+        #[cfg(feature = "vector-memory")]
+        if let Some(ref lance) = self.lance {
+            return lance.search_code(query, k).await;
+        }
+        Ok(Vec::new())
     }
 }
 

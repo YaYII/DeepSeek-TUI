@@ -138,6 +138,11 @@ pub struct ToolContext {
     pub workshop_vars: Option<
         std::sync::Arc<tokio::sync::Mutex<crate::tools::large_output_router::WorkshopVariables>>,
     >,
+
+    /// Vector database service for semantic memory (#vector-memory).
+    /// `None` when the feature is disabled or initialization failed.
+    /// Copy is cheap — the service is `Clone` and backed by `Arc`.
+    pub vector_db: Option<crate::vector_db::VectorDbService>,
 }
 
 impl ToolContext {
@@ -169,6 +174,7 @@ impl ToolContext {
             lsp_manager: None,
             large_output_router: None,
             workshop_vars: None,
+            vector_db: None,
         }
     }
 
@@ -203,6 +209,7 @@ impl ToolContext {
             lsp_manager: None,
             large_output_router: None,
             workshop_vars: None,
+            vector_db: None,
         }
     }
 
@@ -237,6 +244,7 @@ impl ToolContext {
             lsp_manager: None,
             large_output_router: None,
             workshop_vars: None,
+            vector_db: None,
         }
     }
 

@@ -69,9 +69,26 @@ impl ToolSpec for RememberTool {
             )
         })?;
 
+        // Write to flat memory.md (primary storage, backward compatible).
         crate::memory::append_entry(path, note).map_err(|err| {
             ToolError::execution_failed(format!("failed to append to {}: {err}", path.display()))
         })?;
+
+        // Write to vector DB for semantic retrieval (best-effort).
+        if let Some(ref vdb) = context.vector_db {
+            let item = crate::vector_db::NewMemoryItem {
+                content: note.to_string(),
+                source: "model".to_string(),
+                session_id: context.state_namespace.clone(),
+                tags: Some("remembered".to_string()),
+                ttl: None,
+            };
+            if let Err(e) = vdb.store_memory(item).await {
+                tracing::warn!(
+                    "remember tool: failed to store memory in vector db: {e}"
+                );
+            }
+        }
 
         Ok(ToolResult::success(format!(
             "remembered: {}",
