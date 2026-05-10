@@ -155,11 +155,13 @@ mod tests {
 
     #[test]
     fn code_with_short_labels_not_falsely_detected() {
+        // Short identifiers in code are not enough to trigger detection.
         assert!(!needs_translation("let x = 1; let y = 2;"));
     }
 
     #[test]
     fn long_english_code_is_detected() {
+        // Long English identifiers in code are correctly detected as English.
         assert!(needs_translation(
             "function calculateTotalRevenueForQuarterlyReport() { return; }"
         ));

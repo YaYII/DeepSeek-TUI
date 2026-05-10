@@ -964,6 +964,23 @@ async fn run_event_loop(
                                 tool_uses,
                             );
                         }
+
+                        // Post-hoc translation check: when translation is
+                        // enabled and the assistant output is predominantly
+                        // English, show a status note. The primary mechanism
+                        // is the system prompt instruction; this is the
+                        // fallback interception layer.
+                        if app.translation_enabled
+                            && !current_streaming_text.is_empty()
+                        {
+                            use crate::tui::translation::needs_translation;
+                            if needs_translation(&current_streaming_text) {
+                                app.status_message = Some(
+                                    "⚠ 检测到英文输出，翻译拦截已激活（/translate 已开启）"
+                                        .to_string(),
+                                );
+                            }
+                        }
                     }
                     EngineEvent::ThinkingStarted { .. } => {
                         // P2.3: thinking lives in the active cell so it groups

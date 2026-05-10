@@ -140,7 +140,7 @@ pub const COMMANDS: &[CommandInfo] = &[
     // Core commands
     CommandInfo {
         name: "anchor",
-        aliases: &[],
+        aliases: &["translation", "transale"],
         usage: "/anchor <text> | /anchor list | /anchor remove <n>",
         description_id: MessageId::CmdAnchorDescription,
     },
@@ -568,7 +568,7 @@ pub fn execute(cmd: &str, app: &mut App) -> CommandResult {
         "logout" => config::logout(app),
 
         // Debug commands
-        "translate" | "translation" | "transale" => core::translate(app),
+        "translate" => core::translate(app),
         "tokens" => debug::tokens(app),
         "cost" => debug::cost(app),
         "cache" => debug::cache(app, arg),
