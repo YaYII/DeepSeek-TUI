@@ -914,7 +914,6 @@ async fn run_event_loop(
                             transcript_batch_updated = true;
                         }
 
-                        let mut blocks = Vec::new();
                         let thinking = app.last_reasoning.take();
                         let tool_uses = app.pending_tool_uses.drain(..).collect::<Vec<_>>();
                         let history_index = completed_message_index;
