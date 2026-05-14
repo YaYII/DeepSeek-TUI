@@ -38,7 +38,7 @@ use crate::mcp::McpPool;
 use crate::models::ToolCaller;
 use crate::models::{
     ContentBlock, ContentBlockStart, Delta, LEGACY_DEEPSEEK_CONTEXT_WINDOW_TOKENS, Message,
-    MessageRequest, StreamEvent, SystemPrompt, Tool, Usage,
+    MessageRequest, StreamEvent, SystemBlock, SystemPrompt, Tool, Usage,
 };
 use crate::prompts;
 use crate::seam_manager::{SeamConfig, SeamManager};

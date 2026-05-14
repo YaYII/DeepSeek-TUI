@@ -621,6 +621,7 @@ pub fn should_compact(
     workspace: Option<&Path>,
     external_pins: Option<&[usize]>,
     external_working_set_paths: Option<&[String]>,
+    has_vector_db: bool,
 ) -> bool {
     if !config.enabled {
         return false;
@@ -908,6 +909,7 @@ pub async fn compact_messages_safe(
         workspace,
         external_pins,
         external_working_set_paths,
+        false, // has_vector_db: not available in standalone compaction
     );
     let mut pruned_messages = messages.to_vec();
     let mut now_under_threshold = false;
@@ -930,6 +932,7 @@ pub async fn compact_messages_safe(
                 workspace,
                 external_pins,
                 external_working_set_paths,
+                false,
             );
             now_under_threshold
         },
@@ -943,7 +946,7 @@ pub async fn compact_messages_safe(
             workspace,
             external_pins,
             external_working_set_paths,
-        );
+                false,);
     }
 
     let compaction_input: &[Message] = if pruned_bytes > 0 {
