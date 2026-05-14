@@ -459,6 +459,15 @@ pub async fn run_tui(config: &Config, options: TuiOptions) -> Result<()> {
         let _ = app.execute_hooks(HookEvent::SessionStart, &context);
     }
 
+    // Cerebrate 脑虫记忆中枢：会话开始时异步查询相关历史经验
+    if let Some(cerebrate) = app.cerebrate.clone() {
+        tokio::spawn(async move {
+            if cerebrate.is_reachable().await {
+                tracing::info!("Cerebrate 脑虫已连接");
+            }
+        });
+    }
+
     // Spawn the persistence actor so checkpoint/session-save I/O stays off
     // the UI thread.  The actor serialises + writes to disk in a dedicated
     // task; the UI just `try_send`s a request and returns immediately.
@@ -484,6 +493,27 @@ pub async fn run_tui(config: &Config, options: TuiOptions) -> Result<()> {
     {
         let context = app.base_hook_context();
         let _ = app.execute_hooks(HookEvent::SessionEnd, &context);
+    }
+
+    // Cerebrate 脑虫记忆中枢：会话结束时异步提交经验
+    if let Some(cerebrate) = app.cerebrate.clone() {
+        let workspace = app.workspace.display().to_string();
+        let mode = app.mode.label().to_string();
+        let tokens = app.session.total_tokens;
+        tokio::spawn(async move {
+            if cerebrate.is_reachable().await {
+                let title = format!("DeepSeek TUI 会话 — {} 项目 ({} 模式)", workspace, mode);
+                let content = format!(
+                    "项目: {}\n模式: {}\nToken 消耗: {}\n通过 Cerebrate 钩子自动记录。",
+                    workspace, mode, tokens
+                );
+                let _ = cerebrate
+                    .propose(&title, &content, "general", &["deepseek-tui".to_string()], "", &content)
+                    .await;
+                // 可选触发进化
+                let _ = cerebrate.evolve().await;
+            }
+        });
     }
 
     // Flush the persistence actor: clear checkpoint + graceful shutdown.

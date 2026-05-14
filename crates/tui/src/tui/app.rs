@@ -869,6 +869,8 @@ pub struct App {
     pub api_key_env_only: bool,
     pub api_key_input: String,
     pub api_key_cursor: usize,
+    // Cerebrate 脑虫记忆中枢客户端（可选）
+    pub cerebrate: Option<crate::cerebrate::CerebrateClient>,
     // Hooks system
     pub hooks: HookExecutor,
     #[allow(dead_code)]
@@ -1342,6 +1344,11 @@ impl App {
         let allow_shell = allow_shell || initial_mode == AppMode::Yolo;
         let shell_manager = new_shared_shell_manager(workspace.clone());
 
+        // Initialize Cerebrate 脑虫记忆中枢客户端（若已配置）
+        let cerebrate = config
+            .cerebrate_config()
+            .and_then(|cfg| crate::cerebrate::CerebrateClient::from_config(cfg));
+
         // Initialize hooks executor from config
         let hooks_config = config.hooks_config();
         let hooks = HookExecutor::new(hooks_config, workspace.clone());
@@ -1469,6 +1476,7 @@ impl App {
             api_key_env_only,
             api_key_input: String::new(),
             api_key_cursor: 0,
+            cerebrate,
             hooks,
             yolo: initial_mode == AppMode::Yolo,
             yolo_restore,

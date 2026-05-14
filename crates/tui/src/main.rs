@@ -22,6 +22,7 @@ mod client;
 mod command_safety;
 mod commands;
 mod compaction;
+mod cerebrate;
 mod composer_history;
 mod composer_stash;
 mod config;

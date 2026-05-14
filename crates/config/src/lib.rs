@@ -199,6 +199,10 @@ pub struct ConfigToml {
     /// applies the defaults documented in [`LspConfigToml`].
     #[serde(default)]
     pub lsp: Option<LspConfigToml>,
+    /// Cerebrate 脑虫记忆中枢集成配置。当 `enabled` 为 true 时，
+    /// 会话开始/结束自动查询/提交群体记忆。
+    #[serde(default)]
+    pub cerebrate: Option<CerebrateToml>,
     #[serde(flatten)]
     pub extras: BTreeMap<String, toml::Value>,
 }
@@ -303,6 +307,47 @@ pub struct LspConfigToml {
     pub include_warnings: Option<bool>,
     /// Optional override for the `language -> [cmd, ...args]` table.
     pub servers: Option<BTreeMap<String, Vec<String>>>,
+}
+
+/// On-disk schema for the `[cerebrate]` table. Cerebrate 是 AI 智能体群体记忆
+/// 中枢（脑虫服务端）。启用后，DeepSeek TUI 会在会话开始/结束自动查询/提交记忆。
+///
+/// 配置示例:
+/// ```toml
+/// [cerebrate]
+/// url = "http://127.0.0.1:8765"
+/// enabled = true
+/// agent_id = "deepseek-tui"
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct CerebrateToml {
+    /// Cerebrate 服务端地址。默认 `http://127.0.0.1:8765`。
+    #[serde(default = "default_cerebrate_url")]
+    pub url: String,
+    /// 是否启用 Cerebrate 集成。默认 `false`（需显式开启）。
+    #[serde(default)]
+    pub enabled: bool,
+    /// 当前智能体标识，提交记忆时使用。默认 `"deepseek-tui"`。
+    #[serde(default = "default_cerebrate_agent_id")]
+    pub agent_id: String,
+    /// 是否在会话开始时自动查询群体记忆。默认 `true`。
+    #[serde(default = "default_true")]
+    pub auto_query: bool,
+    /// 是否在会话结束时自动提交经验。默认 `true`。
+    #[serde(default = "default_true")]
+    pub auto_propose: bool,
+}
+
+fn default_cerebrate_url() -> String {
+    "http://127.0.0.1:8765".to_string()
+}
+
+fn default_cerebrate_agent_id() -> String {
+    "deepseek-tui".to_string()
+}
+
+fn default_true() -> bool {
+    true
 }
 
 impl ConfigToml {

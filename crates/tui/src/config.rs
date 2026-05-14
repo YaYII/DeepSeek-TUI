@@ -511,6 +511,41 @@ pub struct MemoryConfig {
     pub enabled: Option<bool>,
 }
 
+/// Cerebrate 脑虫记忆中枢配置。
+///
+/// 启用后，DeepSeek TUI 会在会话开始/结束时自动与 Cerebrate 服务端交互，
+/// 查询群体历史经验和提交本次会话经验。
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct CerebrateConfig {
+    /// Cerebrate 服务端地址。默认 `http://127.0.0.1:8765`。
+    #[serde(default = "default_cerebrate_url")]
+    pub url: String,
+    /// 是否启用 Cerebrate 集成。默认 `false`（需显式开启）。
+    #[serde(default)]
+    pub enabled: bool,
+    /// 当前智能体标识，提交记忆时使用。默认 `"deepseek-tui"`。
+    #[serde(default = "default_cerebrate_agent_id")]
+    pub agent_id: String,
+    /// 是否在会话开始时自动查询群体记忆。默认 `true`。
+    #[serde(default = "default_true")]
+    pub auto_query: bool,
+    /// 是否在会话结束时自动提交经验。默认 `true`。
+    #[serde(default = "default_true")]
+    pub auto_propose: bool,
+}
+
+fn default_cerebrate_url() -> String {
+    "http://127.0.0.1:8765".to_string()
+}
+
+fn default_cerebrate_agent_id() -> String {
+    "deepseek-tui".to_string()
+}
+
+fn default_true() -> bool {
+    true
+}
+
 impl SnapshotsConfig {
     #[must_use]
     pub fn max_age(&self) -> std::time::Duration {
@@ -852,6 +887,10 @@ pub struct Config {
 
     /// TUI configuration (alternate screen, etc.)
     pub tui: Option<TuiConfig>,
+
+    /// Cerebrate 脑虫记忆中枢集成配置
+    #[serde(default)]
+    pub cerebrate: Option<CerebrateConfig>,
 
     /// Lifecycle hooks configuration
     #[serde(default)]
@@ -1724,6 +1763,11 @@ impl Config {
     /// Get hooks configuration, returning default if not configured.
     pub fn hooks_config(&self) -> HooksConfig {
         self.hooks.clone().unwrap_or_default()
+    }
+
+    /// Get Cerebrate 脑虫配置，若未配置返回 None。
+    pub fn cerebrate_config(&self) -> Option<&CerebrateConfig> {
+        self.cerebrate.as_ref()
     }
 
     /// Resolve the notifications configuration with defaults applied.
@@ -2666,6 +2710,7 @@ fn merge_config(base: Config, override_cfg: Config) -> Config {
         retry: override_cfg.retry.or(base.retry),
         capacity: override_cfg.capacity.or(base.capacity),
         tui: override_cfg.tui.or(base.tui),
+        cerebrate: override_cfg.cerebrate.or(base.cerebrate),
         hooks: override_cfg.hooks.or(base.hooks),
         providers: merge_providers(base.providers, override_cfg.providers),
         features: merge_features(base.features, override_cfg.features),
