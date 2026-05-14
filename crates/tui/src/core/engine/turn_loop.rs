@@ -83,8 +83,22 @@ impl Engine {
                 .pinned_message_indices(&self.session.messages, &self.session.workspace);
             let compaction_paths = self.session.working_set.top_paths(24);
 
+            // Turn-based mini-compaction (Tier 2 phase summarisation).
+            // When `turns_interval` is set (e.g. 10), a compaction runs
+            // every N turns regardless of token threshold, producing
+            // vector-memory summaries for semantic retrieval.
+            let mut trigger_turn_compaction = false;
+            if let Some(interval) = self.config.compaction.turns_interval {
+                self.compaction_turn_counter += 1;
+                if self.compaction_turn_counter >= interval as u64 {
+                    trigger_turn_compaction = true;
+                    self.compaction_turn_counter = 0;
+                }
+            }
+
             if self.config.compaction.enabled
-                && should_compact(
+                && (trigger_turn_compaction
+                    || should_compact(
                     &self.session.messages,
                     &self.config.compaction,
                     Some(&self.session.workspace),
@@ -92,6 +106,7 @@ impl Engine {
                     Some(&compaction_paths),
                     self.vector_db.is_some(),
                 )
+            )
             {
                 let compaction_id = format!("compact_{}", &uuid::Uuid::new_v4().to_string()[..8]);
                 self.emit_compaction_started(

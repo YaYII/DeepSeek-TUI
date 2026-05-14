@@ -106,6 +106,8 @@ memory_path = "~/.deepseek/memory.md"
 # enabled = true              # master enable (default: true when feature compiled in)
 # path = "~/.deepseek/vector_memory"  # LanceDB database directory
 # dim = 384                   # embedding dimension (all-MiniLM-L6-v2, 384)
+# min_similarity_score = 0.4  # filter threshold for retrieved memories/summaries
+# max_memory_items = 1000     # in-memory cache cap before eviction
 
 # ─────────────────────────────────────────────────────────────────────────────────
 # Security

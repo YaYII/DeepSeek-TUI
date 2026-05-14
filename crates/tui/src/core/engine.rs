@@ -331,6 +331,9 @@ pub struct Engine {
     seam_manager: Option<SeamManager>,
     coherence_state: CoherenceState,
     turn_counter: u64,
+    /// Counter for turn-based mini-compaction (Tier 2 phase summarisation).
+    /// Resets after each mini-compaction or when disabled.
+    compaction_turn_counter: u64,
     /// Post-edit LSP diagnostics injection (#136). Populated unconditionally
     /// — when LSP is disabled in config, this is an inert manager that
     /// always returns `None` from `diagnostics_for`.
@@ -582,6 +585,7 @@ impl Engine {
             seam_manager,
             coherence_state: CoherenceState::default(),
             turn_counter: 0,
+            compaction_turn_counter: 0,
             lsp_manager,
             pending_lsp_blocks: Vec::new(),
             workshop_vars,
@@ -1036,7 +1040,10 @@ impl Engine {
                 system: self.session.system_prompt.clone(),
                 messages: self.messages_with_turn_metadata(),
                 structured_state_block: state.to_system_block(),
-                parent_retrieved_block: None,
+                parent_retrieved_block: self
+                    .last_retrieved_context
+                    .as_ref()
+                    .and_then(|ctx| ctx.to_system_block()),
             })
         } else {
             None

@@ -38,6 +38,11 @@ pub struct CompactionConfig {
     /// logic at small fixture sizes can set this to `0` to disable the
     /// floor.
     pub auto_floor_tokens: usize,
+    /// Interval (in turns) for mini-compaction that produces vector-memory
+    /// summaries independent of token threshold. `None` disables turn-based
+    /// compaction (default). When set to e.g. `10`, a mini-compaction runs
+    /// every 10 turns regardless of token count.
+    pub turns_interval: Option<usize>,
 }
 
 impl Default for CompactionConfig {
@@ -63,6 +68,7 @@ impl Default for CompactionConfig {
             model: DEFAULT_TEXT_MODEL.to_string(),
             cache_summary: true,
             auto_floor_tokens: MINIMUM_AUTO_COMPACTION_TOKENS,
+            turns_interval: None,
         }
     }
 }
