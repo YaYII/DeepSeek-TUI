@@ -120,7 +120,9 @@ impl Engine {
                         if !result.messages.is_empty() || self.session.messages.is_empty() {
                             let auto_messages_after = result.messages.len();
                             self.session.messages = result.messages;
+                            let summary = result.summary_prompt.clone();
                             self.merge_compaction_summary(result.summary_prompt);
+                            self.store_compaction_summary_to_vector_db(&summary).await;
                             self.emit_session_updated().await;
                             let removed = auto_messages_before.saturating_sub(auto_messages_after);
                             let status = if result.retries_used > 0 {

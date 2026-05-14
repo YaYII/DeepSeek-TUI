@@ -184,6 +184,30 @@ impl ToolSpec for ReadFileTool {
         }
         output.push_str("</file>");
 
+        // Append related code chunks from the vector DB code_index (Tier 4)
+        // when available. Best-effort: if the search fails we still return
+        // the file contents as-is.
+        if let Some(ref vdb) = context.vector_db {
+            let query = format!("{} {}", path_str, &contents[..contents.len().min(200)]);
+            if let Ok(chunks) = vdb.search_code(&query, 3).await {
+                if !chunks.is_empty() {
+                    let related: Vec<String> = chunks
+                        .into_iter()
+                        .map(|(fp, content, score)| {
+                            format!(
+                                "--- related: {fp} (score={score:.2}) ---\n{content}",
+                            )
+                        })
+                        .collect();
+                    if !related.is_empty() {
+                        output.push_str("\n\n<related_code>\n");
+                        output.push_str(&related.join("\n\n"));
+                        output.push_str("\n</related_code>");
+                    }
+                }
+            }
+        }
+
         Ok(ToolResult::success(output))
     }
 }
