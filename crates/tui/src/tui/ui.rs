@@ -184,9 +184,17 @@ enum TranslationEvent {
         thinking: Option<String>,
         tool_uses: PendingToolUses,
     },
+    AssistantMessageDelta {
+        history_index: Option<usize>,
+        accumulated_text: String,
+    },
     Thinking {
         placeholder: String,
         translated: anyhow::Result<String>,
+    },
+    ThinkingDelta {
+        placeholder: String,
+        accumulated_text: String,
     },
 }
 // Reset scroll region (`\x1b[r`), origin mode (`\x1b[?6l`), and home the cursor
@@ -847,6 +855,44 @@ async fn run_event_loop(
 
         while let Ok(event) = translation_rx.try_recv() {
             match event {
+                TranslationEvent::AssistantMessageDelta {
+                    history_index,
+                    accumulated_text,
+                } => {
+                    if let Some(index) = history_index
+                        && let Some(HistoryCell::Assistant { content, .. }) =
+                            app.history.get_mut(index)
+                    {
+                        *content = accumulated_text;
+                        app.bump_history_cell(index);
+                    }
+                    app.needs_redraw = true;
+                }
+                TranslationEvent::ThinkingDelta {
+                    placeholder,
+                    accumulated_text,
+                } => {
+                    // First delta: search by placeholder and store entry index.
+                    // Subsequent deltas: use the stored index directly.
+                    if let Some(target) = app.streaming_translation_target {
+                        if let Some(active) = app.active_cell.as_mut() {
+                            if let Some(HistoryCell::Thinking { content, .. }) =
+                                active.entry_mut(target)
+                            {
+                                *content = accumulated_text;
+                                app.bump_active_cell_revision();
+                                app.needs_redraw = true;
+                            }
+                        }
+                    } else {
+                        streaming_thinking::replace_or_append_translation(
+                            app,
+                            &placeholder,
+                            &accumulated_text,
+                        );
+                        app.needs_redraw = true;
+                    }
+                }
                 TranslationEvent::AssistantMessage {
                     history_index,
                     original_text,
@@ -903,6 +949,7 @@ async fn run_event_loop(
                     translated,
                 } => {
                     pending_translations = pending_translations.saturating_sub(1);
+                    app.streaming_translation_target = None;
                     let text = match translated {
                         Ok(text) => {
                             app.status_message = Some(
@@ -1046,20 +1093,73 @@ async fn run_event_loop(
                             let target_language =
                                 app.ui_locale.translation_target_name().to_string();
                             tokio::spawn(async move {
-                                let translated = crate::tui::translation::translate_text(
+                                use futures_util::StreamExt;
+                                match crate::tui::translation::translate_text_stream(
                                     &original_text,
                                     &client,
                                     &translation_model,
                                     &target_language,
                                 )
-                                .await;
-                                let _ = tx.send(TranslationEvent::AssistantMessage {
-                                    history_index,
-                                    original_text,
-                                    translated,
-                                    thinking,
-                                    tool_uses,
-                                });
+                                .await
+                                {
+                                    Ok(stream) => {
+                                        let mut accumulated = String::new();
+                                        tokio::pin!(stream);
+                                        while let Some(delta) = stream.next().await {
+                                            match delta {
+                                                Ok(chunk) => {
+                                                    accumulated.push_str(&chunk);
+                                                    let _ = tx.send(
+                                                        TranslationEvent::AssistantMessageDelta {
+                                                            history_index,
+                                                            accumulated_text: accumulated
+                                                                .clone(),
+                                                        },
+                                                    );
+                                                }
+                                                Err(e) => {
+                                                    let _ = tx.send(
+                                                        TranslationEvent::AssistantMessage {
+                                                            history_index,
+                                                            original_text,
+                                                            translated: Err(e),
+                                                            thinking,
+                                                            tool_uses,
+                                                        },
+                                                    );
+                                                    return;
+                                                }
+                                            }
+                                        }
+                                        // Stream complete
+                                        let _ = tx.send(
+                                            TranslationEvent::AssistantMessageDelta {
+                                                history_index,
+                                                accumulated_text: accumulated.clone(),
+                                            },
+                                        );
+                                        let _ = tx.send(
+                                            TranslationEvent::AssistantMessage {
+                                                history_index,
+                                                original_text,
+                                                translated: Ok(accumulated),
+                                                thinking,
+                                                tool_uses,
+                                            },
+                                        );
+                                    }
+                                    Err(e) => {
+                                        let _ = tx.send(
+                                            TranslationEvent::AssistantMessage {
+                                                history_index,
+                                                original_text,
+                                                translated: Err(e),
+                                                thinking,
+                                                tool_uses,
+                                            },
+                                        );
+                                    }
+                                }
                             });
                         } else {
                             push_assistant_message(
@@ -1144,17 +1244,64 @@ async fn run_event_loop(
                                 let target_language =
                                     app.ui_locale.translation_target_name().to_string();
                                 tokio::spawn(async move {
-                                    let translated = crate::tui::translation::translate_text(
+                                    use futures_util::StreamExt;
+                                    match crate::tui::translation::translate_text_stream(
                                         &original_thinking,
                                         &client,
                                         &translation_model,
                                         &target_language,
                                     )
-                                    .await;
-                                    let _ = tx.send(TranslationEvent::Thinking {
-                                        placeholder,
-                                        translated,
-                                    });
+                                    .await
+                                    {
+                                        Ok(stream) => {
+                                            let mut accumulated = String::new();
+                                            tokio::pin!(stream);
+                                            while let Some(delta) = stream.next().await {
+                                                match delta {
+                                                    Ok(chunk) => {
+                                                        accumulated.push_str(&chunk);
+                                                        let _ = tx.send(
+                                                            TranslationEvent::ThinkingDelta {
+                                                                placeholder: placeholder.clone(),
+                                                                accumulated_text: accumulated
+                                                                    .clone(),
+                                                            },
+                                                        );
+                                                    }
+                                                    Err(e) => {
+                                                        let _ = tx.send(
+                                                            TranslationEvent::Thinking {
+                                                                placeholder,
+                                                                translated: Err(e),
+                                                            },
+                                                        );
+                                                        return;
+                                                    }
+                                                }
+                                            }
+                                            // Stream complete
+                                            let _ = tx.send(
+                                                TranslationEvent::ThinkingDelta {
+                                                    placeholder: placeholder.clone(),
+                                                    accumulated_text: accumulated.clone(),
+                                                },
+                                            );
+                                            let _ = tx.send(
+                                                TranslationEvent::Thinking {
+                                                    placeholder,
+                                                    translated: Ok(accumulated),
+                                                },
+                                            );
+                                        }
+                                        Err(e) => {
+                                            let _ = tx.send(
+                                                TranslationEvent::Thinking {
+                                                    placeholder,
+                                                    translated: Err(e),
+                                                },
+                                            );
+                                        }
+                                    }
                                 });
                             } else {
                                 let placeholder =
