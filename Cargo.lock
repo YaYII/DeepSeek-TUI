@@ -5059,6 +5059,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "lancedb-dump"
+version = "0.8.39"
+dependencies = [
+ "anyhow",
+ "arrow-array",
+ "chrono",
+ "futures-util",
+ "lancedb",
+ "tokio",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

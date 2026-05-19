@@ -458,7 +458,9 @@ impl Engine {
         // Per-turn working-set metadata is injected into the latest user
         // message at request time so file churn does not rewrite this prefix.
         let user_memory_block = if config.vector_memory_enabled {
-            crate::memory::compose_vector_managed_block(config.memory_enabled, &config.memory_path)
+            // vector_db is not yet initialized (init happens in engine.run()).
+            // Pass healthy=false to inline flat file content as initial fallback.
+            crate::memory::compose_vector_managed_block(config.memory_enabled, &config.memory_path, false)
         } else {
             crate::memory::compose_block(config.memory_enabled, &config.memory_path)
         };
@@ -854,6 +856,21 @@ impl Engine {
                         self.config.translation_enabled,
                     )
                     .await;
+                }
+                Op::StoreMemory(content) => {
+                    // # foo quick-add: store in vector DB (primary).
+                    if let Some(ref vdb) = self.vector_db {
+                        let item = crate::vector_db::NewMemoryItem {
+                            content,
+                            source: "quick_add".to_string(),
+                            session_id: self.session.id.clone(),
+                            tags: Some("user_memory".to_string()),
+                            ttl: None,
+                        };
+                        if let Err(e) = vdb.store_memory(item).await {
+                            tracing::warn!("failed to store memory from quick-add: {e}");
+                        }
+                    }
                 }
                 Op::Shutdown => {
                     break;
@@ -1839,10 +1856,12 @@ impl Engine {
 
     /// Refresh the system prompt based on current mode and context.
     fn refresh_system_prompt(&mut self, mode: AppMode) {
+        let healthy = self.vector_db.is_some();
         let user_memory_block = if self.config.vector_memory_enabled {
             crate::memory::compose_vector_managed_block(
                 self.config.memory_enabled,
                 &self.config.memory_path,
+                healthy,
             )
         } else {
             crate::memory::compose_block(self.config.memory_enabled, &self.config.memory_path)
@@ -2074,6 +2093,25 @@ impl Engine {
                     dim
                 );
                 svc.warmup_embedder().await;
+
+                // Sync existing memory.md content into LanceDB so the vector
+                // memory system has access to the same structured knowledge
+                // that the flat-file fallback provides.
+                if self.config.memory_enabled {
+                    let mem_path = self.config.memory_path.clone();
+                    let session_id = self.session.id.clone();
+                    let imported = crate::memory::sync_memory_file_to_vector_db(
+                        &mem_path, &svc, &session_id,
+                    )
+                    .await;
+                    if imported > 0 {
+                        tracing::info!(
+                            "sync_memory_file: imported {imported} memories from {} into LanceDB",
+                            mem_path.display(),
+                        );
+                    }
+                }
+
                 self.vector_db = Some(svc);
             }
             Err(e) => {
@@ -2095,12 +2133,19 @@ impl Engine {
         let total = messages.len();
         if total == 0 || self.vector_db.is_none() {
             let verbatim = (0..total).collect();
-            return crate::vector_db::RetrievedContext {
+            let mut context = crate::vector_db::RetrievedContext {
                 verbatim_messages: verbatim,
                 window_extended: false,
                 memory_blocks: Vec::new(),
                 summary_blocks: Vec::new(),
             };
+            // Third tier (emergency): flat file memory when vector DB is unavailable.
+            if self.vector_db.is_none() && self.config.memory_enabled {
+                if let Some(block) = crate::memory::compose_block(true, &self.config.memory_path) {
+                    context.memory_blocks.push(block);
+                }
+            }
+            return context;
         }
 
         // Collect tool call/result indices from message history.
@@ -2295,9 +2340,24 @@ impl Engine {
                                 memory_blocks.push(format!("[{tag}] {}", r.content));
                             }
                         }
-                        Ok(_) => {}
+                        Ok(_) => {
+                            tracing::debug!("vector memory search returned no results");
+                        }
                         Err(e) => {
                             tracing::warn!("vector memory search failed: {e}");
+                        }
+                    }
+
+                    // Always supplement with flat file memory as a safety net,
+                    // regardless of whether vector search returned results.
+                    // The vector search may return only partial matches; the
+                    // flat file provides the full context the AI may need.
+                    if self.config.memory_enabled {
+                        if let Some(block) = crate::memory::compose_block(
+                            true,
+                            &self.config.memory_path,
+                        ) {
+                            memory_blocks.push(block);
                         }
                     }
 
@@ -2321,6 +2381,17 @@ impl Engine {
                         }
                     }
                 }
+            }
+        }
+
+        // ---- Always-on supplement: flat file memory safety net ----
+        // This runs even when history_count == 0 (first message / all
+        // messages in verbatim window) so the system prompt never loses
+        // the user's durable memory just because nothing was pushed into
+        // the history tier yet.
+        if self.config.memory_enabled {
+            if let Some(block) = crate::memory::compose_block(true, &self.config.memory_path) {
+                memory_blocks.push(block);
             }
         }
 

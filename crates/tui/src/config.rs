@@ -1828,7 +1828,7 @@ impl Config {
         self.vector_memory
             .as_ref()
             .and_then(|v| v.min_similarity_score)
-            .unwrap_or(0.4)
+            .unwrap_or(0.25)
             .clamp(0.0, 1.0)
     }
 

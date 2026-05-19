@@ -9,6 +9,7 @@
 //! all operations use an in-memory keyword matcher with JSON persistence
 //! so the codebase compiles and runs without ONNX Runtime.
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -108,8 +109,7 @@ impl Embedder {
             return Ok(());
         }
         let model = fastembed::TextEmbedding::try_new(
-            fastembed::TextInitOptions::new(fastembed::EmbeddingModel::AllMiniLML6V2)
-                .with_show_download_progress(false),
+            fastembed::TextInitOptions::new(fastembed::EmbeddingModel::AllMiniLML6V2),
         )?;
         *guard = Some(model);
         Ok(())
@@ -124,8 +124,7 @@ impl Embedder {
         let mut guard = self.model.lock().unwrap();
         if guard.is_none() {
             let model = fastembed::TextEmbedding::try_new(
-                fastembed::TextInitOptions::new(fastembed::EmbeddingModel::AllMiniLML6V2)
-                    .with_show_download_progress(false),
+                fastembed::TextInitOptions::new(fastembed::EmbeddingModel::AllMiniLML6V2),
             )?;
             *guard = Some(model);
         }
@@ -153,6 +152,11 @@ impl std::fmt::Debug for Embedder {
 /// Default maximum number of in-memory items before eviction kicks in.
 pub const MAX_IN_MEMORY_ITEMS: usize = 1000;
 
+/// Maximum size of the persisted memories JSON file before we refuse
+/// to load it (10 MB). Prevents unbounded memory allocation from a
+/// corrupt or maliciously large file.
+const MAX_MEMORIES_FILE_BYTES: u64 = 10 * 1024 * 1024;
+
 /// In-memory backend with optional JSON file persistence.
 ///
 /// When `persist_path` is set, memories are saved to a JSON file on every
@@ -170,6 +174,14 @@ struct InMemoryBackend {
     /// When exceeded, oldest items are evicted (expired TTL first,
     /// then by creation time). Defaults to [`MAX_IN_MEMORY_ITEMS`].
     max_items: usize,
+    /// Tracks whether in-memory state has diverged from disk since the
+    /// last persist (never serialized — serialization goes through
+    /// PersistedMemories which only carries memories/summaries).
+    dirty: bool,
+    /// Inverted index: lowercase word → memory indices where it appears.
+    keyword_index: HashMap<String, Vec<usize>>,
+    /// Inverted index: lowercase word → summary indices where it appears.
+    keyword_index_summaries: HashMap<String, Vec<usize>>,
 }
 
 impl InMemoryBackend {
@@ -179,6 +191,9 @@ impl InMemoryBackend {
             summaries: Vec::new(),
             persist_path: None,
             max_items: MAX_IN_MEMORY_ITEMS,
+            dirty: false,
+            keyword_index: HashMap::new(),
+            keyword_index_summaries: HashMap::new(),
         }
     }
 
@@ -199,21 +214,50 @@ impl InMemoryBackend {
         if !path.exists() {
             return Ok(());
         }
+
+        // Guard against OOM from a corrupt or runaway-large file.
+        let meta = tokio::fs::metadata(path).await?;
+        if meta.len() > MAX_MEMORIES_FILE_BYTES {
+            tracing::warn!(
+                path = %path.display(),
+                size = meta.len(),
+                max = MAX_MEMORIES_FILE_BYTES,
+                "memories.json exceeds size limit — starting with empty state"
+            );
+            return Ok(());
+        }
+
         let data = tokio::fs::read_to_string(path).await?;
-        let stored: PersistedMemories = serde_json::from_str(&data).unwrap_or_default();
+        let stored: PersistedMemories = match serde_json::from_str(&data) {
+            Ok(s) => s,
+            Err(e) => {
+                tracing::warn!(
+                    path = %path.display(),
+                    error = %e,
+                    "memories.json is corrupt — starting with empty state"
+                );
+                PersistedMemories::default()
+            }
+        };
         self.memories = stored.memories;
         self.summaries = stored.summaries;
+        let path_str = path.display().to_string();
+        self.rebuild_index();
         tracing::debug!(
             memories = self.memories.len(),
             summaries = self.summaries.len(),
-            path = %path.display(),
+            path = %path_str,
             "loaded memories from disk"
         );
         Ok(())
     }
 
-    async fn save_to_disk(&self) {
+    async fn save_to_disk(&mut self) {
+        if !self.dirty {
+            return;
+        }
         let Some(ref path) = self.persist_path else {
+            self.dirty = false;
             return;
         };
         let stored = PersistedMemories {
@@ -225,6 +269,7 @@ impl InMemoryBackend {
                 tracing::warn!("failed to persist memories to {}: {e}", path.display());
             }
         }
+        self.dirty = false;
     }
 
     async fn store_memory(&mut self, item: NewMemoryItem) -> MemoryRecord {
@@ -239,6 +284,8 @@ impl InMemoryBackend {
             score: 0.0,
         };
         self.memories.push(record.clone());
+
+        self.dirty = true;
 
         // Cap check: evict oldest if over max_items.
         // Priority: expired TTL first, then oldest created_at.
@@ -263,10 +310,68 @@ impl InMemoryBackend {
         }
 
         self.save_to_disk().await;
+        self.rebuild_index();
         record
     }
 
     fn search_memories(&self, query: &str, k: usize, _filter: Option<&str>) -> Vec<MemoryRecord> {
+        let query_words: Vec<String> = query
+            .split_whitespace()
+            .map(|w| w.to_lowercase())
+            .collect();
+        if query_words.is_empty() {
+            return Vec::new();
+        }
+
+        // Fast path: use inverted index for exact word matches.
+        let mut doc_scores: HashMap<usize, usize> = HashMap::new();
+        for word in &query_words {
+            if let Some(indices) = self.keyword_index.get(word.as_str()) {
+                for &idx in indices {
+                    *doc_scores.entry(idx).or_default() += 1;
+                }
+            }
+        }
+
+        if doc_scores.is_empty() {
+            // Fallback: linear scan with contains() for partial-matching
+            // queries (Chinese substrings, "config" matching "config.rs",
+            // etc.). Still O(n) but degrades gracefully.
+            return self.search_memories_linear(query, k, _filter);
+        }
+
+        let mut scored: Vec<(usize, usize)> = doc_scores.into_iter().collect();
+        scored.sort_by(|a, b| b.1.cmp(&a.1));
+
+        let total = scored.len().max(1);
+        scored.truncate(k.min(scored.len()));
+
+        let total_f64 = total as f64;
+        let ranks: HashMap<usize, usize> = scored
+            .iter()
+            .enumerate()
+            .map(|(rank, &(idx, _))| (idx, rank))
+            .collect();
+
+        scored
+            .into_iter()
+            .map(|(idx, _count)| {
+                let mut record = self.memories[idx].clone();
+                let rank = ranks.get(&idx).copied().unwrap_or(0);
+                record.score = 1.0 - (rank as f64 / total_f64);
+                record
+            })
+            .collect()
+    }
+
+    /// Linear-scan fallback for search_memories. Used when the inverted
+    /// index produces no results (partial / substring query).
+    fn search_memories_linear(
+        &self,
+        query: &str,
+        k: usize,
+        _filter: Option<&str>,
+    ) -> Vec<MemoryRecord> {
         let query_lower = query.to_lowercase();
         let query_words: Vec<&str> = query_lower.split_whitespace().collect();
 
@@ -275,7 +380,7 @@ impl InMemoryBackend {
             .iter()
             .filter(|m| {
                 let content_lower = m.content.to_lowercase();
-                query_words.iter().any(|w| content_lower.contains(w))
+                query_words.iter().any(|w| content_lower.contains(*w))
             })
             .cloned()
             .collect();
@@ -283,11 +388,11 @@ impl InMemoryBackend {
         scored.sort_by(|a, b| {
             let a_count = query_words
                 .iter()
-                .filter(|w| a.content.to_lowercase().contains(*w))
+                .filter(|w| a.content.to_lowercase().contains(**w))
                 .count();
             let b_count = query_words
                 .iter()
-                .filter(|w| b.content.to_lowercase().contains(*w))
+                .filter(|w| b.content.to_lowercase().contains(**w))
                 .count();
             b_count.cmp(&a_count)
         });
@@ -303,6 +408,7 @@ impl InMemoryBackend {
 
     async fn store_summary(&mut self, summary: HistorySummary) {
         self.summaries.push(summary);
+        self.dirty = true;
 
         // Cap check: evict oldest by created_at if over max_items.
         if self.summaries.len() > self.max_items {
@@ -318,9 +424,74 @@ impl InMemoryBackend {
         }
 
         self.save_to_disk().await;
+        self.rebuild_index();
     }
 
     fn search_summaries(
+        &self,
+        query: &str,
+        k: usize,
+        session_id: Option<&str>,
+    ) -> Vec<HistorySummary> {
+        let query_words: Vec<String> = query
+            .split_whitespace()
+            .map(|w| w.to_lowercase())
+            .collect();
+        if query_words.is_empty() {
+            return Vec::new();
+        }
+
+        // Fast path: use inverted index for exact word matches.
+        let mut doc_scores: HashMap<usize, usize> = HashMap::new();
+        for word in &query_words {
+            if let Some(indices) = self.keyword_index_summaries.get(word.as_str()) {
+                for &idx in indices {
+                    *doc_scores.entry(idx).or_default() += 1;
+                }
+            }
+        }
+
+        // Filter by session_id if provided.
+        let mut scored: Vec<(usize, usize)> = if !doc_scores.is_empty() {
+            doc_scores
+                .into_iter()
+                .filter(|&(idx, _)| {
+                    session_id.map_or(true, |sid| self.summaries[idx].session_id == sid)
+                })
+                .collect()
+        } else {
+            // Fallback: linear scan for partial / substring query.
+            return self.search_summaries_linear(query, k, session_id);
+        };
+
+        if scored.is_empty() {
+            return Vec::new();
+        }
+
+        scored.sort_by(|a, b| b.1.cmp(&a.1));
+
+        let total = scored.len().max(1);
+        scored.truncate(k.min(scored.len()));
+
+        let rank_of: HashMap<usize, usize> = scored
+            .iter()
+            .enumerate()
+            .map(|(rank, &(idx, _))| (idx, rank))
+            .collect();
+
+        scored
+            .into_iter()
+            .map(|(idx, _count)| {
+                let mut summary = self.summaries[idx].clone();
+                let rank = rank_of.get(&idx).copied().unwrap_or(0);
+                summary.score = 1.0 - (rank as f64 / total as f64);
+                summary
+            })
+            .collect()
+    }
+
+    /// Linear-scan fallback for search_summaries.
+    fn search_summaries_linear(
         &self,
         query: &str,
         k: usize,
@@ -339,7 +510,7 @@ impl InMemoryBackend {
                     return false;
                 }
                 let summary_lower = s.summary.to_lowercase();
-                query_words.iter().any(|w| summary_lower.contains(w))
+                query_words.iter().any(|w| summary_lower.contains(*w))
             })
             .cloned()
             .collect();
@@ -347,11 +518,11 @@ impl InMemoryBackend {
         scored.sort_by(|a, b| {
             let a_count = query_words
                 .iter()
-                .filter(|w| a.summary.to_lowercase().contains(*w))
+                .filter(|w| a.summary.to_lowercase().contains(**w))
                 .count();
             let b_count = query_words
                 .iter()
-                .filter(|w| b.summary.to_lowercase().contains(*w))
+                .filter(|w| b.summary.to_lowercase().contains(**w))
                 .count();
             b_count.cmp(&a_count)
         });
@@ -394,8 +565,8 @@ impl InMemoryBackend {
         self.summaries.retain(|s| !ids.contains(&s.id));
         let removed = before - self.summaries.len();
         if removed > 0 {
-            // save_to_disk is async but called from a non-async context...
-            // We'll save after the mutating call completes.
+            self.dirty = true;
+            self.rebuild_index();
         }
         removed
     }
@@ -407,6 +578,8 @@ impl InMemoryBackend {
         self.memories.retain(|m| m.ttl.map_or(true, |t| t > now));
         let deleted = before - self.memories.len();
         if deleted > 0 {
+            self.dirty = true;
+            self.rebuild_index();
             self.save_to_disk().await;
         }
         deleted
@@ -415,6 +588,27 @@ impl InMemoryBackend {
     #[allow(dead_code)]
     fn count_memories(&self) -> usize {
         self.memories.len()
+    }
+
+    /// Rebuild the inverted index from scratch.
+    /// Must be called after any mutation that changes `memories` or
+    /// `summaries` item count or shifts indices.
+    fn rebuild_index(&mut self) {
+        self.keyword_index.clear();
+        for (i, m) in self.memories.iter().enumerate() {
+            for word in m.content.split_whitespace() {
+                let key = word.to_lowercase();
+                self.keyword_index.entry(key).or_default().push(i);
+            }
+        }
+
+        self.keyword_index_summaries.clear();
+        for (i, s) in self.summaries.iter().enumerate() {
+            for word in s.summary.split_whitespace() {
+                let key = word.to_lowercase();
+                self.keyword_index_summaries.entry(key).or_default().push(i);
+            }
+        }
     }
 }
 
@@ -434,6 +628,8 @@ impl InMemoryBackend {
 #[cfg(feature = "vector-memory")]
 mod lance {
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use tokio::sync::Mutex;
 
     use anyhow::{Context, Result};
     use arrow_array::{
@@ -455,11 +651,17 @@ mod lance {
     const DEFAULT_DIM: usize = 384;
 
     /// LanceDB backend that provides real vector search.
-    #[allow(dead_code)]
     pub struct LanceDbBackend {
-        db: lancedb::Connection,
+        db: Mutex<lancedb::Connection>,
         embedder: SharedEmbedder,
         dim: usize,
+        /// Original connect path, kept for automatic reconnection.
+        path: std::path::PathBuf,
+        /// Cached connection string (avoids re-converting from Path on retry).
+        conn_str: String,
+        /// Whether the connection is believed to be healthy.
+        /// Set `false` after a failed operation; checked before every call.
+        healthy: AtomicBool,
     }
 
     impl LanceDbBackend {
@@ -472,7 +674,14 @@ mod lance {
             let dim = if dim == 0 { DEFAULT_DIM } else { dim };
             let embedder = std::sync::Arc::new(Embedder::new(dim));
 
-            let backend = Self { db, embedder, dim };
+            let backend = Self {
+                db: Mutex::new(db),
+                embedder,
+                dim,
+                path: path.to_path_buf(),
+                conn_str: path_str.to_string(),
+                healthy: AtomicBool::new(true),
+            };
             backend.ensure_tables().await?;
             Ok(backend)
         }
@@ -494,7 +703,7 @@ mod lance {
 
         /// Create tables that don't exist yet.
         async fn ensure_tables(&self) -> Result<()> {
-            let existing = self.db.table_names().execute().await?;
+            let existing = self.db.lock().await.table_names().execute().await?;
             let tables: Vec<(&str, Schema)> = vec![
                 ("memories", Self::memories_schema(self.dim)),
                 (
@@ -618,7 +827,7 @@ mod lance {
 
         async fn create_empty_table(&self, name: &str, schema: Arc<Schema>) -> Result<()> {
             let empty = RecordBatch::new_empty(schema);
-            self.db.create_table(name, empty).execute().await?;
+            self.db.lock().await.create_table(name, empty).execute().await?;
             // Note: LanceDB does NOT auto-create IVF-PQ indexes on empty
             // tables. Index creation is deferred to the first write via
             // ensure_vector_index() in store_memory / store_summary /
@@ -626,9 +835,73 @@ mod lance {
             Ok(())
         }
 
-        /// Open a table by name.
+        /// Open a table by name, with automatic reconnection on failure.
         async fn open_table(&self, name: &str) -> Result<lancedb::Table> {
-            Ok(self.db.open_table(name).execute().await?)
+            // If we previously detected a connection failure, attempt
+            // reconnection first.
+            if !self.healthy.load(Ordering::Acquire) {
+                match self.reconnect().await {
+                    Ok(()) => {
+                        tracing::info!(
+                            conn = %self.conn_str,
+                            "LanceDB: reconnected successfully"
+                        );
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            conn = %self.conn_str,
+                            error = %e,
+                            "LanceDB: reconnection failed"
+                        );
+                        anyhow::bail!("LanceDB connection is unavailable: {e}");
+                    }
+                }
+            }
+
+            match self.db.lock().await.open_table(name).execute().await {
+                Ok(table) => Ok(table),
+                Err(e) => {
+                    self.healthy.store(false, Ordering::Release);
+                    Err(e.into())
+                }
+            }
+        }
+
+        /// Create a fresh LanceDB connection and recreate missing tables.
+        /// Used by the reconnection path in `open_table` to avoid recursive
+        /// calls (open_table -> ensure_tables -> ensure_vector_index ->
+        /// open_table).
+        pub async fn reconnect(&self) -> Result<()> {
+            tokio::fs::create_dir_all(&self.path).await?;
+            let new_db = lancedb::connect(&self.conn_str).execute().await?;
+            *self.db.lock().await = new_db;
+            // Recreate only the table metadata, not the indices
+            // (indices are created lazily on first write).
+            let existing = self.db.lock().await.table_names().execute().await?;
+            let tables: [(&str, std::sync::Arc<Schema>); 3] = [
+                ("memories", std::sync::Arc::new(Self::memories_schema(self.dim))),
+                (
+                    "history_summaries",
+                    std::sync::Arc::new(Self::history_summaries_schema(self.dim)),
+                ),
+                ("code_index", std::sync::Arc::new(Self::code_index_schema(self.dim))),
+            ];
+            for (name, schema) in &tables {
+                if !existing.iter().any(|n| n == name) {
+                    let empty = arrow_array::RecordBatch::new_empty(schema.clone());
+                    if let Err(e) = self.db.lock().await.create_table(*name, empty).execute().await {
+                        tracing::warn!(
+                            table = name,
+                            error = %e,
+                            "LanceDB: failed to recreate table after reconnect"
+                        );
+                    } else {
+                        tracing::info!(table = name, "LanceDB: recreated table after reconnect");
+                    }
+                }
+            }
+            self.healthy.store(true, Ordering::Release);
+            Ok(())
         }
 
         // ── Memory operations ──
@@ -681,13 +954,9 @@ mod lance {
         }
 
         /// Delete memories past their TTL with three-tier fallback (#10).
-        #[allow(dead_code)]
         ///
-        /// Tier 1: SQL predicate delete (fastest, most efficient).
-        /// Tier 2: Query all records, filter expired in memory, delete via
-        ///          individual predicate (e.g. `id = '...'`).
-        /// Tier 3: Query all records and return the count — caller handles
-        ///          the actual removal (soft delete).
+        /// TODO: wire into a periodic timer so expired memories are cleaned
+        /// up automatically rather than relying on compaction.
         pub async fn delete_expired_memories(&self) -> Result<usize> {
             let now = Utc::now();
             let nanos = now.timestamp_nanos_opt().unwrap_or(0);
@@ -732,7 +1001,8 @@ mod lance {
             Ok(0)
         }
 
-        /// Count total memories.
+        /// Count total memories. Currently unused externally but retained
+        /// for observability and future periodic maintenance tasks.
         #[allow(dead_code)]
         pub async fn count_memories(&self) -> Result<usize> {
             let table = self.open_table("memories").await?;
@@ -795,7 +1065,9 @@ mod lance {
             Ok(deleted)
         }
 
-        /// Create the vector index if it doesn't exist (idempotent).
+        /// Create the IVF-PQ vector index if it doesn't exist (idempotent).
+        /// Called implicitly by `ensure_tables` and the first write to each
+        /// table, but exposed for explicit maintenance use.
         #[allow(dead_code)]
         pub async fn create_index(&self, table_name: &str) -> Result<()> {
             let table = self.open_table(table_name).await?;
@@ -1307,15 +1579,24 @@ impl VectorDbService {
 
     /// Store a memory item (with vector embedding when feature is enabled).
     pub async fn store_memory(&self, item: NewMemoryItem) -> Result<MemoryRecord> {
+        let start = std::time::Instant::now();
         #[cfg(feature = "vector-memory")]
         if let Some(ref lance) = self.lance {
             let record = lance.store_memory(&item).await?;
             // Mirror to in-memory cache
             self.memory.lock().await.store_memory(item).await;
+            tracing::debug!(
+                latency_ms = start.elapsed().as_millis(),
+                "vector.memory.stored"
+            );
             return Ok(record);
         }
 
         let record = self.memory.lock().await.store_memory(item).await;
+        tracing::debug!(
+            latency_ms = start.elapsed().as_millis(),
+            "vector.memory.stored"
+        );
         Ok(record)
     }
 
@@ -1326,6 +1607,7 @@ impl VectorDbService {
         k: u32,
         filter: Option<&str>,
     ) -> Result<Vec<MemoryRecord>> {
+        let start = std::time::Instant::now();
         let mut results = {
             #[cfg(feature = "vector-memory")]
             if let Some(ref lance) = self.lance {
@@ -1350,17 +1632,27 @@ impl VectorDbService {
         results.retain(|r| {
             r.score >= self.min_similarity_score && r.ttl.map_or(true, |ttl| ttl > now)
         });
+        tracing::debug!(
+            latency_ms = start.elapsed().as_millis(),
+            results = results.len(),
+            "vector.memory.searched"
+        );
         Ok(results)
     }
 
     /// Store a history summary (with vector embedding when feature is enabled).
     pub async fn store_summary(&self, summary: HistorySummary) -> Result<()> {
+        let start = std::time::Instant::now();
         #[cfg(feature = "vector-memory")]
         if let Some(ref lance) = self.lance {
             lance.store_summary(&summary).await?;
         }
 
         self.memory.lock().await.store_summary(summary).await;
+        tracing::debug!(
+            latency_ms = start.elapsed().as_millis(),
+            "vector.summary.stored"
+        );
         Ok(())
     }
 
@@ -1371,6 +1663,7 @@ impl VectorDbService {
         k: u32,
         session_id: Option<&str>,
     ) -> Result<Vec<HistorySummary>> {
+        let start = std::time::Instant::now();
         let mut results = {
             #[cfg(feature = "vector-memory")]
             if let Some(ref lance) = self.lance {
@@ -1392,10 +1685,18 @@ impl VectorDbService {
 
         // Filter by configured min similarity score
         results.retain(|s| s.score >= self.min_similarity_score);
+        tracing::debug!(
+            latency_ms = start.elapsed().as_millis(),
+            results = results.len(),
+            "vector.summary.searched"
+        );
         Ok(results)
     }
 
     /// Delete expired memories.
+    ///
+    /// TODO: wire into a periodic timer so expired memories are cleaned
+    /// up automatically rather than relying on compaction.
     #[allow(dead_code)]
     pub async fn delete_expired_memories(&self) -> Result<usize> {
         #[cfg(feature = "vector-memory")]
@@ -1439,7 +1740,16 @@ impl VectorDbService {
         guard.save_to_disk().await;
     }
 
-    /// Count total memories.
+    /// Flush the in-memory cache to disk. Safe to call from a timer or
+    /// turn-completion handler — no-op when no data has changed since the
+    /// last flush.
+    #[allow(dead_code)]
+    pub async fn flush(&self) {
+        self.memory.lock().await.save_to_disk().await;
+    }
+
+    /// Count total memories. Currently unused externally but retained
+    /// for observability and future periodic maintenance tasks.
     #[allow(dead_code)]
     pub async fn count_memories(&self) -> Result<usize> {
         #[cfg(feature = "vector-memory")]
@@ -1598,12 +1908,6 @@ pub struct RetrievedContext {
 }
 
 impl RetrievedContext {
-    /// True when no context was retrieved (all messages verbatim, no blocks).
-    #[allow(dead_code)]
-    pub fn is_empty(&self) -> bool {
-        self.memory_blocks.is_empty() && self.summary_blocks.is_empty()
-    }
-
     /// Build a `<retrieved_context>` block for injection into the system
     /// prompt. Returns `None` when no blocks are present.
     pub fn to_system_block(&self) -> Option<String> {
@@ -1977,5 +2281,69 @@ mod tests {
         }
 
         assert_eq!(svc.count_memories().await.unwrap(), 5);
+    }
+
+    /// Diagnostic test: connects to the PRODUCTION LanceDB at ~/.deepseek/vector_memory,
+    /// writes a test memory (with unique marker), then reads it back semantically.
+    ///
+    /// This verifies the full store_memory pipeline end-to-end against the real database.
+    /// Run with: `cargo test --features vector-memory -p deepseek-tui -- --ignored --nocapture`
+    #[tokio::test]
+    #[ignore = "requires ONNX model + production LanceDB at ~/.deepseek/vector_memory"]
+    async fn diagnostic_store_to_production_lancedb() {
+        let home = PathBuf::from(std::env::var("HOME").expect("HOME env var"));
+        let db_path = home.join(".deepseek").join("vector_memory");
+        eprintln!("Connecting to production LanceDB at: {}", db_path.display());
+
+        // Use real dimensions (384) to connect to LanceDB backend
+        let svc = VectorDbService::connect(&db_path, 384, 10000, 0.0)
+            .await
+            .expect("VectorDbService::connect to production DB should succeed");
+
+        let marker = format!("DIAGNOSTIC_MARKER_{}", Utc::now().timestamp());
+        let test_content = format!(
+            "{} This is a diagnostic memory entry to verify the store_memory pipeline. \
+             If you see this in the dump, the write+embed+store pipeline works end-to-end.",
+            marker,
+        );
+
+        // Write
+        svc.store_memory(NewMemoryItem {
+            content: test_content.clone(),
+            source: "diagnostic_test".to_string(),
+            session_id: "diagnostic-session".to_string(),
+            tags: Some("diagnostic".to_string()),
+            ttl: None,
+        })
+        .await
+        .expect("store_memory to production LanceDB should succeed");
+        eprintln!("Written memory with marker: {}", marker);
+
+        // Read back via semantic search
+        let results = svc
+            .search_memories(&marker, 5, None)
+            .await
+            .expect("search_memories should succeed");
+
+        assert!(
+            !results.is_empty(),
+            "FAIL: search_memeries returned NO results for marker '{}' — store_memory may have silently failed",
+            marker,
+        );
+
+        let found = results.iter().any(|r| r.content.contains(&marker));
+        assert!(
+            found,
+            "FAIL: search_memories found {} results but NONE contain marker '{}'",
+            results.len(),
+            marker,
+        );
+
+        // Print all results for debugging
+        eprintln!("Search returned {} results:", results.len());
+        for (i, r) in results.iter().enumerate() {
+            eprintln!("  [{i}] score={:.4} content={}", r.score, &r.content[..r.content.len().min(120)]);
+        }
+        eprintln!("PASS: store_memory + semantic search pipeline verified against production LanceDB");
     }
 }

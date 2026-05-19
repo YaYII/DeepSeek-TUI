@@ -653,10 +653,24 @@ fn is_memory_quick_add(input: &str) -> bool {
     !trimmed.trim_start_matches('#').trim().is_empty()
 }
 
-/// Persist a `# foo` quick-add to the memory file and surface a status
-/// note to the user. Errors land in the same status channel so a missing
-/// memory directory becomes visible without crashing the composer.
-fn handle_memory_quick_add(app: &mut App, input: &str, config: &Config) {
+/// Persist a `# foo` quick-add to both vector DB (primary) and flat file
+/// (fallback/audit log). Surfaces a status note to the user on completion.
+/// Errors land in the same status channel so a missing memory directory
+/// becomes visible without crashing the composer.
+async fn handle_memory_quick_add(
+    app: &mut App,
+    input: &str,
+    config: &Config,
+    engine_handle: &crate::core::engine::EngineHandle,
+) {
+    // 1. Store in vector DB via engine (primary, unbounded).
+    engine_handle
+        .tx_op
+        .send(crate::core::ops::Op::StoreMemory(input.to_string()))
+        .await
+        .ok();
+
+    // 2. Mirror to flat file (fallback/audit log for emergency read).
     let path = config.memory_path();
     match crate::memory::append_entry(&path, input) {
         Ok(()) => {
@@ -3300,7 +3314,7 @@ async fn run_event_loop(
                         // is consumed without firing a turn. Disabled
                         // behaviour falls through to normal turn submit.
                         if config.memory_enabled() && is_memory_quick_add(&input) {
-                            handle_memory_quick_add(app, &input, config);
+                            handle_memory_quick_add(app, &input, config, &engine_handle).await;
                             continue;
                         }
                         if looks_like_slash_command_input(&input) {
